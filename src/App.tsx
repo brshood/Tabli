@@ -302,7 +302,6 @@ function AppContent() {
                   size="sm"
                   onClick={() => navigateToPage('discover')}
                   className="pill-button"
-                  style={{marginLeft: '-48px'}}
                 >
                   <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                   Back
