@@ -108,7 +108,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md mx-4" style={{backgroundColor: 'var(--where2go-white)', borderColor: 'var(--where2go-border)'}}>
+      <DialogContent className="sm:max-w-md mx-4 !opacity-100 !bg-white" style={{backgroundColor: '#FFFFFF !important', borderColor: 'var(--where2go-border)', opacity: '1 !important'}}>
         <DialogHeader>
           <DialogTitle style={{color: 'var(--where2go-text)'}}>
             {mode === 'reserve' ? 'Reserve a Table' : 'Stand in Queue'}

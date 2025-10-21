@@ -51,11 +51,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   };
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: '#FFFFFF'}}>
+    <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
+       {/* Wave Background */}
+       <div className="absolute inset-0 pointer-events-none" style={{
+         backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+         backgroundRepeat: 'no-repeat',
+         backgroundPosition: 'bottom',
+         backgroundSize: 'cover'
+       }}></div>
        {/* Top Navigation */}
-       <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
-         <LanguageToggle />
-         
+       <div className="absolute top-8 left-8 z-20">
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}
@@ -65,14 +70,39 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
            Back
          </Button>
        </div>
+       
+       <div className="absolute top-8 right-8 z-20">
+         <LanguageToggle />
+       </div>
 
        {/* Header */}
-       <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--where2go-border)'}}>
+       <div className="sticky top-0 z-10 py-3 px-4" style={{backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--where2go-border)'}}>
          <div className="container mx-auto max-w-6xl">
-           <div className="flex items-center justify-center">
-             <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
-               Discover Places
-             </h1>
+           <div className="flex items-center justify-center gap-8">
+             <Button
+               variant="ghost"
+               onClick={() => {}}
+               className="text-base font-medium"
+               style={{color: 'var(--where2go-text)'}}
+             >
+               Recommendations
+             </Button>
+             <Button
+               variant="ghost"
+               onClick={() => onNavigate('search')}
+               className="text-base font-medium"
+               style={{color: 'var(--where2go-text)'}}
+             >
+               Search
+             </Button>
+             <Button
+               variant="ghost"
+               onClick={() => onNavigate('staff')}
+               className="text-base font-medium"
+               style={{color: 'var(--where2go-text)'}}
+             >
+               Log In
+             </Button>
            </div>
          </div>
        </div>
@@ -107,10 +137,17 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               </h2>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
-              {trendingRestaurants.map(restaurant => (
+               {trendingRestaurants.map(restaurant => (
+                <div 
+                  key={restaurant.id}
+                  className="flex-shrink-0 p-4 rounded-3xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
+                  }}
+                >
                 <Card 
-                  key={restaurant.id} 
-                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
@@ -148,6 +185,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                      </div>
                   </CardContent>
                 </Card>
+                </div>
               ))}
             </div>
           </div>
@@ -200,6 +238,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.waitTime || 'Waitlist available'}</p>
                   </CardContent>
                 </Card>
+                </div>
               ))}
             </div>
           </div>
@@ -252,6 +291,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
                   </CardContent>
                 </Card>
+                </div>
               ))}
             </div>
           </div>
