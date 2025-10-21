@@ -11,6 +11,8 @@ import {
   Clock, 
   Users, 
   Search,
+  TrendingUp,
+  Flame,
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
@@ -50,30 +52,30 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
 
   return (
     <div className="min-h-screen" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
-      {/* Top Navigation */}
-      <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
-        <Button
-          variant="ghost"
-          onClick={() => onNavigate('landing')}
-          className="pill-button"
-        >
-          <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-          Back
-        </Button>
-        
-        <LanguageToggle />
-      </div>
+       {/* Top Navigation */}
+       <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
+         <Button
+           variant="ghost"
+           onClick={() => onNavigate('landing')}
+           className="pill-button"
+         >
+           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+           Back
+         </Button>
+         
+         <LanguageToggle />
+       </div>
 
-      {/* Header */}
-      <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex items-center justify-center">
-            <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
-              Discover Places
-            </h1>
-          </div>
-        </div>
-      </div>
+       {/* Header */}
+       <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
+         <div className="container mx-auto max-w-6xl">
+           <div className="flex items-center justify-center">
+             <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
+               Discover Places
+             </h1>
+           </div>
+         </div>
+       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Search Bar */}
@@ -82,14 +84,14 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             className="relative max-w-2xl mx-auto cursor-pointer"
             onClick={handleSearchClick}
           >
-            <div className="flex items-center rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent" style={{backgroundColor: 'var(--where2go-white)', borderColor: 'var(--where2go-border)'}}>
-              <Search className="h-5 w-5 mr-3" style={{color: 'var(--where2go-text)'}} />
-              <span className="text-lg" style={{color: 'var(--where2go-text)'}}>Search restaurants, cuisines, locations...</span>
-              <div className="ml-auto p-2 rounded-lg" style={{backgroundColor: 'var(--where2go-accent)'}}>
+            <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-orange-200">
+              <Search className="h-5 w-5 text-gray-400 mr-3" />
+              <span className="text-gray-500 text-lg">Search restaurants, cuisines, locations...</span>
+              <div className="ml-auto p-2 rounded-lg" style={{backgroundColor: 'var(--where2go-buff)'}}>
                 <div className="w-6 h-6 flex flex-col justify-center">
-                  <div className="w-full h-0.5 mb-1" style={{backgroundColor: 'var(--where2go-text)'}}></div>
-                  <div className="w-full h-0.5 mb-1" style={{backgroundColor: 'var(--where2go-text)'}}></div>
-                  <div className="w-full h-0.5" style={{backgroundColor: 'var(--where2go-text)'}}></div>
+                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
+                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
+                  <div className="w-full h-0.5 bg-gray-600"></div>
                 </div>
               </div>
             </div>
@@ -135,7 +137,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                         className="px-3 py-1 rounded-full text-sm font-medium shadow-lg"
                         style={{backgroundColor: 'rgba(255, 255, 255, 0.9)', color: '#22C55E'}}
                       >
-                        Trending
+                        <span>Trending</span>
                       </Badge>
                     </div>
                   </div>
@@ -148,10 +150,9 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                       <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
                     </div>
                     <p className="text-sm mb-3" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                    <div className="flex items-center text-sm font-medium" style={{color: '#22C55E'}}>
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      <span>{restaurant.weeklyAverageCustomers} weekly visits</span>
-                    </div>
+                     <div className="flex items-center text-sm font-medium" style={{color: '#22C55E'}}>
+                       <span>{restaurant.weeklyAverageCustomers} weekly visits</span>
+                     </div>
                   </CardContent>
                 </Card>
               ))}
