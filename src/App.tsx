@@ -295,9 +295,17 @@ function AppContent() {
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.7)', borderColor: 'rgba(240, 220, 130, 0.3)', height: '128px'}}>
           <div className="container mx-auto px-4 h-full">
             <div className="flex items-center justify-between h-full">
-              <div className="flex items-center">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigateToPage('discover')}
+                  className="pill-button"
+                >
+                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  Back
+                </Button>
                 <button onClick={handleLogoClick} className="focus:outline-none py-1">
-                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '120px', width: 'auto'}} />
+                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '160px', width: 'auto'}} />
                 </button>
               </div>
               
@@ -329,6 +337,7 @@ function AppContent() {
                   <Users className="h-4 w-4 mr-1" />
                   {t('nav.staff')}
                 </Button>
+                <LanguageToggle />
               </div>
             </div>
           </div>
