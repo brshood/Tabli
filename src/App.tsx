@@ -32,7 +32,7 @@ interface StaffAuth {
 
 function AppContent() {
   const { updateRestaurantInList, allRestaurants } = useRestaurant();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null });
