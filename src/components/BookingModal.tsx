@@ -231,7 +231,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             <RadioGroup
               value={gender}
               onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
-              className="flex flex-col space-y-2"
+              className="flex space-x-6"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="male" id="male" />
@@ -306,12 +306,12 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             <Button
               onClick={handleSubmit}
               disabled={!isFormValid()}
-              className="flex-1 pill-button"
-              style={{
-                backgroundColor: mode === 'waitlist' ? '#000000' : 'var(--where2go-accent)',
-                color: mode === 'waitlist' ? '#FFFFFF' : '#FFFFFF',
-                border: mode === 'waitlist' ? '1px solid #000000' : 'none'
-              }}
+              className="flex-1 pill-button cta-button"
+              style={mode === 'waitlist' ? {
+                backgroundColor: '#000000',
+                color: '#FFFFFF',
+                borderColor: '#000000'
+              } : {}}
             >
               {mode === 'reserve' ? 'Confirm Reservation' : 'Stand in Queue'}
             </Button>
