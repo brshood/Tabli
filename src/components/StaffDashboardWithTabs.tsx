@@ -356,18 +356,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               </div>
             </div>
 
-            {/* QR Code Section */}
-            <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                {/* Placeholder for spacing */}
-              </div>
-              <div>
-                <QRCodeDisplay 
-                  restaurantId={1} 
-                  restaurantName="Spice Route" 
-                />
-              </div>
-            </div>
 
             {/* Two Column Layout */}
             <div className="grid lg:grid-cols-2 gap-8">
@@ -800,6 +788,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                   <p className="text-sm" style={{color: '#3C3C3C'}}>Above industry average</p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* QR Code Section - Moved to Bottom */}
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                {/* Placeholder for spacing */}
+              </div>
+              <div>
+                <QRCodeDisplay 
+                  restaurantId={1} 
+                  restaurantName="Spice Route" 
+                />
+              </div>
             </div>
           </TabsContent>
         </Tabs>
