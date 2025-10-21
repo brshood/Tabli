@@ -16,6 +16,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
+import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface DiscoverPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -60,7 +61,11 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundSize: 'cover'
        }}></div>
        {/* Top Navigation */}
-       <div className="absolute top-12 left-12 z-20">
+       <div className="absolute top-8 right-8 z-20">
+         <LanguageToggle />
+       </div>
+       
+       <div className="absolute top-8 left-8 z-20">
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}
@@ -70,10 +75,6 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
            Back
          </Button>
        </div>
-       
-       <div className="absolute top-12 right-12 z-20">
-         <LanguageToggle />
-       </div>
 
        {/* Header */}
        <div className="sticky top-0 z-10 py-3 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
@@ -82,10 +83,9 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
              <Button
                variant="ghost"
                onClick={() => onNavigate('landing')}
-               className="text-xl font-bold"
-               style={{color: '#B7410E'}}
+               className="flex items-center gap-2 hover:bg-transparent"
              >
-               Tabli
+               <img src={tabliLogo} alt="Tabli" className="h-8 w-auto" />
              </Button>
              
              <div className="flex items-center gap-8">

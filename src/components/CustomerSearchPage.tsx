@@ -53,7 +53,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         backgroundSize: 'cover'
       }}></div>
       {/* Top Navigation */}
-      <div className="absolute top-12 left-12 z-20">
+      <div className="absolute top-8 right-8 z-20">
+        <LanguageToggle />
+      </div>
+      
+      <div className="absolute top-8 left-8 z-20">
         <Button
           variant="ghost"
           onClick={() => onNavigate('discover')}
@@ -62,10 +66,6 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           Back
         </Button>
-      </div>
-      
-      <div className="absolute top-12 right-12 z-20">
-        <LanguageToggle />
       </div>
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
