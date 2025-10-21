@@ -44,10 +44,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   });
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
-      <div className="absolute inset-0 pointer-events-none" style={{backgroundColor: 'var(--where2go-white)', opacity: 0.5}} />
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: '#FFFFFF'}}>
       {/* Top Navigation */}
       <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
+        <LanguageToggle />
+        
         <Button
           variant="ghost"
           onClick={() => onNavigate('discover')}
@@ -56,8 +57,6 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           Back
         </Button>
-        
-        <LanguageToggle />
       </div>
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}

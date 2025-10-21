@@ -51,9 +51,11 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   };
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
+    <div className="min-h-screen" style={{backgroundColor: '#FFFFFF'}}>
        {/* Top Navigation */}
        <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
+         <LanguageToggle />
+         
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}
@@ -62,12 +64,10 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
            <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
            Back
          </Button>
-         
-         <LanguageToggle />
        </div>
 
        {/* Header */}
-       <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
+       <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--where2go-border)'}}>
          <div className="container mx-auto max-w-6xl">
            <div className="flex items-center justify-center">
              <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
@@ -84,7 +84,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             className="relative max-w-2xl mx-auto cursor-pointer"
             onClick={handleSearchClick}
           >
-            <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-orange-200">
+             <div className="flex items-center rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-orange-200" style={{backgroundColor: '#FFFFFF'}}>
               <Search className="h-5 w-5 text-gray-400 mr-3" />
               <span className="text-gray-500 text-lg">Search restaurants, cuisines, locations...</span>
               <div className="ml-auto p-2 rounded-lg" style={{backgroundColor: 'var(--where2go-buff)'}}>
@@ -132,16 +132,9 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                         <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
                       </div>
                     </div>
-                    <div className="absolute top-3 left-3">
-                      <Badge 
-                        className="px-3 py-1 rounded-full text-sm font-medium shadow-lg"
-                        style={{backgroundColor: 'rgba(255, 255, 255, 0.9)', color: '#22C55E'}}
-                      >
-                        <span>Trending</span>
-                      </Badge>
-                    </div>
                   </div>
-                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                   <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
+
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
@@ -194,13 +187,9 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                         <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
                       </div>
                     </div>
-                    <div className="absolute top-3 right-3">
-                      <div className="bg-white text-red-500 px-3 py-1 rounded-full text-sm font-medium shadow-lg">
-                        {restaurant.waitingInLine} in line
-                      </div>
-                    </div>
                   </div>
-                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                   <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
+
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
@@ -251,7 +240,8 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                       </div>
                     </div>
                   </div>
-                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                   <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
+
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <Star className="h-6 w-6 text-yellow-400 fill-current mr-1" />
