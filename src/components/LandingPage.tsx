@@ -42,7 +42,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               <Button
                 size="lg"
                 className={`pill-button cta-button text-lg sm:text-xl px-8 sm:px-12 py-4 sm:py-6 h-auto font-semibold ${isRTL ? 'font-arabic' : ''}`}
-                onClick={() => onNavigate('search')}
+                onClick={() => onNavigate('discover')}
               >
                 {t('hero.cta')}
               </Button>

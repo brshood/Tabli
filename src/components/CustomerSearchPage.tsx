@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -9,11 +9,11 @@ import { MenuModal } from './MenuModal';
 import { useRestaurant } from './RestaurantContext';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
-import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu } from 'lucide-react';
-import { WaveBackground } from './WaveBackground';
+import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu, ArrowLeft } from 'lucide-react';
+import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface CustomerSearchPageProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff') => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
 }
 
 const cuisineFilters = ['Pizza', 'Café', 'Healthy', 'Asian', 'Italian', 'Mexican', 'BBQ', 'Seafood'];
@@ -30,6 +30,17 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   const [bookingMode, setBookingMode] = useState<'reserve' | 'waitlist'>('reserve');
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
+  const [selectedRestaurantForBooking, setSelectedRestaurantForBooking] = useState<any>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const filteredRestaurants = allRestaurants.filter(restaurant => {
     const matchesSearch = restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -44,17 +55,19 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   });
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden">
-      <WaveBackground />
-      {/* Language Toggle */}
-      <div className="absolute top-8 right-8 z-20">
-        <LanguageToggle />
-      </div>
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('search.title')}</h1>
-          <p className={`text-xl max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: '#F5F5F5'}}>
+      {/* Wave Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom',
+        backgroundSize: 'cover'
+      }}></div>
+      <div className="container mx-auto px-4 relative z-10 mt-20">
+        {/* Title Section */}
+        <div className="text-center mb-12 mt-12">
+          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>{t('search.title')}</h1>
+          <p className={`text-xl max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
             {t('search.subtitle')}
           </p>
         </div>
@@ -74,7 +87,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         </div>
 
         {/* Filter Tags */}
-        <div className="space-y-6 mb-12">
+        <div className="space-y-6 mb-8">
           {/* Cuisine Filters */}
           <div className="flex flex-wrap justify-center gap-3">
             <Button
@@ -123,6 +136,17 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 {location}
               </Button>
             ))}
+          </div>
+        </div>
+
+        {/* Search Results Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
+            {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
+          </h2>
+          <div className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+            {selectedFilter && `Filtered by: ${selectedFilter}`}
+            {selectedLocation && ` • ${selectedLocation}`}
           </div>
         </div>
 
@@ -205,6 +229,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       <Button 
                         className={`flex-1 pill-button cta-button ${isRTL ? 'font-arabic' : ''}`}
                         onClick={() => {
+                          setSelectedRestaurantForBooking(restaurant);
                           setBookingMode('reserve');
                           setBookingModalOpen(true);
                         }}
@@ -214,13 +239,14 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                     ) : (
                       <Button 
                         className={`flex-1 pill-button text-white ${isRTL ? 'font-arabic' : ''}`}
-                        style={{backgroundColor: '#9FA0A0'}}
+                        style={{backgroundColor: '#000000', borderColor: '#000000'}}
                         onClick={() => {
+                          setSelectedRestaurantForBooking(restaurant);
                           setBookingMode('waitlist');
                           setBookingModalOpen(true);
                         }}
                       >
-                        {t('search.join.waitlist')}
+                        Stand in Queue
                       </Button>
                     )}
                     
@@ -271,6 +297,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         isOpen={bookingModalOpen}
         onClose={() => setBookingModalOpen(false)}
         mode={bookingMode}
+        restaurant={selectedRestaurantForBooking}
       />
 
       {/* Menu Modal */}

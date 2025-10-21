@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LandingPage } from './components/LandingPage';
+import { DiscoverPage } from './components/DiscoverPage';
 import { CustomerSearchPage } from './components/CustomerSearchPage';
+import { RestaurantProfilePage } from './components/RestaurantProfilePage';
 import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
 import { StaffAuthModal } from './components/StaffAuthModal';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Users, Search } from 'lucide-react';
+import { Users, Search, ArrowLeft } from 'lucide-react';
 import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './components/WaveBackground';
-import { RestaurantProvider, useRestaurant } from './components/RestaurantContext';
+import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
+import { LanguageToggle } from './components/LanguageToggle';
+import { parseQRCodeFromUrl, generateQRCodeDataUrl } from './utils/qrCodeGenerator';
 
-type Page = 'landing' | 'search' | 'staff';
+type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile';
 
 interface StaffUser {
   name: string;
@@ -28,11 +32,38 @@ interface StaffAuth {
 
 function AppContent() {
   const { updateRestaurantInList, allRestaurants } = useRestaurant();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+
+  // Handle QR code scan on mount
+  useEffect(() => {
+    const { isQRScan, restaurantId } = parseQRCodeFromUrl();
+    
+    if (isQRScan && restaurantId) {
+      const restaurant = allRestaurants.find(r => r.id === restaurantId);
+      if (restaurant) {
+        // Generate QR code URL if not exists
+        if (!restaurant.qrCodeUrl) {
+          generateQRCodeDataUrl(restaurant.id, restaurant.name).then(url => {
+            updateRestaurantInList(restaurant.id, { qrCodeUrl: url });
+          });
+        }
+        
+        setSelectedRestaurant(restaurant);
+        setCurrentPage('restaurant-profile');
+        toast.success(`Welcome to ${restaurant.name}!`);
+        
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        toast.error('Restaurant not found');
+      }
+    }
+  }, [allRestaurants, updateRestaurantInList]);
 
   // Load auth state from session storage on mount
   useEffect(() => {
@@ -53,9 +84,15 @@ function AppContent() {
   }, [staffAuth]);
 
   // Enhanced navigation with transition tracking
-  const navigateToPage = (newPage: Page) => {
+  const navigateToPage = (newPage: Page, restaurant?: Restaurant) => {
     setPreviousPage(currentPage);
     setCurrentPage(newPage);
+    
+    if (newPage === 'restaurant-profile' && restaurant) {
+      setSelectedRestaurant(restaurant);
+    } else if (newPage !== 'restaurant-profile') {
+      setSelectedRestaurant(null);
+    }
   };
 
   const handleStaffAuthSuccess = (user: StaffUser, restaurantData?: any) => {
@@ -96,10 +133,10 @@ function AppContent() {
 
   // Animation variants for smooth transitions
   const getPageVariants = () => {
-    const isMovingForward = 
-      (previousPage === 'landing' && currentPage === 'search') ||
-      (previousPage === 'search' && currentPage === 'staff') ||
-      (previousPage === 'landing' && currentPage === 'staff');
+    const pageOrder = ['landing', 'discover', 'search', 'restaurant-profile', 'staff'];
+    const currentIndex = pageOrder.indexOf(currentPage);
+    const previousIndex = pageOrder.indexOf(previousPage);
+    const isMovingForward = currentIndex > previousIndex;
 
     return {
       initial: {
@@ -141,6 +178,20 @@ function AppContent() {
             <LandingPage onNavigate={navigateToPage} />
           </motion.div>
         );
+      case 'discover':
+        return (
+          <motion.div
+            key="discover"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <DiscoverPage onNavigate={navigateToPage} />
+          </motion.div>
+        );
       case 'search':
         return (
           <motion.div
@@ -153,6 +204,28 @@ function AppContent() {
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
             <CustomerSearchPage onNavigate={navigateToPage} />
+          </motion.div>
+        );
+      case 'restaurant-profile':
+        if (!selectedRestaurant) {
+          // If no restaurant selected, redirect to search
+          navigateToPage('search');
+          return null;
+        }
+        return (
+          <motion.div
+            key="restaurant-profile"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <RestaurantProfilePage 
+              restaurant={selectedRestaurant} 
+              onNavigate={navigateToPage} 
+            />
           </motion.div>
         );
       case 'staff':
@@ -217,19 +290,38 @@ function AppContent() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <WaveBackground />
+      {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(243, 229, 171, 0.95)', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <button onClick={handleLogoClick} className="focus:outline-none">
-                  <img src={tabliLogo} alt="Tabli" className="h-40 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50 relative" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)', height: '128px'}}>
+          <Button
+            variant={currentPage === 'discover' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => navigateToPage('discover')}
+            className="pill-button absolute top-1/2 -translate-y-1/2"
+            style={{left: '48px'}}
+          >
+            <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+            Back
+          </Button>
+          <div className="container mx-auto h-full" style={{paddingLeft: '40px', paddingRight: '16px'}}>
+            <div className="flex items-center justify-between h-full">
+              <div className="flex items-center">
+                <button onClick={handleLogoClick} className="focus:outline-none py-1">
+                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '160px', width: 'auto'}} />
                 </button>
               </div>
               
               <div className="flex items-center space-x-2">
+                <Button
+                  variant={currentPage === 'discover' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => navigateToPage('discover')}
+                  className="pill-button"
+                >
+                  <Search className="h-4 w-4 mr-1" />
+                  Discover
+                </Button>
                 <Button
                   variant={currentPage === 'search' ? 'default' : 'ghost'}
                   size="sm"
@@ -248,6 +340,7 @@ function AppContent() {
                   <Users className="h-4 w-4 mr-1" />
                   {t('nav.staff')}
                 </Button>
+                <LanguageToggle />
               </div>
             </div>
           </div>

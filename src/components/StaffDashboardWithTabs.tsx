@@ -4,14 +4,16 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Trash2, UserPlus, Settings } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Trash2, UserPlus, Settings, AlertCircle } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
+import { QRCodeDisplay } from './QRCodeDisplay';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
+import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 
 interface StaffDashboardProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff') => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
   staffAuth: {
     isAuthenticated: boolean;
     user: { name: string; email: string } | null;
@@ -20,11 +22,11 @@ interface StaffDashboardProps {
 }
 
 const mockWaitlist = [
-  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM" },
-  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM" },
-  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM" },
-  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM" },
-  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM" }
+  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 600000 },
+  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1200000 },
+  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1800000 },
+  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 2400000 },
+  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 3000000 }
 ];
 
 const mockSeatedTables = [
@@ -83,16 +85,31 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
+  const markAsNoShow = (id: number) => {
+    const customer = waitlist.find(item => item.id === id);
+    if (customer) {
+      setWaitlist(prev => prev.filter(item => item.id !== id));
+      toast.error(`${customer.name} marked as no-show`);
+      console.log('No-show recorded:', customer);
+    }
+  };
+
   const removeFromWaitlist = (id: number) => {
     setWaitlist(prev => prev.filter(item => item.id !== id));
     toast.success('Customer removed from waitlist');
   };
 
-  const seatCustomer = (id: number) => {
+  const seatCustomer = async (id: number) => {
     const customer = waitlist.find(item => item.id === id);
     if (customer) {
+      // Notify customer
+      await notifyTableReady(
+        customer.phone,
+        customer.contactMethod,
+        'Spice Route'
+      );
       removeFromWaitlist(id);
-      toast.success(`${customer.name} has been seated`);
+      toast.success(`${customer.name} has been notified and seated`);
     }
   };
 
@@ -192,27 +209,33 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   };
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden">
-      <WaveBackground />
-      <div className="container mx-auto px-4 relative z-10">
+    <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
+      {/* Wave Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom',
+        backgroundSize: 'cover'
+      }}></div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold" style={{color: '#3C3C3C'}}>Staff Dashboard</h1>
+            <h1 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>Staff Dashboard</h1>
             <div className="flex items-center mt-2">
-              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: '#F8F1C1', color: '#B7410E'}}>
+              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: 'var(--where2go-buff)', color: 'var(--where2go-accent)'}}>
                 Downtown Location
               </Badge>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span style={{color: '#B7410E'}}>Hello, {staffAuth.user?.name || 'Staff Member'}</span>
+            <span style={{color: 'var(--where2go-accent)'}}>Hello, {staffAuth.user?.name || 'Staff Member'}</span>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setSettingsModalOpen(true)}
               className="pill-button"
-              style={{borderColor: '#B7410E', color: '#B7410E'}}
+              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
               title="Restaurant Settings"
             >
               <Settings className="h-4 w-4" />
@@ -222,7 +245,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               size="sm" 
               onClick={onLogout}
               className="pill-button"
-              style={{borderColor: '#B7410E', color: '#B7410E'}}
+              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
             >
               <LogOut className="h-4 w-4 mr-1" />
               Log out
@@ -233,53 +256,106 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="dashboard" style={{color: '#B7410E'}}>Dashboard</TabsTrigger>
-            <TabsTrigger value="analytics" style={{color: '#B7410E'}}>Analytics</TabsTrigger>
+            <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
+            <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
             {/* KPI Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Clock className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{waitlist.length}</div>
-                  <div style={{color: '#3C3C3C'}}>People Waiting</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Clock className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitlist.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>People Waiting</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Users className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{seatedTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Tables Seated</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Users className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Tables Seated</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Table className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{seatedTables.length + availableTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Total Tables</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length + availableTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <CheckCircle className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{availableTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Available Tables</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <CheckCircle className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{availableTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Available Tables</div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
+
 
             {/* Two Column Layout */}
             <div className="grid lg:grid-cols-2 gap-8">
@@ -310,29 +386,41 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                           </Badge>
                         </div>
                         
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-sm" style={{color: '#3C3C3C'}}>
-                            <Phone className="h-4 w-4 mr-1" />
-                            {customer.phone}
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => seatCustomer(customer.id)}
-                              className="pill-button text-xs text-white"
-                              style={{backgroundColor: '#B7410E'}}
-                            >
-                              Seat Now
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => removeFromWaitlist(customer.id)}
-                              className="pill-button text-xs"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-sm" style={{color: '#3C3C3C'}}>
+                              <Phone className="h-4 w-4 mr-1" />
+                              {customer.phone}
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => seatCustomer(customer.id)}
+                                className="pill-button text-xs text-white"
+                                style={{backgroundColor: 'var(--where2go-accent)'}}
+                              >
+                                Seat Now
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => markAsNoShow(customer.id)}
+                                className="pill-button text-xs"
+                                style={{borderColor: '#EF4444', color: '#EF4444'}}
+                                title="Mark as no-show"
+                              >
+                                <AlertCircle className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => removeFromWaitlist(customer.id)}
+                                className="pill-button text-xs"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -700,6 +788,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                   <p className="text-sm" style={{color: '#3C3C3C'}}>Above industry average</p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* QR Code Section - Moved to Bottom */}
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                {/* Placeholder for spacing */}
+              </div>
+              <div>
+                <QRCodeDisplay 
+                  restaurantId={1} 
+                  restaurantName="Spice Route" 
+                />
+              </div>
             </div>
           </TabsContent>
         </Tabs>

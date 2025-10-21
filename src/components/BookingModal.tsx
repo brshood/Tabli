@@ -4,21 +4,31 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { calculateEstimatedWaitTime } from '../services/NotificationService';
+import type { Restaurant } from './RestaurantContext';
 
 interface BookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: 'reserve' | 'waitlist';
+  restaurant?: Restaurant;
+  onSuccess?: () => void;
 }
 
-export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
+export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
   const [partySize, setPartySize] = useState(2);
   const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('phone');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [seatingPreference, setSeatingPreference] = useState<'indoor' | 'outdoor' | 'no-preference'>('no-preference');
+  const [gender, setGender] = useState<'male' | 'female' | 'prefer-not-to-say'>('prefer-not-to-say');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const maxHoldTime = restaurant?.maxHoldTime || 10;
+  const queuePosition = restaurant?.waitingInLine || 0;
+  const estimatedWaitTime = calculateEstimatedWaitTime(queuePosition, restaurant?.averageTableTurnTime);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -27,6 +37,8 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
       setContactMethod('phone');
       setPhone('');
       setEmail('');
+      setSeatingPreference('no-preference');
+      setGender('prefer-not-to-say');
       setErrors({});
     }
   }, [isOpen]);
@@ -60,7 +72,12 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
       type: mode,
       partySize,
       contactMethod,
+      seatingPreference,
+      gender,
       ...(contactMethod === 'phone' ? { phone } : { email }),
+      restaurantId: restaurant?.id,
+      restaurantName: restaurant?.name,
+      queuePosition: mode === 'waitlist' ? queuePosition + 1 : undefined,
       timestamp: new Date().toISOString()
     };
 
@@ -68,10 +85,16 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
 
     const successMessage = mode === 'reserve'
       ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
-      : "You've been added to the waitlist! We'll notify you when your table is ready.";
+      : "You've been added to the queue! We'll notify you when your table is ready.";
 
     toast.success(successMessage);
-    onClose();
+    
+    // Call onSuccess callback if provided (to trigger survey)
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      onClose();
+    }
   };
 
   const isFormValid = () => {
@@ -88,22 +111,42 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md mx-4" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+      <DialogContent className="sm:max-w-md mx-4 !opacity-100 !bg-white" style={{backgroundColor: '#FFFFFF !important', borderColor: 'var(--where2go-border)', opacity: '1 !important'}}>
         <DialogHeader>
-          <DialogTitle style={{color: '#3C3C3C'}}>
-            {mode === 'reserve' ? 'Reserve a Table' : 'Join the Waitlist'}
+          <DialogTitle style={{color: 'var(--where2go-text)'}}>
+            {mode === 'reserve' ? 'Reserve a Table' : 'Stand in Queue'}
           </DialogTitle>
-          <DialogDescription style={{color: '#3C3C3C'}}>
+          <DialogDescription style={{color: 'var(--where2go-text)', opacity: 0.7}}>
             {mode === 'reserve' 
               ? 'Complete the form below to request a table reservation. We\'ll contact you to confirm availability.' 
-              : 'Join the waitlist and we\'ll notify you when a table becomes available.'}
+              : 'Join the queue and we\'ll notify you when a table becomes available.'}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Queue Info for Waitlist Mode */}
+        {mode === 'waitlist' && (
+          <div className="rounded-xl p-4 space-y-2" style={{backgroundColor: 'var(--where2go-buff-light)', border: '1px solid var(--where2go-border)'}}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
+                <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>People ahead:</span>
+              </div>
+              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{queuePosition}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
+                <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>Estimated wait:</span>
+              </div>
+              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{estimatedWaitTime}</span>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Party Size */}
           <div className="space-y-2">
-            <Label htmlFor="partySize" style={{color: '#3C3C3C'}}>Number of party members</Label>
+            <Label htmlFor="partySize" style={{color: 'var(--where2go-text)'}}>Number of party members</Label>
             <div className="flex items-center space-x-3">
               <Button
                 type="button"
@@ -116,7 +159,7 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
                 <Minus className="h-4 w-4" />
               </Button>
               <div className="text-center min-w-[3rem]">
-                <span className="text-lg font-medium" style={{color: '#3C3C3C'}}>{partySize}</span>
+                <span className="text-lg font-medium" style={{color: 'var(--where2go-text)'}}>{partySize}</span>
               </div>
               <Button
                 type="button"
@@ -134,9 +177,38 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
             )}
           </div>
 
+          {/* Seating Preference */}
+          {(restaurant?.indoorSeating || restaurant?.outdoorSeating) && (
+            <div className="space-y-3">
+              <Label style={{color: 'var(--where2go-text)'}}>Seating preference</Label>
+              <RadioGroup
+                value={seatingPreference}
+                onValueChange={(value: 'indoor' | 'outdoor' | 'no-preference') => setSeatingPreference(value)}
+                className="flex flex-col space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="no-preference" id="no-preference" />
+                  <Label htmlFor="no-preference" style={{color: 'var(--where2go-text)'}}>No Preference</Label>
+                </div>
+                {restaurant?.indoorSeating && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="indoor" id="indoor" />
+                    <Label htmlFor="indoor" style={{color: 'var(--where2go-text)'}}>Indoor</Label>
+                  </div>
+                )}
+                {restaurant?.outdoorSeating && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="outdoor" id="outdoor" />
+                    <Label htmlFor="outdoor" style={{color: 'var(--where2go-text)'}}>Outdoor</Label>
+                  </div>
+                )}
+              </RadioGroup>
+            </div>
+          )}
+
           {/* Contact Method */}
           <div className="space-y-3">
-            <Label style={{color: '#3C3C3C'}}>Contact method</Label>
+            <Label style={{color: 'var(--where2go-text)'}}>Contact method</Label>
             <RadioGroup
               value={contactMethod}
               onValueChange={(value: 'phone' | 'email') => setContactMethod(value)}
@@ -144,11 +216,34 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="phone" id="phone" />
-                <Label htmlFor="phone" style={{color: '#3C3C3C'}}>Phone</Label>
+                <Label htmlFor="phone" style={{color: 'var(--where2go-text)'}}>Phone</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="email" id="email" />
-                <Label htmlFor="email" style={{color: '#3C3C3C'}}>Email</Label>
+                <Label htmlFor="email" style={{color: 'var(--where2go-text)'}}>Email</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Gender Selection (Optional) */}
+          <div className="space-y-3">
+            <Label style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
+            <RadioGroup
+              value={gender}
+              onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
+              className="flex space-x-6"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="male" id="male" />
+                <Label htmlFor="male" style={{color: 'var(--where2go-text)'}}>Male</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="female" id="female" />
+                <Label htmlFor="female" style={{color: 'var(--where2go-text)'}}>Female</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
+                <Label htmlFor="prefer-not-to-say" style={{color: 'var(--where2go-text)'}}>Prefer not to say</Label>
               </div>
             </RadioGroup>
           </div>
@@ -156,15 +251,15 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
           {/* Contact Input */}
           {contactMethod === 'phone' && (
             <div className="space-y-2">
-              <Label htmlFor="phoneInput" style={{color: '#3C3C3C'}}>Phone number</Label>
+              <Label htmlFor="phoneInput" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
               <Input
                 id="phoneInput"
                 type="tel"
                 placeholder="Enter your phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="bg-input-background"
-                style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                className="bg-white"
+                style={{borderColor: 'var(--where2go-border)'}}
               />
               {errors.phone && (
                 <p className="text-sm text-red-600">{errors.phone}</p>
@@ -174,15 +269,15 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
 
           {contactMethod === 'email' && (
             <div className="space-y-2">
-              <Label htmlFor="emailInput" style={{color: '#3C3C3C'}}>Email address</Label>
+              <Label htmlFor="emailInput" style={{color: 'var(--where2go-text)'}}>Email address</Label>
               <Input
                 id="emailInput"
                 type="email"
                 placeholder="Enter your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-input-background"
-                style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                className="bg-white"
+                style={{borderColor: 'var(--where2go-border)'}}
               />
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email}</p>
@@ -191,9 +286,9 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
           )}
 
           {/* Disclaimer */}
-          <div className="p-4 rounded-lg" style={{backgroundColor: '#F8F1C1'}}>
-            <p className="text-sm" style={{color: '#3C3C3C'}}>
-              <strong>Important:</strong> When it's your turn to be seated, your table will be held for 10 minutes. 
+          <div className="p-4 rounded-lg" style={{backgroundColor: 'var(--where2go-buff-light)', border: '1px solid var(--where2go-border)'}}>
+            <p className="text-sm" style={{color: 'var(--where2go-text)'}}>
+              <strong>Important:</strong> When it's your turn to be seated, your table will be held for {maxHoldTime} minutes. 
               If we can't reach you within this time, we'll move to the next party in line.
             </p>
           </div>
@@ -204,7 +299,7 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
               variant="outline"
               onClick={onClose}
               className="flex-1 pill-button"
-              style={{borderColor: 'rgba(60, 60, 60, 0.3)', color: '#3C3C3C'}}
+              style={{borderColor: 'var(--where2go-border)', color: 'var(--where2go-text)'}}
             >
               Cancel
             </Button>
@@ -212,8 +307,13 @@ export function BookingModal({ isOpen, onClose, mode }: BookingModalProps) {
               onClick={handleSubmit}
               disabled={!isFormValid()}
               className="flex-1 pill-button cta-button"
+              style={mode === 'waitlist' ? {
+                backgroundColor: '#000000',
+                color: '#FFFFFF',
+                borderColor: '#000000'
+              } : {}}
             >
-              {mode === 'reserve' ? 'Confirm Reservation' : 'Join Waitlist'}
+              {mode === 'reserve' ? 'Confirm Reservation' : 'Stand in Queue'}
             </Button>
           </div>
         </div>
