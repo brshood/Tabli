@@ -60,7 +60,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundSize: 'cover'
        }}></div>
        {/* Top Navigation */}
-       <div className="absolute top-8 left-8 z-20">
+       <div className="absolute top-12 left-12 z-20">
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}
@@ -71,38 +71,49 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          </Button>
        </div>
        
-       <div className="absolute top-8 right-8 z-20">
+       <div className="absolute top-12 right-12 z-20">
          <LanguageToggle />
        </div>
 
        {/* Header */}
-       <div className="sticky top-0 z-10 py-3 px-4" style={{backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--where2go-border)'}}>
+       <div className="sticky top-0 z-10 py-3 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
          <div className="container mx-auto max-w-6xl">
-           <div className="flex items-center justify-center gap-8">
+           <div className="flex items-center justify-between">
              <Button
                variant="ghost"
-               onClick={() => {}}
-               className="text-base font-medium"
-               style={{color: 'var(--where2go-text)'}}
+               onClick={() => onNavigate('landing')}
+               className="text-xl font-bold"
+               style={{color: '#B7410E'}}
              >
-               Recommendations
+               Tabli
              </Button>
-             <Button
-               variant="ghost"
-               onClick={() => onNavigate('search')}
-               className="text-base font-medium"
-               style={{color: 'var(--where2go-text)'}}
-             >
-               Search
-             </Button>
-             <Button
-               variant="ghost"
-               onClick={() => onNavigate('staff')}
-               className="text-base font-medium"
-               style={{color: 'var(--where2go-text)'}}
-             >
-               Log In
-             </Button>
+             
+             <div className="flex items-center gap-8">
+               <Button
+                 variant="ghost"
+                 onClick={() => {}}
+                 className="text-base font-medium"
+                 style={{color: 'var(--where2go-text)'}}
+               >
+                 Recommendations
+               </Button>
+               <Button
+                 variant="ghost"
+                 onClick={() => onNavigate('search')}
+                 className="text-base font-medium"
+                 style={{color: 'var(--where2go-text)'}}
+               >
+                 Search
+               </Button>
+               <Button
+                 variant="ghost"
+                 onClick={() => onNavigate('staff')}
+                 className="text-base font-medium"
+                 style={{color: 'var(--where2go-text)'}}
+               >
+                 Log In
+               </Button>
+             </div>
            </div>
          </div>
        </div>
@@ -140,14 +151,21 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                {trendingRestaurants.map(restaurant => (
                 <div 
                   key={restaurant.id}
-                  className="flex-shrink-0 p-4 rounded-3xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
-                  }}
+                  className="flex-shrink-0 relative"
                 >
+                  {/* Shadow effect square */}
+                  <div 
+                    className="absolute top-2 left-2 rounded-3xl"
+                    style={{
+                      backgroundColor: '#F0DC82',
+                      width: 'calc(100% - 8px)',
+                      height: 'calc(100% - 8px)',
+                      zIndex: 0,
+                      opacity: 0.6
+                    }}
+                  ></div>
                 <Card 
-                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 relative ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
@@ -156,7 +174,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                   style={{
                     transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
                     transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                    zIndex: selectedCard === restaurant.id ? 10 : 2
                   }}
                 >
                   <div 
@@ -203,14 +221,21 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               {popularRestaurants.map(restaurant => (
                 <div 
                   key={restaurant.id}
-                  className="flex-shrink-0 p-4 rounded-3xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
-                  }}
+                  className="flex-shrink-0 relative"
                 >
+                  {/* Shadow effect square */}
+                  <div 
+                    className="absolute top-2 left-2 rounded-3xl"
+                    style={{
+                      backgroundColor: '#F0DC82',
+                      width: 'calc(100% - 8px)',
+                      height: 'calc(100% - 8px)',
+                      zIndex: 0,
+                      opacity: 0.6
+                    }}
+                  ></div>
                 <Card 
-                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 relative ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
@@ -219,7 +244,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                   style={{
                     transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
                     transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                    zIndex: selectedCard === restaurant.id ? 10 : 2
                   }}
                 >
                   <div 
@@ -263,14 +288,21 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               {topRatedRestaurants.map(restaurant => (
                 <div 
                   key={restaurant.id}
-                  className="flex-shrink-0 p-4 rounded-3xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
-                  }}
+                  className="flex-shrink-0 relative"
                 >
+                  {/* Shadow effect square */}
+                  <div 
+                    className="absolute top-2 left-2 rounded-3xl"
+                    style={{
+                      backgroundColor: '#F0DC82',
+                      width: 'calc(100% - 8px)',
+                      height: 'calc(100% - 8px)',
+                      zIndex: 0,
+                      opacity: 0.6
+                    }}
+                  ></div>
                 <Card 
-                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 relative ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
@@ -279,7 +311,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                   style={{
                     transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
                     transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                    zIndex: selectedCard === restaurant.id ? 10 : 2
                   }}
                 >
                   <div 

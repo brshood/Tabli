@@ -44,9 +44,16 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   });
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: '#FFFFFF'}}>
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: '#F5F5F5'}}>
+      {/* Wave Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom',
+        backgroundSize: 'cover'
+      }}></div>
       {/* Top Navigation */}
-      <div className="absolute top-8 left-8 z-20">
+      <div className="absolute top-12 left-12 z-20">
         <Button
           variant="ghost"
           onClick={() => onNavigate('discover')}
@@ -57,7 +64,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         </Button>
       </div>
       
-      <div className="absolute top-8 right-8 z-20">
+      <div className="absolute top-12 right-12 z-20">
         <LanguageToggle />
       </div>
       <div className="container mx-auto px-4 relative z-10">
