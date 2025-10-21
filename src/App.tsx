@@ -297,7 +297,7 @@ function AppContent() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <button onClick={handleLogoClick} className="focus:outline-none">
-                  <img src={tabliLogo} alt="Tabli" className="h-24 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
+                  <img src={tabliLogo} alt="Tabli" className="h-48 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
                 </button>
               </div>
               
