@@ -295,8 +295,8 @@ function AppContent() {
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.7)', borderColor: 'rgba(240, 220, 130, 0.3)'}}>
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <button onClick={handleLogoClick} className="focus:outline-none">
+              <div className="flex items-center space-x-3 relative">
+                <button onClick={handleLogoClick} className="focus:outline-none absolute -top-2 left-0">
                   <img src={tabliLogo} alt="Tabli" className="h-40 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
                 </button>
               </div>
