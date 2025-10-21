@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -26,6 +26,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const { allRestaurants } = useRestaurant();
   const { t, isRTL } = useLanguage();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const trendingRestaurants = allRestaurants
     .filter(r => r.weeklyAverageCustomers > 50)
@@ -60,35 +70,55 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundPosition: 'bottom',
          backgroundSize: 'cover'
        }}></div>
-       {/* Top Navigation */}
-       <div className="absolute top-8 right-8 z-20">
-         <LanguageToggle />
-       </div>
-       
-       <div className="absolute top-8 left-24 z-20">
-         <Button
-           variant="ghost"
-           onClick={() => onNavigate('landing')}
-           className="pill-button"
-         >
-           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-           Back
-         </Button>
-       </div>
-
        {/* Header */}
-       <div className="sticky top-0 z-10 py-3 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
-         <div className="container mx-auto max-w-6xl">
+       <div 
+         className="sticky top-0 z-30 backdrop-blur-sm transition-all duration-300"
+         style={{
+           backgroundColor: 'rgba(240, 220, 130, 0.7)',
+           borderBottom: '1px solid rgba(240, 220, 130, 0.3)',
+           padding: isScrolled ? '12px 48px' : '16px 48px'
+         }}
+       >
+         <div 
+           className="mx-auto transition-all duration-300"
+           style={{
+             maxWidth: isScrolled ? '66.666%' : '100%'
+           }}
+         >
            <div className="flex items-center justify-between">
+             {/* Back Button */}
              <Button
                variant="ghost"
                onClick={() => onNavigate('landing')}
-               className="flex items-center gap-2 hover:bg-transparent"
+               className="pill-button"
              >
-               <img src={tabliLogo} alt="Tabli" className="h-8 w-auto" />
+               <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+               Back
+             </Button>
+
+             {/* Logo - Center */}
+             <Button
+               variant="ghost"
+               onClick={() => onNavigate('landing')}
+               className="flex items-center gap-2 hover:bg-transparent absolute left-1/2 transform -translate-x-1/2"
+             >
+               <img 
+                 src={tabliLogo} 
+                 alt="Tabli" 
+                 className="transition-all duration-300"
+                 style={{
+                   height: isScrolled ? '24px' : '32px'
+                 }}
+               />
              </Button>
              
-             <div className="flex items-center gap-8">
+             {/* Language Toggle */}
+             <LanguageToggle />
+           </div>
+           
+           {/* Navigation Buttons - Only show when not scrolled */}
+           {!isScrolled && (
+             <div className="flex items-center justify-center gap-8 mt-3">
                <Button
                  variant="ghost"
                  onClick={() => {}}
@@ -114,7 +144,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                  Log In
                </Button>
              </div>
-           </div>
+           )}
          </div>
        </div>
 

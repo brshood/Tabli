@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -32,6 +32,16 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [bookingMode, setBookingMode] = useState<'reserve' | 'waitlist'>('reserve');
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleBookingSuccess = () => {
     setBookingModalOpen(false);
@@ -49,24 +59,36 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         backgroundSize: 'cover'
       }}></div>
       
-      {/* Top Navigation */}
-      <div className="absolute top-8 right-8 z-20">
-        <LanguageToggle />
-      </div>
-      
-      <div className="absolute top-8 left-24 z-20">
-        <Button
-          variant="ghost"
-          onClick={() => onNavigate('discover')}
-          className="pill-button"
-        >
-          <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-          Back
-        </Button>
-      </div>
-
       {/* Header */}
-      <div className="sticky top-0 z-10 py-4 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
+      <div 
+        className="sticky top-0 z-30 backdrop-blur-sm transition-all duration-300"
+        style={{
+          backgroundColor: 'rgba(240, 220, 130, 0.7)',
+          borderBottom: '1px solid rgba(240, 220, 130, 0.3)',
+          padding: isScrolled ? '12px 48px' : '16px 48px'
+        }}
+      >
+        <div 
+          className="mx-auto transition-all duration-300"
+          style={{
+            maxWidth: isScrolled ? '66.666%' : '100%'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              onClick={() => onNavigate('discover')}
+              className="pill-button"
+            >
+              <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              Back
+            </Button>
+            
+            {/* Language Toggle */}
+            <LanguageToggle />
+          </div>
+        </div>
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
