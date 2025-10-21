@@ -209,27 +209,33 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   };
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
-      <div className="absolute inset-0 pointer-events-none" style={{backgroundColor: 'var(--where2go-white)', opacity: 0.3}} />
-      <div className="container mx-auto px-4 relative z-10">
+    <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
+      {/* Wave Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom',
+        backgroundSize: 'cover'
+      }}></div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold" style={{color: '#3C3C3C'}}>Staff Dashboard</h1>
+            <h1 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>Staff Dashboard</h1>
             <div className="flex items-center mt-2">
-              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: '#F8F1C1', color: '#B7410E'}}>
+              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: 'var(--where2go-buff)', color: 'var(--where2go-accent)'}}>
                 Downtown Location
               </Badge>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span style={{color: '#B7410E'}}>Hello, {staffAuth.user?.name || 'Staff Member'}</span>
+            <span style={{color: 'var(--where2go-accent)'}}>Hello, {staffAuth.user?.name || 'Staff Member'}</span>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setSettingsModalOpen(true)}
               className="pill-button"
-              style={{borderColor: '#B7410E', color: '#B7410E'}}
+              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
               title="Restaurant Settings"
             >
               <Settings className="h-4 w-4" />
@@ -239,7 +245,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               size="sm" 
               onClick={onLogout}
               className="pill-button"
-              style={{borderColor: '#B7410E', color: '#B7410E'}}
+              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
             >
               <LogOut className="h-4 w-4 mr-1" />
               Log out
@@ -250,52 +256,104 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="dashboard" style={{color: '#B7410E'}}>Dashboard</TabsTrigger>
-            <TabsTrigger value="analytics" style={{color: '#B7410E'}}>Analytics</TabsTrigger>
+            <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
+            <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
             {/* KPI Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Clock className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{waitlist.length}</div>
-                  <div style={{color: '#3C3C3C'}}>People Waiting</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Clock className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitlist.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>People Waiting</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Users className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{seatedTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Tables Seated</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Users className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Tables Seated</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <Table className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{seatedTables.length + availableTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Total Tables</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length + availableTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card className="card-shadow border-0 rounded-2xl">
-                <CardContent className="p-6 text-center">
-                  <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                    <CheckCircle className="h-8 w-8" style={{color: '#B7410E'}} />
-                  </div>
-                  <div className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>{availableTables.length}</div>
-                  <div style={{color: '#3C3C3C'}}>Available Tables</div>
-                </CardContent>
-              </Card>
+              <div className="relative">
+                {/* Shadow effect square */}
+                <div 
+                  className="absolute top-2 left-2 rounded-2xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    width: 'calc(100% - 8px)',
+                    height: 'calc(100% - 8px)',
+                    zIndex: 0,
+                    opacity: 0.6
+                  }}
+                ></div>
+                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
+                  <CardContent className="p-6 text-center">
+                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                      <CheckCircle className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
+                    </div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{availableTables.length}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Available Tables</div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
 
             {/* QR Code Section */}
