@@ -293,16 +293,17 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.7)', borderColor: 'rgba(240, 220, 130, 0.3)', height: '128px'}}>
-          <div className="container mx-auto px-4 h-full">
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.7)', borderColor: 'rgba(235, 211, 162, 0.3)', height: '128px'}}>
+          <div className="container mx-auto h-full" style={{paddingLeft: '48px', paddingRight: '16px'}}>
             <div className="flex items-center justify-between h-full">
               <div className="flex items-center space-x-4">
                 <Button
-                  variant="ghost"
+                  variant={currentPage === 'discover' ? 'default' : 'ghost'}
+                  size="sm"
                   onClick={() => navigateToPage('discover')}
                   className="pill-button"
                 >
-                  <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                  <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                   Back
                 </Button>
                 <button onClick={handleLogoClick} className="focus:outline-none py-1">
