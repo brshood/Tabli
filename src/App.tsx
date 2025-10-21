@@ -8,13 +8,14 @@ import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
 import { StaffAuthModal } from './components/StaffAuthModal';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Users, Search } from 'lucide-react';
+import { Users, Search, ArrowLeft } from 'lucide-react';
 import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './components/WaveBackground';
 import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
+import { LanguageToggle } from './components/LanguageToggle';
 import { parseQRCodeFromUrl, generateQRCodeDataUrl } from './utils/qrCodeGenerator';
 
 type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile';
