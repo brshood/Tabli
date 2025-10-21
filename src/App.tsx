@@ -293,7 +293,7 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50 relative" style={{background: 'rgba(235, 211, 162, 0.7)', borderColor: 'rgba(235, 211, 162, 0.3)', height: '128px'}}>
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50 relative" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)', height: '128px'}}>
           <Button
             variant={currentPage === 'discover' ? 'default' : 'ghost'}
             size="sm"
