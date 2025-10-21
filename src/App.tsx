@@ -293,19 +293,20 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.7)', borderColor: 'rgba(235, 211, 162, 0.3)', height: '128px'}}>
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50 relative" style={{background: 'rgba(235, 211, 162, 0.7)', borderColor: 'rgba(235, 211, 162, 0.3)', height: '128px'}}>
+          <Button
+            variant={currentPage === 'discover' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => navigateToPage('discover')}
+            className="pill-button absolute top-1/2 -translate-y-1/2"
+            style={{left: '48px'}}
+          >
+            <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+            Back
+          </Button>
           <div className="container mx-auto h-full" style={{paddingLeft: '40px', paddingRight: '16px'}}>
             <div className="flex items-center justify-between h-full">
-              <div className="flex items-center space-x-12">
-                <Button
-                  variant={currentPage === 'discover' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => navigateToPage('discover')}
-                  className="pill-button"
-                >
-                  <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-                  Back
-                </Button>
+              <div className="flex items-center">
                 <button onClick={handleLogoClick} className="focus:outline-none py-1">
                   <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '160px', width: 'auto'}} />
                 </button>
