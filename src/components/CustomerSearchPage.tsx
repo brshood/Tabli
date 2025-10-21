@@ -44,7 +44,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   });
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-white)'}}>
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
+      <div className="absolute inset-0 pointer-events-none" style={{backgroundColor: 'var(--where2go-white)', opacity: 0.5}} />
       {/* Top Navigation */}
       <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
         <Button
