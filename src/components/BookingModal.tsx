@@ -23,6 +23,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [seatingPreference, setSeatingPreference] = useState<'indoor' | 'outdoor' | 'no-preference'>('no-preference');
+  const [gender, setGender] = useState<'male' | 'female' | 'prefer-not-to-say'>('prefer-not-to-say');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
@@ -37,6 +38,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       setPhone('');
       setEmail('');
       setSeatingPreference('no-preference');
+      setGender('prefer-not-to-say');
       setErrors({});
     }
   }, [isOpen]);
@@ -71,6 +73,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       partySize,
       contactMethod,
       seatingPreference,
+      gender,
       ...(contactMethod === 'phone' ? { phone } : { email }),
       restaurantId: restaurant?.id,
       restaurantName: restaurant?.name,
@@ -222,6 +225,29 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             </RadioGroup>
           </div>
 
+          {/* Gender Selection (Optional) */}
+          <div className="space-y-3">
+            <Label style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
+            <RadioGroup
+              value={gender}
+              onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
+              className="flex flex-col space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="male" id="male" />
+                <Label htmlFor="male" style={{color: 'var(--where2go-text)'}}>Male</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="female" id="female" />
+                <Label htmlFor="female" style={{color: 'var(--where2go-text)'}}>Female</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
+                <Label htmlFor="prefer-not-to-say" style={{color: 'var(--where2go-text)'}}>Prefer not to say</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Contact Input */}
           {contactMethod === 'phone' && (
             <div className="space-y-2">
@@ -280,7 +306,12 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             <Button
               onClick={handleSubmit}
               disabled={!isFormValid()}
-              className="flex-1 pill-button cta-button"
+              className="flex-1 pill-button"
+              style={{
+                backgroundColor: mode === 'waitlist' ? '#000000' : 'var(--where2go-accent)',
+                color: mode === 'waitlist' ? '#FFFFFF' : '#FFFFFF',
+                border: mode === 'waitlist' ? '1px solid #000000' : 'none'
+              }}
             >
               {mode === 'reserve' ? 'Confirm Reservation' : 'Stand in Queue'}
             </Button>
