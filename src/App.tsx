@@ -294,7 +294,7 @@ function AppContent() {
       {/* Navigation */}
       {currentPage !== 'landing' && (
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.7)', borderColor: 'rgba(235, 211, 162, 0.3)', height: '128px'}}>
-          <div className="container mx-auto h-full" style={{paddingLeft: '48px', paddingRight: '16px'}}>
+          <div className="container mx-auto h-full" style={{paddingLeft: '60px', paddingRight: '16px'}}>
             <div className="flex items-center justify-between h-full">
               <div className="flex items-center space-x-4">
                 <Button
