@@ -4,11 +4,13 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Trash2, UserPlus, Settings } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Trash2, UserPlus, Settings, AlertCircle } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
+import { QRCodeDisplay } from './QRCodeDisplay';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
+import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'search' | 'staff') => void;
@@ -20,11 +22,11 @@ interface StaffDashboardProps {
 }
 
 const mockWaitlist = [
-  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM" },
-  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM" },
-  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM" },
-  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM" },
-  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM" }
+  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 600000 },
+  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1200000 },
+  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1800000 },
+  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 2400000 },
+  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 3000000 }
 ];
 
 const mockSeatedTables = [
@@ -83,16 +85,31 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
+  const markAsNoShow = (id: number) => {
+    const customer = waitlist.find(item => item.id === id);
+    if (customer) {
+      setWaitlist(prev => prev.filter(item => item.id !== id));
+      toast.error(`${customer.name} marked as no-show`);
+      console.log('No-show recorded:', customer);
+    }
+  };
+
   const removeFromWaitlist = (id: number) => {
     setWaitlist(prev => prev.filter(item => item.id !== id));
     toast.success('Customer removed from waitlist');
   };
 
-  const seatCustomer = (id: number) => {
+  const seatCustomer = async (id: number) => {
     const customer = waitlist.find(item => item.id === id);
     if (customer) {
+      // Notify customer
+      await notifyTableReady(
+        customer.phone,
+        customer.contactMethod,
+        'Spice Route'
+      );
       removeFromWaitlist(id);
-      toast.success(`${customer.name} has been seated`);
+      toast.success(`${customer.name} has been notified and seated`);
     }
   };
 
@@ -192,8 +209,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   };
 
   return (
-    <div className="relative min-h-screen py-8 overflow-hidden">
-      <WaveBackground />
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
+      <div className="absolute inset-0 pointer-events-none" style={{backgroundColor: 'var(--where2go-white)', opacity: 0.3}} />
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -281,6 +298,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               </Card>
             </div>
 
+            {/* QR Code Section */}
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                {/* Placeholder for spacing */}
+              </div>
+              <div>
+                <QRCodeDisplay 
+                  restaurantId={1} 
+                  restaurantName="Spice Route" 
+                />
+              </div>
+            </div>
+
             {/* Two Column Layout */}
             <div className="grid lg:grid-cols-2 gap-8">
               {/* Waitlist */}
@@ -310,29 +340,41 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                           </Badge>
                         </div>
                         
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-sm" style={{color: '#3C3C3C'}}>
-                            <Phone className="h-4 w-4 mr-1" />
-                            {customer.phone}
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => seatCustomer(customer.id)}
-                              className="pill-button text-xs text-white"
-                              style={{backgroundColor: '#B7410E'}}
-                            >
-                              Seat Now
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => removeFromWaitlist(customer.id)}
-                              className="pill-button text-xs"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-sm" style={{color: '#3C3C3C'}}>
+                              <Phone className="h-4 w-4 mr-1" />
+                              {customer.phone}
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => seatCustomer(customer.id)}
+                                className="pill-button text-xs text-white"
+                                style={{backgroundColor: 'var(--where2go-accent)'}}
+                              >
+                                Seat Now
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => markAsNoShow(customer.id)}
+                                className="pill-button text-xs"
+                                style={{borderColor: '#EF4444', color: '#EF4444'}}
+                                title="Mark as no-show"
+                              >
+                                <AlertCircle className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => removeFromWaitlist(customer.id)}
+                                className="pill-button text-xs"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>

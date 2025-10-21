@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LandingPage } from './components/LandingPage';
 import { CustomerSearchPage } from './components/CustomerSearchPage';
+import { RestaurantProfilePage } from './components/RestaurantProfilePage';
 import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
 import { StaffAuthModal } from './components/StaffAuthModal';
 import { Button } from './components/ui/button';
@@ -11,10 +12,11 @@ import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png'
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './components/WaveBackground';
-import { RestaurantProvider, useRestaurant } from './components/RestaurantContext';
+import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
+import { parseQRCodeFromUrl, generateQRCodeDataUrl } from './utils/qrCodeGenerator';
 
-type Page = 'landing' | 'search' | 'staff';
+type Page = 'landing' | 'search' | 'staff' | 'restaurant-profile';
 
 interface StaffUser {
   name: string;
@@ -33,6 +35,33 @@ function AppContent() {
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+
+  // Handle QR code scan on mount
+  useEffect(() => {
+    const { isQRScan, restaurantId } = parseQRCodeFromUrl();
+    
+    if (isQRScan && restaurantId) {
+      const restaurant = allRestaurants.find(r => r.id === restaurantId);
+      if (restaurant) {
+        // Generate QR code URL if not exists
+        if (!restaurant.qrCodeUrl) {
+          generateQRCodeDataUrl(restaurant.id, restaurant.name).then(url => {
+            updateRestaurantInList(restaurant.id, { qrCodeUrl: url });
+          });
+        }
+        
+        setSelectedRestaurant(restaurant);
+        setCurrentPage('restaurant-profile');
+        toast.success(`Welcome to ${restaurant.name}!`);
+        
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        toast.error('Restaurant not found');
+      }
+    }
+  }, [allRestaurants, updateRestaurantInList]);
 
   // Load auth state from session storage on mount
   useEffect(() => {
@@ -53,9 +82,15 @@ function AppContent() {
   }, [staffAuth]);
 
   // Enhanced navigation with transition tracking
-  const navigateToPage = (newPage: Page) => {
+  const navigateToPage = (newPage: Page, restaurant?: Restaurant) => {
     setPreviousPage(currentPage);
     setCurrentPage(newPage);
+    
+    if (newPage === 'restaurant-profile' && restaurant) {
+      setSelectedRestaurant(restaurant);
+    } else if (newPage !== 'restaurant-profile') {
+      setSelectedRestaurant(null);
+    }
   };
 
   const handleStaffAuthSuccess = (user: StaffUser, restaurantData?: any) => {
@@ -96,10 +131,10 @@ function AppContent() {
 
   // Animation variants for smooth transitions
   const getPageVariants = () => {
-    const isMovingForward = 
-      (previousPage === 'landing' && currentPage === 'search') ||
-      (previousPage === 'search' && currentPage === 'staff') ||
-      (previousPage === 'landing' && currentPage === 'staff');
+    const pageOrder = ['landing', 'search', 'restaurant-profile', 'staff'];
+    const currentIndex = pageOrder.indexOf(currentPage);
+    const previousIndex = pageOrder.indexOf(previousPage);
+    const isMovingForward = currentIndex > previousIndex;
 
     return {
       initial: {
@@ -153,6 +188,28 @@ function AppContent() {
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
             <CustomerSearchPage onNavigate={navigateToPage} />
+          </motion.div>
+        );
+      case 'restaurant-profile':
+        if (!selectedRestaurant) {
+          // If no restaurant selected, redirect to search
+          navigateToPage('search');
+          return null;
+        }
+        return (
+          <motion.div
+            key="restaurant-profile"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <RestaurantProfilePage 
+              restaurant={selectedRestaurant} 
+              onNavigate={navigateToPage} 
+            />
           </motion.div>
         );
       case 'staff':

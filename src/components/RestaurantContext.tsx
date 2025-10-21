@@ -26,6 +26,13 @@ export interface Restaurant {
   priceRange: string;
   openingHours: string;
   closingHours: string;
+  // New fields for Where2Go features
+  averageTableTurnTime?: number; // in minutes
+  maxHoldTime?: number; // in minutes
+  qrCodeUrl?: string; // generated QR code URL
+  address?: string; // full address
+  indoorSeating?: boolean;
+  outdoorSeating?: boolean;
 }
 
 interface RestaurantContextType {
@@ -68,7 +75,12 @@ const defaultRestaurant: Restaurant = {
   ],
   priceRange: "$$",
   openingHours: "11:00",
-  closingHours: "22:00"
+  closingHours: "22:00",
+  averageTableTurnTime: 45,
+  maxHoldTime: 10,
+  address: "123 Downtown Street, Dubai Marina",
+  indoorSeating: true,
+  outdoorSeating: true
 };
 
 // Initialize with mock restaurants data
@@ -80,7 +92,8 @@ const initialRestaurants: Restaurant[] = [
     location: "Downtown, 0.5 miles",
     city: "Dubai",
     cuisine: "Italian",
-    weeklyAverageCustomers: 68
+    weeklyAverageCustomers: 68,
+    address: "123 Downtown Street, Dubai Marina"
   },
   {
     ...defaultRestaurant,

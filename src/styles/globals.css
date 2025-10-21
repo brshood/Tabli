@@ -54,6 +54,16 @@
   --tabli-gradient-end: #F8F1C1;
   --tabli-shadow: rgba(183, 65, 14, 0.15);
   --tabli-glow: rgba(183, 65, 14, 0.4);
+  
+  /* Where2Go Style - New Color Palette for pages after landing */
+  --where2go-white: #FFFFFF;
+  --where2go-bright-grey: #F5F5F5;
+  --where2go-buff: #F0DC82;
+  --where2go-buff-light: #F5E9B3;
+  --where2go-accent: #B7410E; /* Keep orange rufous for CTAs */
+  --where2go-text: #3C3C3C;
+  --where2go-shadow: rgba(0, 0, 0, 0.08);
+  --where2go-border: rgba(0, 0, 0, 0.1);
 }
 
 .dark {
@@ -223,6 +233,16 @@
     -webkit-backface-visibility: hidden;
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
+  }
+
+  /* Hide scrollbar for horizontal scrolling sections */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
