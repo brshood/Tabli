@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LandingPage } from './components/LandingPage';
+import { DiscoverPage } from './components/DiscoverPage';
 import { CustomerSearchPage } from './components/CustomerSearchPage';
 import { RestaurantProfilePage } from './components/RestaurantProfilePage';
 import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
@@ -16,7 +17,7 @@ import { RestaurantProvider, useRestaurant, type Restaurant } from './components
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
 import { parseQRCodeFromUrl, generateQRCodeDataUrl } from './utils/qrCodeGenerator';
 
-type Page = 'landing' | 'search' | 'staff' | 'restaurant-profile';
+type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile';
 
 interface StaffUser {
   name: string;
@@ -295,7 +296,7 @@ function AppContent() {
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <button onClick={() => navigateToPage('discover')} className="focus:outline-none">
+                <button onClick={handleLogoClick} className="focus:outline-none">
                   <img src={tabliLogo} alt="Tabli" className="h-40 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
                 </button>
               </div>
@@ -309,6 +310,15 @@ function AppContent() {
                 >
                   <Search className="h-4 w-4 mr-1" />
                   Discover
+                </Button>
+                <Button
+                  variant={currentPage === 'search' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => navigateToPage('search')}
+                  className="pill-button"
+                >
+                  <Search className="h-4 w-4 mr-1" />
+                  {t('nav.search')}
                 </Button>
                 <Button
                   variant={currentPage === 'staff' ? 'default' : 'ghost'}

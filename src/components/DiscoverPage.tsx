@@ -1,25 +1,42 @@
 import { useState } from 'react';
-import { Input } from './ui/input';
+import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { useRestaurant } from './RestaurantContext';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
-import { Search, Star, TrendingUp, Flame, Users, SlidersHorizontal } from 'lucide-react';
-import type { Restaurant } from './RestaurantContext';
+import { 
+  Star, 
+  MapPin, 
+  Phone, 
+  Clock, 
+  Users, 
+  Search,
+  TrendingUp,
+  Flame,
+  ArrowLeft
+} from 'lucide-react';
+import { useRestaurant } from './RestaurantContext';
 
 interface DiscoverPageProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff' | 'restaurant-profile', restaurant?: Restaurant) => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
 }
 
 export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const { allRestaurants } = useRestaurant();
   const { t, isRTL } = useLanguage();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
   const trendingRestaurants = allRestaurants.filter(r => r.weeklyAverageCustomers > 50);
   const popularRestaurants = allRestaurants.filter(r => r.waitingInLine > 5);
   const topRatedRestaurants = allRestaurants.filter(r => r.rating >= 4.7);
+
+  const handleCardClick = (restaurant: any) => {
+    setSelectedCard(restaurant.id);
+    // Add a small delay for animation before navigating
+    setTimeout(() => {
+      onNavigate('restaurant-profile', restaurant);
+    }, 300);
+  };
 
   const handleSearchClick = () => {
     onNavigate('search');
@@ -32,219 +49,223 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
         <LanguageToggle />
       </div>
 
-      <div className="container mx-auto px-4 py-8 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>
-            {t('search.title') || 'Discover Restaurants'}
-          </h1>
-          <p className={`text-xl max-w-2xl mx-auto mb-8 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-            {t('search.subtitle') || 'Find your perfect dining experience'}
-          </p>
-        </div>
-
-        {/* Simple Search Bar - Clickable to go to detailed search */}
-        <div className="max-w-3xl mx-auto mb-12">
-          <div 
-            className="relative cursor-pointer hover:shadow-xl transition-shadow"
-            onClick={handleSearchClick}
-          >
-            <Search className={`absolute ${isRTL ? 'right-6' : 'left-6'} top-1/2 transform -translate-y-1/2 h-6 w-6`} style={{color: 'var(--where2go-accent)'}} />
-            <Input
-              placeholder="Search restaurants, cuisines, locations..."
-              value={searchQuery}
-              readOnly
-              className={`h-16 text-lg rounded-full card-shadow ${isRTL ? 'font-arabic text-right pr-16 pl-20' : 'pl-16 pr-20'}`}
-              style={{
-                borderColor: 'var(--where2go-border)', 
-                backgroundColor: 'var(--where2go-white)',
-                cursor: 'pointer'
-              }}
-            />
-            <div 
-              className={`absolute ${isRTL ? 'left-4' : 'right-4'} top-1/2 transform -translate-y-1/2 rounded-full p-3 hover:scale-110 transition-transform`}
-              style={{backgroundColor: 'var(--where2go-buff)'}}
+      {/* Header */}
+      <div className="sticky top-0 z-10 py-6 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => onNavigate('landing')}
+              className="pill-button"
             >
-              <SlidersHorizontal className="h-5 w-5" style={{color: 'var(--where2go-accent)'}} />
-            </div>
+              <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+              {t('nav.back') || 'Back'}
+            </Button>
+            
+            <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
+              Discover Places
+            </h1>
+            
+            <div className="w-20"></div> {/* Spacer for centering */}
           </div>
-          <p className="text-center text-sm mt-3" style={{color: 'var(--where2go-text)', opacity: 0.6}}>
-            Click to explore filters and search options
-          </p>
         </div>
+      </div>
 
-        {/* Horizontal Scrolling Sections */}
-        <div className="space-y-12">
-          {/* Trending Places */}
-          {trendingRestaurants.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold flex items-center gap-3" style={{color: 'var(--where2go-text)'}}>
-                  <div className="rounded-full p-3" style={{backgroundColor: '#D1FAE5'}}>
-                    <TrendingUp className="h-7 w-7" style={{color: '#22C55E'}} />
-                  </div>
-                  Trending Places
-                </h2>
-              </div>
-              <div className="relative">
-                <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x snap-mandatory scroll-smooth">
-                  {trendingRestaurants.map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-all duration-300 snap-center group"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                      style={{minWidth: '320px'}}
-                    >
-                      <div className="h-48 flex items-center justify-center relative overflow-hidden" style={{background: 'linear-gradient(135deg, var(--where2go-buff) 0%, var(--where2go-buff-light) 100%)'}}>
-                        <span className="text-2xl font-bold group-hover:scale-110 transition-transform" style={{color: 'var(--where2go-accent)'}}>{restaurant.name}</span>
-                        <div className="absolute top-4 right-4 px-3 py-2 rounded-full flex items-center gap-2 text-sm font-medium shadow-lg" style={{backgroundColor: '#22C55E', color: 'white'}}>
-                          <TrendingUp className="h-4 w-4" />
-                          <span>Hot</span>
-                        </div>
-                      </div>
-                      <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                            <span className="font-bold text-lg">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm mb-3" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-sm font-medium" style={{color: '#22C55E'}}>
-                            <TrendingUp className="h-4 w-4 mr-1" />
-                            <span>{restaurant.weeklyAverageCustomers}+ visits</span>
-                          </div>
-                          <span className="text-sm font-medium" style={{color: 'var(--where2go-accent)'}}>{restaurant.priceRange}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Popular Now (Long Wait Lines) */}
-          {popularRestaurants.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold flex items-center gap-3" style={{color: 'var(--where2go-text)'}}>
-                  <div className="rounded-full p-3" style={{backgroundColor: '#FEE2E2'}}>
-                    <Flame className="h-7 w-7" style={{color: '#EF4444'}} />
-                  </div>
-                  Popular Now
-                </h2>
-              </div>
-              <div className="relative">
-                <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x snap-mandatory scroll-smooth">
-                  {popularRestaurants.map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-all duration-300 snap-center group"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                      style={{minWidth: '320px'}}
-                    >
-                      <div className="h-48 flex items-center justify-center relative overflow-hidden" style={{background: 'linear-gradient(135deg, #FEE2E2 0%, #FCA5A5 100%)'}}>
-                        <span className="text-2xl font-bold group-hover:scale-110 transition-transform" style={{color: '#EF4444'}}>{restaurant.name}</span>
-                        <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-2 rounded-full flex items-center gap-2 text-sm font-medium shadow-lg">
-                          <Flame className="h-4 w-4" />
-                          <span>{restaurant.waitingInLine}</span>
-                        </div>
-                      </div>
-                      <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                            <span className="font-bold text-lg">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm mb-3" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium" style={{color: '#EF4444'}}>
-                            {restaurant.waitTime || 'Waitlist available'}
-                          </div>
-                          <span className="text-sm font-medium" style={{color: 'var(--where2go-accent)'}}>{restaurant.priceRange}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Top Rated */}
-          {topRatedRestaurants.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold flex items-center gap-3" style={{color: 'var(--where2go-text)'}}>
-                  <div className="rounded-full p-3" style={{backgroundColor: '#FEF3C7'}}>
-                    <Star className="h-7 w-7 text-yellow-400 fill-current" />
-                  </div>
-                  Top Rated
-                </h2>
-              </div>
-              <div className="relative">
-                <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x snap-mandatory scroll-smooth">
-                  {topRatedRestaurants.map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-all duration-300 snap-center group"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                      style={{minWidth: '320px'}}
-                    >
-                      <div className="h-48 flex items-center justify-center relative overflow-hidden" style={{background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)'}}>
-                        <span className="text-2xl font-bold group-hover:scale-110 transition-transform" style={{color: '#D97706'}}>{restaurant.name}</span>
-                        <div className="absolute top-4 right-4">
-                          <div className="flex items-center gap-1 px-3 py-2 rounded-full shadow-lg" style={{backgroundColor: 'white'}}>
-                            <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                            <span className="font-bold" style={{color: '#D97706'}}>{restaurant.rating}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                            <span className="font-bold text-lg">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm mb-3" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium" style={{color: '#D97706'}}>
-                            Highly Rated
-                          </div>
-                          <span className="text-sm font-medium" style={{color: 'var(--where2go-accent)'}}>{restaurant.priceRange}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom CTA */}
-        <div className="text-center mt-16 mb-8">
-          <p className="text-lg mb-4" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-            Looking for something specific?
-          </p>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Search Bar */}
+        <div className="mb-12">
           <div 
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full cursor-pointer hover:shadow-xl transition-all"
-            style={{backgroundColor: 'var(--where2go-accent)', color: 'white'}}
+            className="relative max-w-2xl mx-auto cursor-pointer"
             onClick={handleSearchClick}
           >
-            <SlidersHorizontal className="h-5 w-5" />
-            <span className="font-semibold text-lg">Explore All Filters</span>
+            <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-orange-200">
+              <Search className="h-5 w-5 text-gray-400 mr-3" />
+              <span className="text-gray-500 text-lg">Search restaurants, cuisines, locations...</span>
+              <div className="ml-auto p-2 rounded-lg" style={{backgroundColor: 'var(--where2go-buff)'}}>
+                <div className="w-6 h-6 flex flex-col justify-center">
+                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
+                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
+                  <div className="w-full h-0.5 bg-gray-600"></div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Trending Places */}
+        {trendingRestaurants.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-6">
+              <TrendingUp className="h-7 w-7" style={{color: '#22C55E'}} />
+              <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
+                Trending Places
+              </h2>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+              {trendingRestaurants.map(restaurant => (
+                <Card 
+                  key={restaurant.id} 
+                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                    selectedCard === restaurant.id 
+                      ? 'scale-110 shadow-2xl' 
+                      : 'hover:scale-105'
+                  }`}
+                  onClick={() => handleCardClick(restaurant)}
+                  style={{
+                    transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                  }}
+                >
+                  <div 
+                    className="h-48 flex items-center justify-center relative"
+                    style={{background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'}}
+                  >
+                    <span className="text-2xl font-bold text-white">{restaurant.name}</span>
+                    <div className="absolute top-3 left-3">
+                      <Badge 
+                        className="px-3 py-1 rounded-full flex items-center gap-1 text-sm font-medium shadow-lg"
+                        style={{backgroundColor: 'rgba(255, 255, 255, 0.9)', color: '#22C55E'}}
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        <span>Trending</span>
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
+                        <span className="font-bold text-lg">{restaurant.rating}</span>
+                      </div>
+                      <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
+                    </div>
+                    <p className="text-sm mb-3" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
+                    <div className="flex items-center text-sm font-medium" style={{color: '#22C55E'}}>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      <span>{restaurant.weeklyAverageCustomers} weekly visits</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Popular Now */}
+        {popularRestaurants.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-6">
+              <Flame className="h-7 w-7" style={{color: '#EF4444'}} />
+              <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
+                Popular Now
+              </h2>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+              {popularRestaurants.map(restaurant => (
+                <Card 
+                  key={restaurant.id} 
+                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                    selectedCard === restaurant.id 
+                      ? 'scale-110 shadow-2xl' 
+                      : 'hover:scale-105'
+                  }`}
+                  onClick={() => handleCardClick(restaurant)}
+                  style={{
+                    transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                  }}
+                >
+                  <div 
+                    className="h-48 flex items-center justify-center relative"
+                    style={{background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'}}
+                  >
+                    <span className="text-2xl font-bold text-white">{restaurant.name}</span>
+                    <div className="absolute top-3 right-3">
+                      <div className="bg-white text-red-500 px-3 py-1 rounded-full flex items-center gap-1 text-sm font-medium shadow-lg">
+                        <Flame className="h-4 w-4" />
+                        {restaurant.waitingInLine}
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
+                        <span className="font-bold text-lg">{restaurant.rating}</span>
+                      </div>
+                      <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
+                    </div>
+                    <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.waitTime || 'Waitlist available'}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top Rated */}
+        {topRatedRestaurants.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-6">
+              <Star className="h-7 w-7 text-yellow-400 fill-current" />
+              <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
+                Top Rated
+              </h2>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+              {topRatedRestaurants.map(restaurant => (
+                <Card 
+                  key={restaurant.id} 
+                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                    selectedCard === restaurant.id 
+                      ? 'scale-110 shadow-2xl' 
+                      : 'hover:scale-105'
+                  }`}
+                  onClick={() => handleCardClick(restaurant)}
+                  style={{
+                    transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    zIndex: selectedCard === restaurant.id ? 10 : 1
+                  }}
+                >
+                  <div 
+                    className="h-48 flex items-center justify-center"
+                    style={{background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'}}
+                  >
+                    <span className="text-2xl font-bold text-white">{restaurant.name}</span>
+                  </div>
+                  <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <Star className="h-6 w-6 text-yellow-400 fill-current mr-1" />
+                        <span className="font-bold text-xl">{restaurant.rating}</span>
+                      </div>
+                      <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
+                    </div>
+                    <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Call to Action */}
+        <div className="text-center py-12">
+          <h3 className="text-2xl font-bold mb-4" style={{color: 'var(--where2go-text)'}}>
+            Can't find what you're looking for?
+          </h3>
+          <Button 
+            onClick={handleSearchClick}
+            className="pill-button cta-button text-lg px-8 py-4"
+          >
+            <Search className="h-5 w-5 mr-2" />
+            Browse All Restaurants
+          </Button>
         </div>
       </div>
     </div>
   );
 }
-

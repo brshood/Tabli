@@ -13,7 +13,7 @@ import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu } fr
 import { WaveBackground } from './WaveBackground';
 
 interface CustomerSearchPageProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff') => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
 }
 
 const cuisineFilters = ['Pizza', 'Café', 'Healthy', 'Asian', 'Italian', 'Mexican', 'BBQ', 'Seafood'];
@@ -52,11 +52,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         <LanguageToggle />
       </div>
       <div className="container mx-auto px-4 relative z-10">
-        {/* Header with Back Button */}
-        <div className="text-center mb-8">
-          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>Search & Filter</h1>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>{t('search.title')}</h1>
           <p className={`text-xl max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-            Find exactly what you're looking for
+            {t('search.subtitle')}
           </p>
         </div>
 
@@ -127,10 +127,16 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           </div>
         </div>
 
-        {/* Results Header */}
-        <h2 className="text-2xl font-bold mb-6" style={{color: 'var(--where2go-text)'}}>
-          {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
-        </h2>
+        {/* Search Results Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
+            {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
+          </h2>
+          <div className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+            {selectedFilter && `Filtered by: ${selectedFilter}`}
+            {selectedLocation && ` • ${selectedLocation}`}
+          </div>
+        </div>
 
         {/* Restaurant Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
