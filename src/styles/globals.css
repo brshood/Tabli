@@ -55,12 +55,12 @@
   --tabli-shadow: rgba(183, 65, 14, 0.15);
   --tabli-glow: rgba(183, 65, 14, 0.4);
   
-  /* Where2Go Style - All white for now */
+  /* Where2Go Style - All white backgrounds */
   --where2go-white: #FFFFFF;
   --where2go-bright-grey: #FFFFFF;
   --where2go-buff: #FFFFFF;
   --where2go-buff-light: #FFFFFF;
-  --where2go-accent: #FFFFFF;
+  --where2go-accent: #B7410E; /* Orange rufous for CTAs and accents */
   --where2go-text: #3C3C3C;
   --where2go-shadow: rgba(0, 0, 0, 0.08);
   --where2go-border: rgba(0, 0, 0, 0.1);
