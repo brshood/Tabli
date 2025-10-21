@@ -55,15 +55,15 @@
   --tabli-shadow: rgba(183, 65, 14, 0.15);
   --tabli-glow: rgba(183, 65, 14, 0.4);
   
-  /* Where2Go Style - New Color Palette for pages after landing */
-  --where2go-white: #FFFFFF;
-  --where2go-bright-grey: #F5F5F5;
-  --where2go-buff: #F0DC82;
-  --where2go-buff-light: #F5E9B3;
-  --where2go-accent: #B7410E; /* Keep orange rufous for CTAs */
-  --where2go-text: #3C3C3C;
-  --where2go-shadow: rgba(0, 0, 0, 0.08);
-  --where2go-border: rgba(0, 0, 0, 0.1);
+  /* Where2Go Style - Inverted Color Palette for pages after landing */
+  --where2go-white: #3C3C3C;
+  --where2go-bright-grey: #2A2A2A;
+  --where2go-buff: #B7410E;
+  --where2go-buff-light: #8B2F0A;
+  --where2go-accent: #F0DC82; /* Inverted accent - now buff for CTAs */
+  --where2go-text: #FFFFFF;
+  --where2go-shadow: rgba(255, 255, 255, 0.08);
+  --where2go-border: rgba(255, 255, 255, 0.1);
 }
 
 .dark {
