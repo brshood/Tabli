@@ -71,23 +71,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundSize: 'cover'
        }}></div>
       <div className="container mx-auto px-4 py-8 max-w-6xl mt-20">
-        {/* Search Bar */}
+        {/* Browse All Restaurants Button */}
         <div className="mb-12">
-          <div 
-            className="relative max-w-2xl mx-auto cursor-pointer"
-            onClick={handleSearchClick}
-          >
-             <div className="flex items-center rounded-2xl px-6 py-4 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-orange-200" style={{backgroundColor: '#FFFFFF'}}>
-              <Search className="h-5 w-5 text-gray-400 mr-3" />
-              <span className="text-gray-500 text-lg">Search restaurants, cuisines, locations...</span>
-              <div className="ml-auto p-2 rounded-lg" style={{backgroundColor: 'var(--where2go-buff)'}}>
-                <div className="w-6 h-6 flex flex-col justify-center">
-                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
-                  <div className="w-full h-0.5 bg-gray-600 mb-1"></div>
-                  <div className="w-full h-0.5 bg-gray-600"></div>
-                </div>
-              </div>
-            </div>
+          <div className="max-w-2xl mx-auto flex justify-center">
+            <Button
+              onClick={handleSearchClick}
+              size="lg"
+              className="pill-button text-lg px-8 py-6"
+            >
+              Browse All Restaurants
+            </Button>
           </div>
         </div>
 
