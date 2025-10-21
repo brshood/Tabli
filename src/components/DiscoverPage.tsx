@@ -54,6 +54,8 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
     <div className="min-h-screen" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
        {/* Top Navigation */}
        <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
+         <LanguageToggle />
+         
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}
@@ -62,8 +64,6 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
            <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
            Back
          </Button>
-         
-         <LanguageToggle />
        </div>
 
        {/* Header */}

@@ -9,7 +9,7 @@ import { MenuModal } from './MenuModal';
 import { useRestaurant } from './RestaurantContext';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
-import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu } from 'lucide-react';
+import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu, ArrowLeft } from 'lucide-react';
 
 interface CustomerSearchPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -46,9 +46,18 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   return (
     <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
       <div className="absolute inset-0 pointer-events-none" style={{backgroundColor: 'var(--where2go-white)', opacity: 0.5}} />
-      {/* Language Toggle */}
-      <div className="absolute top-8 right-8 z-20">
+      {/* Top Navigation */}
+      <div className="absolute top-8 left-8 right-8 z-20 flex justify-between items-center">
         <LanguageToggle />
+        
+        <Button
+          variant="ghost"
+          onClick={() => onNavigate('discover')}
+          className="pill-button"
+        >
+          <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+          Back
+        </Button>
       </div>
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
