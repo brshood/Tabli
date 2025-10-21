@@ -16,6 +16,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
+import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface DiscoverPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -93,6 +94,15 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
              >
                <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                Back
+             </Button>
+             
+             {/* Logo */}
+             <Button
+               variant="ghost"
+               onClick={() => onNavigate('landing')}
+               className="flex items-center gap-2 hover:bg-transparent"
+             >
+               <img src={tabliLogo} alt="Tabli" className="h-12 w-auto" />
              </Button>
              
              {/* Language Toggle */}
