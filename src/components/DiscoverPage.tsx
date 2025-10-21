@@ -201,9 +201,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
               {popularRestaurants.map(restaurant => (
+                <div 
+                  key={restaurant.id}
+                  className="flex-shrink-0 p-4 rounded-3xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
+                  }}
+                >
                 <Card 
-                  key={restaurant.id} 
-                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
@@ -254,9 +261,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
               {topRatedRestaurants.map(restaurant => (
+                <div 
+                  key={restaurant.id}
+                  className="flex-shrink-0 p-4 rounded-3xl"
+                  style={{
+                    backgroundColor: '#F0DC82',
+                    boxShadow: '0 8px 24px rgba(240, 220, 130, 0.3)'
+                  }}
+                >
                 <Card 
-                  key={restaurant.id} 
-                  className={`flex-shrink-0 w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
+                  className={`w-80 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 ${
                     selectedCard === restaurant.id 
                       ? 'scale-110 shadow-2xl' 
                       : 'hover:scale-105'
