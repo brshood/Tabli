@@ -301,7 +301,7 @@ function AppContent() {
                   onClick={() => navigateToPage('discover')}
                   className="pill-button"
                 >
-                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                   Back
                 </Button>
                 <button onClick={handleLogoClick} className="focus:outline-none py-1">
