@@ -65,7 +65,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          <LanguageToggle />
        </div>
        
-       <div className="absolute top-8 left-8 z-20">
+       <div className="absolute top-8 left-12 z-20">
          <Button
            variant="ghost"
            onClick={() => onNavigate('landing')}

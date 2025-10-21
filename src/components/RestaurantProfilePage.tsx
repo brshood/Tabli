@@ -40,22 +40,33 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   };
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
-      {/* Language Toggle */}
+    <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
+      {/* Wave Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom',
+        backgroundSize: 'cover'
+      }}></div>
+      
+      {/* Top Navigation */}
       <div className="absolute top-8 right-8 z-20">
         <LanguageToggle />
       </div>
-
-      {/* Back Button */}
-      <div className="sticky top-0 z-10 py-4 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
-         <Button
-           variant="ghost"
-           onClick={() => onNavigate('discover')}
-           className="pill-button"
-         >
+      
+      <div className="absolute top-8 left-12 z-20">
+        <Button
+          variant="ghost"
+          onClick={() => onNavigate('discover')}
+          className="pill-button"
+        >
           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           Back
         </Button>
+      </div>
+
+      {/* Header */}
+      <div className="sticky top-0 z-10 py-4 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">

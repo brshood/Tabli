@@ -57,7 +57,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         <LanguageToggle />
       </div>
       
-      <div className="absolute top-8 left-8 z-20">
+      <div className="absolute top-8 left-12 z-20">
         <Button
           variant="ghost"
           onClick={() => onNavigate('discover')}
@@ -67,9 +67,13 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           Back
         </Button>
       </div>
+      {/* Header */}
+      <div className="sticky top-0 z-10 py-4 px-4 backdrop-blur-sm" style={{backgroundColor: 'rgba(240, 220, 130, 0.7)', borderBottom: '1px solid rgba(240, 220, 130, 0.3)'}}>
+      </div>
+      
       <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
+        {/* Title Section */}
+        <div className="text-center mb-12 mt-12">
           <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>{t('search.title')}</h1>
           <p className={`text-xl max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
             {t('search.subtitle')}
