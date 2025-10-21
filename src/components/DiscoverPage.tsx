@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -16,6 +16,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
+import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface DiscoverPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -25,6 +26,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const { allRestaurants } = useRestaurant();
   const { t, isRTL } = useLanguage();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const trendingRestaurants = allRestaurants
     .filter(r => r.weeklyAverageCustomers > 50)
@@ -59,8 +70,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundPosition: 'bottom',
          backgroundSize: 'cover'
        }}></div>
-
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 max-w-6xl mt-20">
         {/* Search Bar */}
         <div className="mb-12">
           <div 

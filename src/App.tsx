@@ -292,7 +292,7 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.95)', borderColor: 'rgba(240, 220, 130, 0.3)'}}>
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.7)', borderColor: 'rgba(240, 220, 130, 0.3)'}}>
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
