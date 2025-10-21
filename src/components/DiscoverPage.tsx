@@ -16,7 +16,6 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface DiscoverPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -95,56 +94,10 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                Back
              </Button>
-
-             {/* Logo - Center */}
-             <Button
-               variant="ghost"
-               onClick={() => onNavigate('landing')}
-               className="flex items-center gap-2 hover:bg-transparent absolute left-1/2 transform -translate-x-1/2"
-             >
-               <img 
-                 src={tabliLogo} 
-                 alt="Tabli" 
-                 className="transition-all duration-300"
-                 style={{
-                   height: isScrolled ? '24px' : '32px'
-                 }}
-               />
-             </Button>
              
              {/* Language Toggle */}
              <LanguageToggle />
            </div>
-           
-           {/* Navigation Buttons - Only show when not scrolled */}
-           {!isScrolled && (
-             <div className="flex items-center justify-center gap-8 mt-3">
-               <Button
-                 variant="ghost"
-                 onClick={() => {}}
-                 className="text-base font-medium"
-                 style={{color: 'var(--where2go-text)'}}
-               >
-                 Recommendations
-               </Button>
-               <Button
-                 variant="ghost"
-                 onClick={() => onNavigate('search')}
-                 className="text-base font-medium"
-                 style={{color: 'var(--where2go-text)'}}
-               >
-                 Search
-               </Button>
-               <Button
-                 variant="ghost"
-                 onClick={() => onNavigate('staff')}
-                 className="text-base font-medium"
-                 style={{color: 'var(--where2go-text)'}}
-               >
-                 Log In
-               </Button>
-             </div>
-           )}
          </div>
        </div>
 
