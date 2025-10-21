@@ -239,7 +239,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                     ) : (
                       <Button 
                         className={`flex-1 pill-button text-white ${isRTL ? 'font-arabic' : ''}`}
-                        style={{backgroundColor: 'var(--where2go-accent)'}}
+                        style={{backgroundColor: '#000000', borderColor: '#000000'}}
                         onClick={() => {
                           setSelectedRestaurantForBooking(restaurant);
                           setBookingMode('waitlist');

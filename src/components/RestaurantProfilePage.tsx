@@ -190,7 +190,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               ) : (
                 <Button 
                   className={`w-full pill-button text-white text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
-                  style={{backgroundColor: 'var(--where2go-accent)'}}
+                  style={{backgroundColor: '#000000', borderColor: '#000000'}}
                   onClick={() => {
                     setBookingMode('waitlist');
                     setBookingModalOpen(true);
