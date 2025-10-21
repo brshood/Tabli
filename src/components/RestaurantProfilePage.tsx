@@ -54,7 +54,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
            className="pill-button"
          >
           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-          {t('nav.back') || 'Back'}
+          Back
         </Button>
       </div>
 

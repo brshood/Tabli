@@ -289,7 +289,7 @@ function AppContent() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <WaveBackground />
+      {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && currentPage !== 'discover' && (
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(255, 255, 255, 0.95)', borderColor: 'var(--where2go-border)'}}>

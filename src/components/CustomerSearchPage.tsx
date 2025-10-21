@@ -10,7 +10,6 @@ import { useRestaurant } from './RestaurantContext';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu } from 'lucide-react';
-import { WaveBackground } from './WaveBackground';
 
 interface CustomerSearchPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;

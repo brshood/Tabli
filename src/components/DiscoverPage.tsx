@@ -26,9 +26,17 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const { t, isRTL } = useLanguage();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
-  const trendingRestaurants = allRestaurants.filter(r => r.weeklyAverageCustomers > 50);
-  const popularRestaurants = allRestaurants.filter(r => r.waitingInLine > 5);
-  const topRatedRestaurants = allRestaurants.filter(r => r.rating >= 4.7);
+  const trendingRestaurants = allRestaurants
+    .filter(r => r.weeklyAverageCustomers > 50)
+    .sort((a, b) => b.weeklyAverageCustomers - a.weeklyAverageCustomers);
+  
+  const popularRestaurants = allRestaurants
+    .filter(r => r.waitingInLine > 5)
+    .sort((a, b) => b.waitingInLine - a.waitingInLine);
+  
+  const topRatedRestaurants = allRestaurants
+    .filter(r => r.rating >= 4.7)
+    .sort((a, b) => b.rating - a.rating);
 
   const handleCardClick = (restaurant: any) => {
     setSelectedCard(restaurant.id);
@@ -59,7 +67,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               className="pill-button"
             >
               <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-              {t('nav.back') || 'Back'}
+              Back
             </Button>
             
             <h1 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
@@ -95,8 +103,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
         {/* Trending Places */}
         {trendingRestaurants.length > 0 && (
           <div className="mb-16">
-            <div className="flex items-center gap-3 mb-6">
-              <TrendingUp className="h-7 w-7" style={{color: '#22C55E'}} />
+            <div className="mb-6">
               <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
                 Trending Places
               </h2>
@@ -155,8 +162,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
         {/* Popular Now */}
         {popularRestaurants.length > 0 && (
           <div className="mb-16">
-            <div className="flex items-center gap-3 mb-6">
-              <Flame className="h-7 w-7" style={{color: '#EF4444'}} />
+            <div className="mb-6">
               <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
                 Popular Now
               </h2>
@@ -208,8 +214,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
         {/* Top Rated */}
         {topRatedRestaurants.length > 0 && (
           <div className="mb-16">
-            <div className="flex items-center gap-3 mb-6">
-              <Star className="h-7 w-7 text-yellow-400 fill-current" />
+            <div className="mb-6">
               <h2 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>
                 Top Rated
               </h2>
