@@ -57,7 +57,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         <LanguageToggle />
       </div>
       
-      <div className="absolute top-8 left-12 z-20">
+      <div className="absolute top-8 left-24 z-20">
         <Button
           variant="ghost"
           onClick={() => onNavigate('discover')}
