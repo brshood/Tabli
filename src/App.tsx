@@ -291,13 +291,13 @@ function AppContent() {
     <div className="relative min-h-screen overflow-hidden">
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
-      {currentPage !== 'landing' && currentPage !== 'discover' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(255, 255, 255, 0.95)', borderColor: 'var(--where2go-border)'}}>
+      {currentPage !== 'landing' && (
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(240, 220, 130, 0.95)', borderColor: 'rgba(240, 220, 130, 0.3)'}}>
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <button onClick={handleLogoClick} className="focus:outline-none">
-                  <img src={tabliLogo} alt="Tabli" className="h-40 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
+                  <img src={tabliLogo} alt="Tabli" className="h-12 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
                 </button>
               </div>
               

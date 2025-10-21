@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -20,7 +20,6 @@ import {
   TrendingUp
 } from 'lucide-react';
 import type { Restaurant } from './RestaurantContext';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 
 interface RestaurantProfilePageProps {
   restaurant: Restaurant;
@@ -33,16 +32,6 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [bookingMode, setBookingMode] = useState<'reserve' | 'waitlist'>('reserve');
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const handleBookingSuccess = () => {
     setBookingModalOpen(false);
@@ -60,47 +49,6 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         backgroundSize: 'cover'
       }}></div>
       
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-30 backdrop-blur-sm transition-all duration-300"
-        style={{
-          backgroundColor: 'rgba(240, 220, 130, 0.7)',
-          borderBottom: '1px solid rgba(240, 220, 130, 0.3)',
-          padding: isScrolled ? '12px 48px' : '16px 48px'
-        }}
-      >
-        <div 
-          className="mx-auto transition-all duration-300"
-          style={{
-            maxWidth: isScrolled ? '66.666%' : '100%'
-          }}
-        >
-          <div className="flex items-center justify-between">
-            {/* Back Button */}
-            <Button
-              variant="ghost"
-              onClick={() => onNavigate('discover')}
-              className="pill-button"
-            >
-              <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-              Back
-            </Button>
-            
-            {/* Logo */}
-            <Button
-              variant="ghost"
-              onClick={() => onNavigate('landing')}
-              className="flex items-center gap-2 hover:bg-transparent"
-            >
-              <img src={tabliLogo} alt="Tabli" className="h-12 w-auto" />
-            </Button>
-            
-            {/* Language Toggle */}
-            <LanguageToggle />
-          </div>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Cover Section */}
         <Card className="mb-6 overflow-hidden border-0 card-shadow">
