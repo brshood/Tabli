@@ -296,8 +296,8 @@ function AppContent() {
           <div className="container mx-auto px-4 h-full">
             <div className="flex items-center justify-between h-full">
               <div className="flex items-center">
-                <button onClick={handleLogoClick} className="focus:outline-none py-4">
-                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '96px', width: 'auto'}} />
+                <button onClick={handleLogoClick} className="focus:outline-none py-1">
+                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '120px', width: 'auto'}} />
                 </button>
               </div>
               
