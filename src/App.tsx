@@ -131,7 +131,7 @@ function AppContent() {
 
   // Animation variants for smooth transitions
   const getPageVariants = () => {
-    const pageOrder = ['landing', 'search', 'restaurant-profile', 'staff'];
+    const pageOrder = ['landing', 'discover', 'search', 'restaurant-profile', 'staff'];
     const currentIndex = pageOrder.indexOf(currentPage);
     const previousIndex = pageOrder.indexOf(previousPage);
     const isMovingForward = currentIndex > previousIndex;
@@ -174,6 +174,20 @@ function AppContent() {
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
             <LandingPage onNavigate={navigateToPage} />
+          </motion.div>
+        );
+      case 'discover':
+        return (
+          <motion.div
+            key="discover"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <DiscoverPage onNavigate={navigateToPage} />
           </motion.div>
         );
       case 'search':
@@ -276,25 +290,25 @@ function AppContent() {
     <div className="relative min-h-screen overflow-hidden">
       <WaveBackground />
       {/* Navigation */}
-      {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(243, 229, 171, 0.95)', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+      {currentPage !== 'landing' && currentPage !== 'discover' && (
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(255, 255, 255, 0.95)', borderColor: 'var(--where2go-border)'}}>
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <button onClick={handleLogoClick} className="focus:outline-none">
+                <button onClick={() => navigateToPage('discover')} className="focus:outline-none">
                   <img src={tabliLogo} alt="Tabli" className="h-40 w-auto hover:opacity-80 transition-opacity cursor-pointer" />
                 </button>
               </div>
               
               <div className="flex items-center space-x-2">
                 <Button
-                  variant={currentPage === 'search' ? 'default' : 'ghost'}
+                  variant={currentPage === 'discover' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => navigateToPage('search')}
+                  onClick={() => navigateToPage('discover')}
                   className="pill-button"
                 >
                   <Search className="h-4 w-4 mr-1" />
-                  {t('nav.search')}
+                  Discover
                 </Button>
                 <Button
                   variant={currentPage === 'staff' ? 'default' : 'ghost'}

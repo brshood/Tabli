@@ -50,7 +50,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
       <div className="sticky top-0 z-10 py-4 px-4" style={{backgroundColor: 'var(--where2go-white)', borderBottom: '1px solid var(--where2go-border)'}}>
         <Button
           variant="ghost"
-          onClick={() => onNavigate('search')}
+          onClick={() => onNavigate('discover')}
           className="pill-button"
         >
           <ArrowLeft className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />

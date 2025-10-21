@@ -52,11 +52,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         <LanguageToggle />
       </div>
       <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>{t('search.title')}</h1>
+        {/* Header with Back Button */}
+        <div className="text-center mb-8">
+          <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>Search & Filter</h1>
           <p className={`text-xl max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-            {t('search.subtitle')}
+            Find exactly what you're looking for
           </p>
         </div>
 
@@ -127,164 +127,9 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           </div>
         </div>
 
-        {/* Horizontal Scrolling Sections */}
-        <div className="space-y-8 mb-12">
-          {/* Trending Places */}
-          {allRestaurants.filter(r => r.weeklyAverageCustomers > 50).length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2" style={{color: 'var(--where2go-text)'}}>
-                <TrendingUp className="h-6 w-6" style={{color: '#22C55E'}} />
-                {t('search.trending') || 'Trending Places'}
-              </h2>
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                {allRestaurants
-                  .filter(r => r.weeklyAverageCustomers > 50)
-                  .map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-72 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                    >
-                      <div className="h-32 flex items-center justify-center" style={{background: 'linear-gradient(to bottom right, var(--where2go-buff), var(--where2go-buff-light))'}}>
-                        <span className="text-lg font-medium" style={{color: 'var(--where2go-accent)'}}>{restaurant.name}</span>
-                      </div>
-                      <CardContent className="p-4" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-semibold">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm mb-2" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                        <div className="flex items-center text-xs" style={{color: '#22C55E'}}>
-                          <TrendingUp className="h-3 w-3 mr-1" />
-                          <span>{restaurant.weeklyAverageCustomers} weekly visits</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Long Wait Lines */}
-          {allRestaurants.filter(r => r.waitingInLine > 5).length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2" style={{color: 'var(--where2go-text)'}}>
-                <Flame className="h-6 w-6" style={{color: '#EF4444'}} />
-                Popular Now
-              </h2>
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                {allRestaurants
-                  .filter(r => r.waitingInLine > 5)
-                  .map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-72 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                    >
-                      <div className="h-32 flex items-center justify-center relative" style={{background: 'linear-gradient(to bottom right, #FEE2E2, #FCA5A5)'}}>
-                        <span className="text-lg font-medium" style={{color: '#EF4444'}}>{restaurant.name}</span>
-                        <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-xs font-medium">
-                          <Flame className="h-3 w-3" />
-                          {restaurant.waitingInLine}
-                        </div>
-                      </div>
-                      <CardContent className="p-4" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-semibold">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.waitTime || 'Waitlist available'}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top Rated */}
-          {allRestaurants.filter(r => r.rating >= 4.7).length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2" style={{color: 'var(--where2go-text)'}}>
-                <Star className="h-6 w-6 text-yellow-400 fill-current" />
-                Top Rated
-              </h2>
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                {allRestaurants
-                  .filter(r => r.rating >= 4.7)
-                  .map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-72 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                    >
-                      <div className="h-32 flex items-center justify-center" style={{background: 'linear-gradient(to bottom right, #FEF3C7, #FDE68A)'}}>
-                        <span className="text-lg font-medium" style={{color: '#D97706'}}>{restaurant.name}</span>
-                      </div>
-                      <CardContent className="p-4" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
-                            <span className="font-bold text-lg">{restaurant.rating}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">{restaurant.cuisine}</Badge>
-                        </div>
-                        <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Available Now */}
-          {allRestaurants.filter(r => r.status === 'available').length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2" style={{color: 'var(--where2go-text)'}}>
-                <Users className="h-6 w-6" style={{color: '#22C55E'}} />
-                Available Now
-              </h2>
-              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                {allRestaurants
-                  .filter(r => r.status === 'available')
-                  .map(restaurant => (
-                    <Card 
-                      key={restaurant.id} 
-                      className="flex-shrink-0 w-72 card-shadow border-0 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => onNavigate('restaurant-profile', restaurant)}
-                    >
-                      <div className="h-32 flex items-center justify-center" style={{background: 'linear-gradient(to bottom right, #D1FAE5, #6EE7B7)'}}>
-                        <span className="text-lg font-medium" style={{color: '#059669'}}>{restaurant.name}</span>
-                      </div>
-                      <CardContent className="p-4" style={{backgroundColor: 'var(--where2go-white)'}}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-semibold">{restaurant.rating}</span>
-                          </div>
-                          <Badge className="text-xs" style={{backgroundColor: '#D1FAE5', color: '#059669'}}>Available</Badge>
-                        </div>
-                        <p className="text-sm mb-2" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{restaurant.location}</p>
-                        <div className="flex items-center text-xs font-medium" style={{color: '#059669'}}>
-                          <Users className="h-3 w-3 mr-1" />
-                          {restaurant.tablesAvailable} tables free
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* All Restaurants Header */}
+        {/* Results Header */}
         <h2 className="text-2xl font-bold mb-6" style={{color: 'var(--where2go-text)'}}>
-          All Restaurants
+          {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
         </h2>
 
         {/* Restaurant Cards */}

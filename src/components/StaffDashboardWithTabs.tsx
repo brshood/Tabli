@@ -13,7 +13,7 @@ import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 
 interface StaffDashboardProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff') => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
   staffAuth: {
     isAuthenticated: boolean;
     user: { name: string; email: string } | null;
