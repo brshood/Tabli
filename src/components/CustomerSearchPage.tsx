@@ -68,7 +68,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         backgroundPosition: 'bottom',
         backgroundSize: 'cover'
       }}></div>
-      <div className="container mx-auto px-4 relative z-10 mt-20">
+      <div className="container mx-auto px-4 relative z-10 mt-4 sm:mt-8">
         {/* Title Section */}
         <div className="text-center mb-12 mt-12">
           <h1 className={`text-4xl md:text-5xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>{t('search.title')}</h1>

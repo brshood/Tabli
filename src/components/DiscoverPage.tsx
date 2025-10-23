@@ -70,7 +70,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
          backgroundPosition: 'bottom',
          backgroundSize: 'cover'
        }}></div>
-      <div className="container mx-auto px-4 py-8 max-w-6xl mt-20">
+      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-6xl mt-4 sm:mt-8">
         {/* Browse All Restaurants Button */}
         <div className="mb-12">
           <div className="max-w-2xl mx-auto flex justify-center">

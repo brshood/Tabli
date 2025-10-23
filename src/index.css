@@ -30,7 +30,7 @@
   [dir="rtl"] .pill-button {
     direction: ltr;
   }
-}
+  }
 
 @layer components {
   .cloud-bg {

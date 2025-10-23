@@ -79,6 +79,7 @@ const translations = {
     'search.clear.filters': 'Clear Filters',
 
     // Navigation
+    'nav.discover': 'Discover',
     'nav.search': 'Search',
     'nav.staff': 'Staff',
 
@@ -155,6 +156,7 @@ const translations = {
     'search.clear.filters': 'مسح التصفية',
 
     // Navigation
+    'nav.discover': 'اكتشف',
     'nav.search': 'بحث',
     'nav.staff': 'الموظفين',
 
