@@ -16,15 +16,12 @@ interface CustomerSearchPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
 }
 
-const cuisineFilters = ['Pizza', 'Café', 'Healthy', 'Asian', 'Italian', 'Mexican', 'BBQ', 'Seafood'];
-
 const locationFilters = ['Al Ain', 'Abu Dhabi', 'Dubai'];
 
 export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   const { allRestaurants } = useRestaurant();
   const { t, isRTL } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingMode, setBookingMode] = useState<'reserve' | 'waitlist'>('reserve');
@@ -48,10 +45,9 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                          restaurant.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          restaurant.city.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesFilter = !selectedFilter || restaurant.cuisine === selectedFilter;
     const matchesLocation = !selectedLocation || restaurant.city === selectedLocation;
     
-    return matchesSearch && matchesFilter && matchesLocation;
+    return matchesSearch && matchesLocation;
   });
 
   return (
@@ -87,30 +83,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         </div>
 
         {/* Filter Tags */}
-        <div className="space-y-6 mb-8">
-          {/* Cuisine Filters */}
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button
-              variant={selectedFilter === null ? "default" : "outline"}
-              onClick={() => setSelectedFilter(null)}
-              className={`pill-button ${isRTL ? 'font-arabic' : ''}`}
-              size="sm"
-            >
-              {t('search.all')}
-            </Button>
-            {cuisineFilters.map((filter) => (
-              <Button
-                key={filter}
-                variant={selectedFilter === filter ? "default" : "outline"}
-                onClick={() => setSelectedFilter(selectedFilter === filter ? null : filter)}
-                className="pill-button"
-                size="sm"
-              >
-                {filter}
-              </Button>
-            ))}
-          </div>
-          
+        <div className="mb-8">
           {/* Location Filters */}
           <div className="flex flex-wrap justify-center gap-3">
             <Button
@@ -144,10 +117,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           <h2 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
             {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
           </h2>
-          <div className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-            {selectedFilter && `Filtered by: ${selectedFilter}`}
-            {selectedLocation && ` • ${selectedLocation}`}
-          </div>
+          {selectedLocation && (
+            <div className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+              {selectedLocation}
+            </div>
+          )}
         </div>
 
         {/* Restaurant Cards */}
@@ -283,7 +257,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
             <h3 className={`text-2xl font-semibold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('search.no.results.title')}</h3>
             <p className={`mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('search.no.results.desc')}</p>
             <Button 
-              onClick={() => {setSearchQuery(''); setSelectedFilter(null); setSelectedLocation(null);}}
+              onClick={() => {setSearchQuery(''); setSelectedLocation(null);}}
               className={`pill-button ${isRTL ? 'font-arabic' : ''}`}
             >
               {t('search.clear.filters')}

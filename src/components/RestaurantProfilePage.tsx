@@ -51,14 +51,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   };
 
   return (
-    <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
-      {/* Wave Background */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'bottom',
-        backgroundSize: 'cover'
-      }}></div>
+    <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
       
       <div className="container mx-auto px-4 py-8 max-w-5xl mt-20">
         {/* Cover Section */}
@@ -68,12 +61,12 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
             style={{
               background: restaurant.coverImage 
                 ? `url(${restaurant.coverImage}) center/cover` 
-                : 'linear-gradient(135deg, var(--where2go-buff) 0%, var(--where2go-buff-light) 100%)'
+                : 'linear-gradient(135deg, #E5E7EB 0%, #F3F4F6 100%)'
             }}
           >
             {!restaurant.coverImage && (
               <div className="text-center">
-                <h1 className="text-5xl font-bold" style={{color: 'var(--where2go-accent)'}}>
+                <h1 className="text-5xl font-bold" style={{color: '#6B7280'}}>
                   {restaurant.name}
                 </h1>
               </div>
@@ -103,24 +96,24 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
             </div>
           </div>
 
-          <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
+          <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
             {/* Restaurant Name & Basic Info */}
             <div className="mb-6">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2" style={{color: 'var(--where2go-text)'}}>
+                  <h1 className="text-3xl font-bold mb-2" style={{color: '#1F2937'}}>
                     {restaurant.name}
                   </h1>
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center">
                       <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
-                      <span className="font-semibold" style={{color: 'var(--where2go-text)'}}>{restaurant.rating}</span>
-                      <span className="text-sm ml-1" style={{color: 'var(--where2go-text)', opacity: 0.6}}>({restaurant.weeklyAverageCustomers} reviews)</span>
+                      <span className="font-semibold" style={{color: '#1F2937'}}>{restaurant.rating}</span>
+                      <span className="text-sm ml-1" style={{color: '#6B7280'}}>({restaurant.weeklyAverageCustomers} reviews)</span>
                     </div>
                     <Badge variant="outline" className="rounded-full">
                       {restaurant.cuisine}
                     </Badge>
-                    <span className="text-lg font-medium" style={{color: 'var(--where2go-accent)'}}>
+                    <span className="text-lg font-medium" style={{color: '#4B5563'}}>
                       {restaurant.priceRange}
                     </span>
                   </div>
@@ -129,48 +122,48 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
               {/* Location & Contact */}
               <div className="space-y-2 mb-4">
-                <div className="flex items-center text-sm" style={{color: 'var(--where2go-text)'}}>
-                  <MapPin className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: 'var(--where2go-accent)'}} />
+                <div className="flex items-center text-sm" style={{color: '#4B5563'}}>
+                  <MapPin className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: '#6B7280'}} />
                   <span>{restaurant.address || restaurant.location}</span>
                 </div>
-                <div className="flex items-center text-sm" style={{color: 'var(--where2go-text)'}}>
-                  <Clock className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: 'var(--where2go-accent)'}} />
+                <div className="flex items-center text-sm" style={{color: '#4B5563'}}>
+                  <Clock className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: '#6B7280'}} />
                   <span>{restaurant.openingHours} - {restaurant.closingHours}</span>
                 </div>
-                <div className="flex items-center text-sm" style={{color: 'var(--where2go-text)'}}>
-                  <Phone className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: 'var(--where2go-accent)'}} />
+                <div className="flex items-center text-sm" style={{color: '#4B5563'}}>
+                  <Phone className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: '#6B7280'}} />
                   <a href={`tel:${restaurant.phone}`} className="hover:underline">{restaurant.phone}</a>
                 </div>
               </div>
 
               {/* Description */}
-              <p className="text-base leading-relaxed" style={{color: 'var(--where2go-text)', opacity: 0.8}}>
+              <p className="text-base leading-relaxed" style={{color: '#6B7280'}}>
                 {restaurant.description}
               </p>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4 mb-6 p-4 rounded-xl" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
+            <div className="grid grid-cols-3 gap-4 mb-6 p-4 rounded-xl" style={{backgroundColor: '#F3F4F6'}}>
               <div className="text-center">
-                <div className="text-2xl font-bold mb-1" style={{color: 'var(--where2go-accent)'}}>{restaurant.rating}</div>
-                <div className="text-xs" style={{color: 'var(--where2go-text)', opacity: 0.7}}>Rating</div>
+                <div className="text-2xl font-bold mb-1" style={{color: '#1F2937'}}>{restaurant.rating}</div>
+                <div className="text-xs" style={{color: '#6B7280'}}>Rating</div>
               </div>
-              <div className="text-center border-x" style={{borderColor: 'var(--where2go-border)'}}>
+              <div className="text-center border-x" style={{borderColor: '#D1D5DB'}}>
                 {restaurant.status === 'available' ? (
                   <>
                     <div className="text-2xl font-bold mb-1" style={{color: '#22C55E'}}>{restaurant.tablesAvailable}</div>
-                    <div className="text-xs" style={{color: 'var(--where2go-text)', opacity: 0.7}}>Available</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>Available</div>
                   </>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold mb-1" style={{color: 'var(--where2go-accent)'}}>{restaurant.waitTime}</div>
-                    <div className="text-xs" style={{color: 'var(--where2go-text)', opacity: 0.7}}>Wait Time</div>
+                    <div className="text-2xl font-bold mb-1" style={{color: '#1F2937'}}>{restaurant.waitTime}</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>Wait Time</div>
                   </>
                 )}
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold mb-1" style={{color: 'var(--where2go-accent)'}}>{restaurant.waitingInLine}</div>
-                <div className="text-xs" style={{color: 'var(--where2go-text)', opacity: 0.7}}>In Queue</div>
+                <div className="text-2xl font-bold mb-1" style={{color: '#1F2937'}}>{restaurant.waitingInLine}</div>
+                <div className="text-xs" style={{color: '#6B7280'}}>In Queue</div>
               </div>
             </div>
 
@@ -178,7 +171,8 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
             <div className="space-y-3 mb-6">
               {restaurant.status === 'available' ? (
                 <Button 
-                  className={`w-full pill-button cta-button text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
+                  className={`w-full pill-button text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
+                  style={{backgroundColor: '#1F2937', color: '#FFFFFF'}}
                   onClick={() => {
                     setBookingMode('reserve');
                     setBookingModalOpen(true);
@@ -206,7 +200,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   variant="outline" 
                   className={`pill-button ${isRTL ? 'font-arabic' : ''}`}
                   onClick={() => setMenuModalOpen(true)}
-                  style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
+                  style={{borderColor: '#6B7280', color: '#4B5563'}}
                 >
                   <MenuIcon className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                   {t('search.view.menu') || 'View Menu'}
@@ -215,7 +209,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   variant="outline" 
                   className="pill-button"
                   onClick={() => window.location.href = `tel:${restaurant.phone}`}
-                  style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
+                  style={{borderColor: '#6B7280', color: '#4B5563'}}
                 >
                   <Phone className="h-4 w-4 mr-2" />
                   Call
@@ -225,12 +219,12 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
             {/* Additional Info */}
             {restaurant.maxHoldTime && (
-              <Card className="border rounded-xl p-4 mb-4" style={{backgroundColor: 'var(--where2go-buff-light)', borderColor: 'var(--where2go-border)'}}>
+              <Card className="border rounded-xl p-4 mb-4" style={{backgroundColor: '#F9FAFB', borderColor: '#E5E7EB'}}>
                 <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 mt-0.5" style={{color: 'var(--where2go-accent)'}} />
+                  <Clock className="h-5 w-5 mt-0.5" style={{color: '#6B7280'}} />
                   <div>
-                    <p className="font-medium mb-1" style={{color: 'var(--where2go-text)'}}>Important Notice</p>
-                    <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.8}}>
+                    <p className="font-medium mb-1" style={{color: '#1F2937'}}>Important Notice</p>
+                    <p className="text-sm" style={{color: '#6B7280'}}>
                       Tables are held for {restaurant.maxHoldTime} minutes. Please arrive on time to secure your reservation.
                     </p>
                   </div>
@@ -240,7 +234,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
             {/* Seating Options */}
             {(restaurant.indoorSeating || restaurant.outdoorSeating) && (
-              <div className="flex items-center gap-4 text-sm" style={{color: 'var(--where2go-text)'}}>
+              <div className="flex items-center gap-4 text-sm" style={{color: '#4B5563'}}>
                 <span className="font-medium">Seating:</span>
                 {restaurant.indoorSeating && (
                   <Badge variant="outline" className="rounded-full">Indoor</Badge>
@@ -255,20 +249,20 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
         {/* Menu Preview Section */}
         <Card className="border-0 card-shadow">
-          <CardContent className="p-6" style={{backgroundColor: 'var(--where2go-white)'}}>
-            <h2 className="text-2xl font-bold mb-4" style={{color: 'var(--where2go-text)'}}>Menu Highlights</h2>
+          <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
+            <h2 className="text-2xl font-bold mb-4" style={{color: '#1F2937'}}>Menu Highlights</h2>
             <div className="grid gap-4">
               {restaurant.menu.slice(0, 5).map((item, index) => (
-                <div key={index} className="flex items-start justify-between p-4 rounded-xl hover:shadow-md transition-shadow" style={{backgroundColor: 'var(--where2go-bright-grey)'}}>
+                <div key={index} className="flex items-start justify-between p-4 rounded-xl hover:shadow-md transition-shadow" style={{backgroundColor: '#F9FAFB'}}>
                   <div className="flex-1">
-                    <h4 className="font-semibold mb-1" style={{color: 'var(--where2go-text)'}}>{item.name}</h4>
-                    <p className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>{item.description}</p>
+                    <h4 className="font-semibold mb-1" style={{color: '#1F2937'}}>{item.name}</h4>
+                    <p className="text-sm" style={{color: '#6B7280'}}>{item.description}</p>
                     {item.category && (
                       <Badge variant="outline" className="mt-2 text-xs">{item.category}</Badge>
                     )}
                   </div>
                   <div className="ml-4">
-                    <span className="font-bold text-lg" style={{color: 'var(--where2go-accent)'}}>AED {item.price}</span>
+                    <span className="font-bold text-lg" style={{color: '#1F2937'}}>AED {item.price}</span>
                   </div>
                 </div>
               ))}
@@ -277,7 +271,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               variant="outline" 
               className="w-full mt-4 pill-button"
               onClick={() => setMenuModalOpen(true)}
-              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
+              style={{borderColor: '#6B7280', color: '#4B5563'}}
             >
               View Full Menu
             </Button>

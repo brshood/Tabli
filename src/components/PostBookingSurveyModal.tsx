@@ -59,8 +59,8 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName }: Post
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="sm:max-w-md mx-4" 
-        style={{backgroundColor: 'var(--where2go-white)', borderColor: 'var(--where2go-border)'}}
+        className="sm:max-w-md mx-4 !opacity-100 !bg-white" 
+        style={{backgroundColor: '#FFFFFF !important', borderColor: 'var(--where2go-border)', opacity: '1 !important'}}
       >
         <DialogHeader>
           <div className="flex items-center gap-2">

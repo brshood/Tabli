@@ -5,17 +5,17 @@
 
 :root {
   --font-size: 16px;
-  --background: #F3E5AB;
+  --background: #FAFAFA;
   --foreground: #3C3C3C;
-  --card: #F3E5AB;
+  --card: #FFFFFF;
   --card-foreground: #3C3C3C;
-  --popover: #F3E5AB;
+  --popover: #FFFFFF;
   --popover-foreground: #3C3C3C;
   --primary: #B7410E;
   --primary-foreground: #ffffff;
-  --secondary: #F3E5AB;
+  --secondary: #F3F4F6;
   --secondary-foreground: #3C3C3C;
-  --muted: #F8F1C1;
+  --muted: #F9FAFB;
   --muted-foreground: #3C3C3C;
   --accent: #B7410E;
   --accent-foreground: #ffffff;
@@ -23,8 +23,8 @@
   --destructive-foreground: #ffffff;
   --border: rgba(60, 60, 60, 0.2);
   --input: transparent;
-  --input-background: #F8F1C1;
-  --switch-background: #F8F1C1;
+  --input-background: #F9FAFB;
+  --switch-background: #F9FAFB;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #B7410E;
@@ -34,24 +34,24 @@
   --chart-4: #F3C084;
   --chart-5: #F8E6B9;
   --radius: 1rem;
-  --sidebar: #F3E5AB;
+  --sidebar: #F3F4F6;
   --sidebar-foreground: #3C3C3C;
   --sidebar-primary: #B7410E;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F8F1C1;
+  --sidebar-accent: #F9FAFB;
   --sidebar-accent-foreground: #3C3C3C;
   --sidebar-border: rgba(60, 60, 60, 0.2);
   --sidebar-ring: #B7410E;
   
   /* Tabli custom colors - Ivory Buff + Orange Rufous + Charcoal Grey Palette */
-  --tabli-ivory-buff: #F3E5AB;
-  --tabli-light-ivory: #F8F1C1;
+  --tabli-ivory-buff: #F3F4F6;
+  --tabli-light-ivory: #F9FAFB;
   --tabli-orange-rufous: #B7410E;
   --tabli-charcoal-grey: #3C3C3C;
   --tabli-warm-gray: #9FA0A0;
   --tabli-coral-accent: #D77A61;
-  --tabli-gradient-start: #F3E5AB;
-  --tabli-gradient-end: #F8F1C1;
+  --tabli-gradient-start: #F3F4F6;
+  --tabli-gradient-end: #F9FAFB;
   --tabli-shadow: rgba(183, 65, 14, 0.15);
   --tabli-glow: rgba(183, 65, 14, 0.4);
   

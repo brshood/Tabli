@@ -241,7 +241,7 @@ function AppContent() {
               className="absolute inset-0 w-full page-transition overflow-x-hidden"
             >
               <div className="relative min-h-screen flex items-center justify-center py-8 overflow-hidden">
-                <Card className="w-full max-w-md mx-4 card-shadow relative z-10" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+                <Card className="w-full max-w-md mx-4 card-shadow relative z-10" style={{backgroundColor: '#F3F4F6', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
                   <CardContent className="p-8 text-center">
                     <Users className="h-16 w-16 mx-auto mb-4" style={{color: '#B7410E'}} />
                     <h2 className="text-2xl font-semibold mb-4" style={{color: '#3C3C3C'}}>Staff Access Required</h2>
