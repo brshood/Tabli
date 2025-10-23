@@ -293,54 +293,70 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50 relative" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)', height: '128px'}}>
-          <Button
-            variant={currentPage === 'discover' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => navigateToPage('discover')}
-            className="pill-button absolute top-1/2 -translate-y-1/2"
-            style={{left: '48px'}}
-          >
-            <ArrowLeft className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-            Back
-          </Button>
-          <div className="container mx-auto h-full" style={{paddingLeft: '40px', paddingRight: '16px'}}>
-            <div className="flex items-center justify-between h-full">
-              <div className="flex items-center">
-                <button onClick={handleLogoClick} className="focus:outline-none py-1">
-                  <img src={tabliLogo} alt="Tabli" className="hover:opacity-80 transition-opacity cursor-pointer" style={{height: '160px', width: 'auto'}} />
+        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)'}}>
+          <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
+              {/* Left Section - Back Button (hidden on smallest screens) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigateToPage('discover')}
+                className="pill-button hidden xs:flex shrink-0 px-2 sm:px-3"
+              >
+                <ArrowLeft className={`h-3 w-3 sm:h-4 sm:w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+
+              {/* Center Section - Logo */}
+              <div className="flex items-center justify-center flex-shrink-0">
+                <button onClick={handleLogoClick} className="focus:outline-none">
+                  <img 
+                    src={tabliLogo} 
+                    alt="Tabli" 
+                    className="hover:opacity-80 transition-opacity cursor-pointer h-12 w-auto sm:h-16 md:h-20 lg:h-24" 
+                  />
                 </button>
               </div>
               
-              <div className="flex items-center space-x-2">
+              {/* Right Section - Navigation Buttons */}
+              <div className={`flex items-center gap-1 sm:gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                {/* Discover Button (hidden on mobile, shown on tablet+) */}
                 <Button
                   variant={currentPage === 'discover' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('discover')}
-                  className="pill-button"
+                  className="pill-button hidden md:flex px-2 sm:px-3 text-xs sm:text-sm"
                 >
-                  <Search className="h-4 w-4 mr-1" />
-                  Discover
+                  <Search className={`h-3 w-3 sm:h-4 sm:w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                  <span className="hidden lg:inline">Discover</span>
                 </Button>
+                
+                {/* Search Button */}
                 <Button
                   variant={currentPage === 'search' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('search')}
-                  className="pill-button"
+                  className={`pill-button px-2 sm:px-3 text-xs sm:text-sm ${isRTL ? 'font-arabic' : ''}`}
                 >
-                  <Search className="h-4 w-4 mr-1" />
-                  {t('nav.search')}
+                  <Search className={`h-3 w-3 sm:h-4 sm:w-4 ${isRTL ? 'ml-1 sm:ml-2' : 'mr-1 sm:mr-2'}`} />
+                  <span className="hidden sm:inline">{t('nav.search')}</span>
                 </Button>
+                
+                {/* Staff Button */}
                 <Button
                   variant={currentPage === 'staff' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={handleStaffClick}
-                  className="pill-button"
+                  className={`pill-button px-2 sm:px-3 text-xs sm:text-sm ${isRTL ? 'font-arabic' : ''}`}
                 >
-                  <Users className="h-4 w-4 mr-1" />
-                  {t('nav.staff')}
+                  <Users className={`h-3 w-3 sm:h-4 sm:w-4 ${isRTL ? 'ml-1 sm:ml-2' : 'mr-1 sm:mr-2'}`} />
+                  <span className="hidden sm:inline">{t('nav.staff')}</span>
                 </Button>
-                <LanguageToggle />
+                
+                {/* Language Toggle */}
+                <div className="shrink-0">
+                  <LanguageToggle />
+                </div>
               </div>
             </div>
           </div>
