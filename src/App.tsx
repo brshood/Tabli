@@ -8,7 +8,7 @@ import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
 import { StaffAuthModal } from './components/StaffAuthModal';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Users, Search, ArrowLeft } from 'lucide-react';
+import { Search, Compass, Users } from 'lucide-react';
 import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
@@ -308,33 +308,24 @@ function AppContent() {
               </div>
               
               {/* Navigation Buttons */}
-              <div className="flex items-center gap-1 sm:gap-2">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button
                   variant={currentPage === 'discover' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('discover')}
-                  className="pill-button text-xs sm:text-sm px-2 sm:px-3"
+                  className="pill-button text-sm sm:text-base px-3 sm:px-4"
                 >
-                  <Search className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">{t('nav.discover')}</span>
+                  <Compass className="h-4 w-4 mr-2" />
+                  <span>{t('nav.discover')}</span>
                 </Button>
                 <Button
                   variant={currentPage === 'search' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('search')}
-                  className="pill-button text-xs sm:text-sm px-2 sm:px-3"
+                  className="pill-button text-sm sm:text-base px-3 sm:px-4"
                 >
-                  <Search className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">{t('nav.search')}</span>
-                </Button>
-                <Button
-                  variant={currentPage === 'staff' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={handleStaffClick}
-                  className="pill-button text-xs sm:text-sm px-2 sm:px-3"
-                >
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">{t('nav.staff')}</span>
+                  <Search className="h-4 w-4 mr-2" />
+                  <span>{t('nav.search')}</span>
                 </Button>
                 <LanguageToggle />
               </div>
