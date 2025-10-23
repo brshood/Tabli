@@ -94,7 +94,7 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName }: Post
               >
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
-              <SelectContent style={{backgroundColor: 'var(--where2go-white)'}}>
+              <SelectContent style={{backgroundColor: '#FFFFFF', opacity: '1'}} className="!bg-white !opacity-100">
                 {hearAboutUsOptions.map((option) => (
                   <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
