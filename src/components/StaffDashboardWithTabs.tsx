@@ -599,7 +599,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm" style={{color: '#3C3C3C'}} className="mb-1">Today's Customers</p>
+                      <p className="text-sm mb-1" style={{color: '#3C3C3C'}}>Today's Customers</p>
                       <p className="text-3xl font-bold" style={{color: '#3C3C3C'}}>247</p>
                       <div className="flex items-center mt-2">
                         <TrendingUp className="h-4 w-4 mr-1" style={{color: '#B7410E'}} />
