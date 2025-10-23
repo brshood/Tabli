@@ -79,7 +79,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               size="lg"
               className="pill-button text-lg px-8 py-6"
             >
-              Browse All Restaurants
+              Browse More!
             </Button>
           </div>
         </div>
@@ -298,7 +298,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             className="pill-button cta-button text-lg px-8 py-4"
           >
             <Search className="h-5 w-5 mr-2" />
-            Browse All Restaurants
+            Browse More!
           </Button>
         </div>
       </div>

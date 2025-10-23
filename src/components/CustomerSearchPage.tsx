@@ -29,6 +29,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
   const [selectedRestaurantForBooking, setSelectedRestaurantForBooking] = useState<any>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,6 +50,14 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
     
     return matchesSearch && matchesLocation;
   });
+
+  const handleCardClick = (restaurant: any) => {
+    setSelectedCard(restaurant.id);
+    // Add a small delay for animation before navigating
+    setTimeout(() => {
+      onNavigate('restaurant-profile', restaurant);
+    }, 300);
+  };
 
   return (
     <div className="relative min-h-screen py-8 overflow-hidden" style={{backgroundColor: '#F5F5F5'}}>
@@ -127,7 +136,19 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         {/* Restaurant Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {filteredRestaurants.map((restaurant) => (
-            <Card key={restaurant.id} className="card-shadow border-0 rounded-3xl overflow-hidden hover:scale-105 transition-transform duration-300 relative">
+            <Card 
+              key={restaurant.id} 
+              className={`card-shadow border-0 rounded-3xl overflow-hidden transition-all duration-300 relative cursor-pointer ${
+                selectedCard === restaurant.id 
+                  ? 'scale-110 shadow-2xl' 
+                  : 'hover:scale-105'
+              }`}
+              onClick={() => handleCardClick(restaurant)}
+              style={{
+                transform: selectedCard === restaurant.id ? 'scale(1.1)' : 'scale(1)',
+                transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            >
               <div className="h-48 flex items-center justify-center relative" style={{background: 'linear-gradient(to bottom right, #F8F1C1, #F3E5AB)'}}>
                 <span className="text-lg font-medium" style={{color: '#B7410E'}}>{restaurant.name}</span>
                 
@@ -202,7 +223,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                     {restaurant.status === 'available' ? (
                       <Button 
                         className={`flex-1 pill-button cta-button ${isRTL ? 'font-arabic' : ''}`}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedRestaurantForBooking(restaurant);
                           setBookingMode('reserve');
                           setBookingModalOpen(true);
@@ -214,7 +236,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       <Button 
                         className={`flex-1 pill-button text-white ${isRTL ? 'font-arabic' : ''}`}
                         style={{backgroundColor: '#000000', borderColor: '#000000'}}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedRestaurantForBooking(restaurant);
                           setBookingMode('waitlist');
                           setBookingModalOpen(true);
@@ -224,7 +247,12 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       </Button>
                     )}
                     
-                    <Button variant="outline" size="sm" className="pill-button">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="pill-button"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Phone className="h-4 w-4" />
                     </Button>
                   </div>
@@ -233,7 +261,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                     variant="outline" 
                     size="sm" 
                     className={`w-full pill-button ${isRTL ? 'font-arabic' : ''}`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedRestaurant(restaurant);
                       setMenuModalOpen(true);
                     }}

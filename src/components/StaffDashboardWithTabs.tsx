@@ -63,18 +63,18 @@ const capacityData = [
 ];
 
 const peakHoursData = [
-  { time: '11 AM', customers: 15 },
-  { time: '12 PM', customers: 28 },
-  { time: '1 PM', customers: 42 },
-  { time: '2 PM', customers: 38 },
-  { time: '3 PM', customers: 22 },
-  { time: '4 PM', customers: 18 },
-  { time: '5 PM', customers: 24 },
-  { time: '6 PM', customers: 45 },
-  { time: '7 PM', customers: 68 },
-  { time: '8 PM', customers: 72 },
-  { time: '9 PM', customers: 58 },
-  { time: '10 PM', customers: 35 }
+  { time: '11 AM', male: 8, female: 7, all: 15 },
+  { time: '12 PM', male: 15, female: 13, all: 28 },
+  { time: '1 PM', male: 23, female: 19, all: 42 },
+  { time: '2 PM', male: 21, female: 17, all: 38 },
+  { time: '3 PM', male: 12, female: 10, all: 22 },
+  { time: '4 PM', male: 10, female: 8, all: 18 },
+  { time: '5 PM', male: 13, female: 11, all: 24 },
+  { time: '6 PM', male: 25, female: 20, all: 45 },
+  { time: '7 PM', male: 38, female: 30, all: 68 },
+  { time: '8 PM', male: 40, female: 32, all: 72 },
+  { time: '9 PM', male: 32, female: 26, all: 58 },
+  { time: '10 PM', male: 19, female: 16, all: 35 }
 ];
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: StaffDashboardProps) {
@@ -752,11 +752,30 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="customers" 
-                      stroke="#B7410E" 
+                      dataKey="male" 
+                      stroke="#3B82F6" 
+                      strokeWidth={2}
+                      name="Male"
+                      dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#3B82F6', strokeWidth: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="female" 
+                      stroke="#EF4444" 
+                      strokeWidth={2}
+                      name="Female"
+                      dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#EF4444', strokeWidth: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="all" 
+                      stroke="#000000" 
                       strokeWidth={3}
-                      dot={{ fill: '#B7410E', strokeWidth: 2, r: 6 }}
-                      activeDot={{ r: 8, fill: '#ffffff', stroke: '#B7410E', strokeWidth: 3 }}
+                      name="All"
+                      dot={{ fill: '#000000', strokeWidth: 2, r: 5 }}
+                      activeDot={{ r: 7, fill: '#ffffff', stroke: '#000000', strokeWidth: 3 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
