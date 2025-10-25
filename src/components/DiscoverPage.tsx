@@ -63,14 +63,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
 
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>
-       {/* Wave Background */}
+       {/* Wave Background - Extended to cover navigation area */}
        <div className="absolute inset-0 pointer-events-none" style={{
          backgroundImage: `url("data:image/svg+xml,%3Csvg width='1440' height='800' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,200 Q360,100 720,200 T1440,200 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.1'/%3E%3Cpath d='M0,400 Q360,300 720,400 T1440,400 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.15'/%3E%3Cpath d='M0,600 Q360,500 720,600 T1440,600 L1440,800 L0,800 Z' fill='%23F0DC82' opacity='0.2'/%3E%3C/svg%3E")`,
          backgroundRepeat: 'no-repeat',
-         backgroundPosition: 'bottom',
-         backgroundSize: 'cover'
+         backgroundPosition: 'top',
+         backgroundSize: 'cover',
+         top: '-80px',
+         height: 'calc(100% + 80px)'
        }}></div>
-      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-6xl mt-4 sm:mt-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-6xl">
         {/* Browse All Restaurants Button */}
         <div className="mb-12">
           <div className="max-w-2xl mx-auto flex justify-center">

@@ -18,12 +18,12 @@ export function LanguageToggle({ className }: LanguageToggleProps) {
       variant="outline"
       size="sm"
       onClick={toggleLanguage}
-      className={`pill-button flex items-center gap-2 ${className || ''}`}
+      className={`pill-button flex items-center gap-1 sm:gap-2 ${className || ''}`}
       style={{borderColor: '#B7410E', color: '#B7410E'}}
     >
-      <Globe className="h-4 w-4" />
-      <span className="font-medium">
-        {language === 'en' ? t('language.arabic') : t('language.english')}
+      <Globe className="h-3 w-3 sm:h-4 sm:w-4" />
+      <span className="font-medium text-xs sm:text-sm">
+        {language === 'en' ? 'ع' : 'EN'}
       </span>
     </Button>
   );

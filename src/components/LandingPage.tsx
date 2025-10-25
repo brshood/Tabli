@@ -28,13 +28,13 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               <img src={tabliLogo} alt="Tabli" className="h-64 w-auto mx-auto mb-4" />
             </div>
             
-            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 leading-tight ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C', letterSpacing: isRTL ? '0.15em' : 'normal', lineHeight: isRTL ? '1.1' : '1.25'}}>
               <div className="block">{t('hero.title.line1')}</div>
               <div className="block">{t('hero.title.line2')}</div>
               <div className="block" style={{color: '#B7410E'}}>{t('hero.title.line3')}</div>
             </h1>
             
-            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C', letterSpacing: isRTL ? '0.08em' : 'normal', lineHeight: isRTL ? '1.1' : '1.625'}}>
               {t('hero.subtitle')}
             </p>
             

@@ -294,10 +294,10 @@ function AppContent() {
       {/* Navigation */}
       {currentPage !== 'landing' && (
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)'}}>
-          <div className="container mx-auto px-4 py-2 sm:py-2.5">
+          <div className="container mx-auto px-4" style={{paddingTop: '0px', paddingBottom: '0px'}}>
             <div className="flex items-center justify-between gap-3 sm:gap-4">
               {/* Logo - Percentage-based sizing for consistent proportion */}
-              <div className="flex items-center" style={{width: '18%', minWidth: '100px', maxWidth: '180px'}}>
+              <div className="flex items-center" style={{width: '18%', minWidth: '80px', maxWidth: '140px'}}>
                 <button onClick={handleLogoClick} className="focus:outline-none w-full">
                   <img 
                     src={tabliLogo} 
@@ -308,23 +308,23 @@ function AppContent() {
               </div>
               
               {/* Navigation Buttons */}
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Button
                   variant={currentPage === 'discover' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('discover')}
-                  className="pill-button text-sm sm:text-base px-3 sm:px-4"
+                  className="pill-button text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <Compass className="h-4 w-4 mr-2" />
+                  <Compass className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                   <span>{t('nav.discover')}</span>
                 </Button>
                 <Button
                   variant={currentPage === 'search' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => navigateToPage('search')}
-                  className="pill-button text-sm sm:text-base px-3 sm:px-4"
+                  className="pill-button text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <Search className="h-4 w-4 mr-2" />
+                  <Search className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                   <span>{t('nav.search')}</span>
                 </Button>
                 <LanguageToggle />

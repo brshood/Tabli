@@ -53,7 +53,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
       
-      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl mt-4 sm:mt-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">
         {/* Cover Section */}
         <Card className="mb-6 overflow-hidden border-0 card-shadow">
           <div 
