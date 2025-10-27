@@ -60,7 +60,7 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
                   text-align: center;
                 }
                 h1 {
-                  color: #B7410E;
+                  color: #5A5E3E;
                   margin-bottom: 20px;
                 }
                 img {
@@ -68,7 +68,7 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
                   margin: 20px 0;
                 }
                 p {
-                  color: #3C3C3C;
+                  color: #2D2D2B;
                   font-size: 18px;
                   margin: 10px;
                 }
@@ -76,7 +76,7 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
                   max-width: 600px;
                   margin-top: 30px;
                   padding: 20px;
-                  background: #F5F5F5;
+                  background: #FAF8F2;
                   border-radius: 10px;
                 }
               </style>

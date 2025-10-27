@@ -117,11 +117,11 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" style={{backgroundColor: '#F3E5AB'}}>
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center" style={{color: '#3C3C3C'}}>
-            <Settings className="h-6 w-6 mr-2" style={{color: '#B7410E'}} />
+          <DialogTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
+            <Settings className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
             Restaurant Settings
           </DialogTitle>
-          <DialogDescription style={{color: '#3C3C3C'}}>
+          <DialogDescription style={{color: '#2D2D2B'}}>
             Manage your restaurant profile, cover image, menu, and general settings.
           </DialogDescription>
         </DialogHeader>
@@ -150,27 +150,27 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
           <TabsContent value="profile" className="space-y-6">
             <Card className="border-0 rounded-2xl card-shadow">
               <CardHeader>
-                <CardTitle style={{color: '#3C3C3C'}}>Basic Information</CardTitle>
+                <CardTitle style={{color: '#2D2D2B'}}>Basic Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name" style={{color: '#3C3C3C'}}>Restaurant Name</Label>
+                    <Label htmlFor="name" style={{color: '#2D2D2B'}}>Restaurant Name</Label>
                     <Input
                       id="name"
                       value={currentRestaurant.name}
                       onChange={(e) => updateRestaurant({ name: e.target.value })}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="city" style={{color: '#3C3C3C'}}>City</Label>
+                    <Label htmlFor="city" style={{color: '#2D2D2B'}}>City</Label>
                     <Select 
                       value={currentRestaurant.city} 
                       onValueChange={(value: 'Al Ain' | 'Abu Dhabi' | 'Dubai') => updateRestaurant({ city: value })}
                     >
-                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}>
                         <SelectValue placeholder="Select city" />
                       </SelectTrigger>
                       <SelectContent style={{backgroundColor: '#F3E5AB'}}>
@@ -184,12 +184,12 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="cuisine" style={{color: '#3C3C3C'}}>Cuisine Type</Label>
+                    <Label htmlFor="cuisine" style={{color: '#2D2D2B'}}>Cuisine Type</Label>
                     <Select 
                       value={currentRestaurant.cuisine} 
                       onValueChange={(value) => updateRestaurant({ cuisine: value })}
                     >
-                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}>
                         <SelectValue placeholder="Select cuisine type" />
                       </SelectTrigger>
                       <SelectContent style={{backgroundColor: '#F3E5AB'}}>
@@ -200,12 +200,12 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="priceRange" style={{color: '#3C3C3C'}}>Price Range</Label>
+                    <Label htmlFor="priceRange" style={{color: '#2D2D2B'}}>Price Range</Label>
                     <Select 
                       value={currentRestaurant.priceRange} 
                       onValueChange={(value) => updateRestaurant({ priceRange: value })}
                     >
-                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+                      <SelectTrigger className="rounded-xl" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}>
                         <SelectValue placeholder="Select price range" />
                       </SelectTrigger>
                       <SelectContent style={{backgroundColor: '#F3E5AB'}}>
@@ -219,13 +219,13 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                 </div>
 
                 <div>
-                  <Label htmlFor="description" style={{color: '#3C3C3C'}}>Description</Label>
+                  <Label htmlFor="description" style={{color: '#2D2D2B'}}>Description</Label>
                   <Textarea
                     id="description"
                     value={currentRestaurant.description}
                     onChange={(e) => updateRestaurant({ description: e.target.value })}
                     className="rounded-xl"
-                    style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                    style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                     rows={3}
                     placeholder="Tell customers about your restaurant..."
                   />
@@ -235,31 +235,31 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
 
             <Card className="border-0 rounded-2xl card-shadow">
               <CardHeader>
-                <CardTitle style={{color: '#3C3C3C'}}>Contact Information</CardTitle>
+                <CardTitle style={{color: '#2D2D2B'}}>Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="phone" style={{color: '#3C3C3C'}}>Phone Number</Label>
+                    <Label htmlFor="phone" style={{color: '#2D2D2B'}}>Phone Number</Label>
                     <Input
                       id="phone"
                       type="tel"
                       value={currentRestaurant.phone}
                       onChange={(e) => updateRestaurant({ phone: e.target.value })}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                       placeholder="(555) 123-4567"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="email" style={{color: '#3C3C3C'}}>Email Address</Label>
+                    <Label htmlFor="email" style={{color: '#2D2D2B'}}>Email Address</Label>
                     <Input
                       id="email"
                       type="email"
                       value={currentRestaurant.email}
                       onChange={(e) => updateRestaurant({ email: e.target.value })}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                       placeholder="restaurant@example.com"
                     />
                   </div>
@@ -267,25 +267,25 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="openingHours" style={{color: '#3C3C3C'}}>Opening Time</Label>
+                    <Label htmlFor="openingHours" style={{color: '#2D2D2B'}}>Opening Time</Label>
                     <Input
                       id="openingHours"
                       type="time"
                       value={currentRestaurant.openingHours}
                       onChange={(e) => updateRestaurant({ openingHours: e.target.value })}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="closingHours" style={{color: '#3C3C3C'}}>Closing Time</Label>
+                    <Label htmlFor="closingHours" style={{color: '#2D2D2B'}}>Closing Time</Label>
                     <Input
                       id="closingHours"
                       type="time"
                       value={currentRestaurant.closingHours}
                       onChange={(e) => updateRestaurant({ closingHours: e.target.value })}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                     />
                   </div>
                 </div>
@@ -297,7 +297,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
           <TabsContent value="cover" className="space-y-6">
             <Card className="border-0 rounded-2xl card-shadow">
               <CardHeader>
-                <CardTitle style={{color: '#3C3C3C'}}>Restaurant Cover Image</CardTitle>
+                <CardTitle style={{color: '#2D2D2B'}}>Restaurant Cover Image</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {currentRestaurant.coverImage ? (
@@ -323,13 +323,13 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                 ) : (
                   <div 
                     className="border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer hover:border-solid transition-all"
-                    style={{borderColor: 'rgba(183, 65, 14, 0.3)', backgroundColor: '#F8F1C1'}}
+                    style={{borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FAF8F2'}}
                     onClick={() => document.getElementById('cover-upload')?.click()}
                   >
-                    <Upload className="h-12 w-12 mx-auto mb-4" style={{color: '#B7410E'}} />
-                    <h3 className="text-lg font-medium mb-2" style={{color: '#3C3C3C'}}>Upload Cover Image</h3>
-                    <p style={{color: '#3C3C3C'}}>Click to browse or drag and drop your restaurant's cover photo</p>
-                    <p className="text-sm mt-2" style={{color: '#9FA0A0'}}>Recommended: 1200x600px, JPG or PNG</p>
+                    <Upload className="h-12 w-12 mx-auto mb-4" style={{color: '#5A5E3E'}} />
+                    <h3 className="text-lg font-medium mb-2" style={{color: '#2D2D2B'}}>Upload Cover Image</h3>
+                    <p style={{color: '#2D2D2B'}}>Click to browse or drag and drop your restaurant's cover photo</p>
+                    <p className="text-sm mt-2" style={{color: '#5B6142'}}>Recommended: 1200x600px, JPG or PNG</p>
                   </div>
                 )}
 
@@ -345,7 +345,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                   <Button
                     onClick={() => document.getElementById('cover-upload')?.click()}
                     className="pill-button"
-                    style={{backgroundColor: '#B7410E', color: 'white'}}
+                    style={{backgroundColor: '#3F4427', color: 'white'}}
                   >
                     <Upload className="h-4 w-4 mr-2" />
                     {currentRestaurant.coverImage ? 'Change Image' : 'Upload Image'}
@@ -359,15 +359,15 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
           <TabsContent value="menu" className="space-y-6">
             <Card className="border-0 rounded-2xl card-shadow">
               <CardHeader>
-                <CardTitle style={{color: '#3C3C3C'}}>Menu Management</CardTitle>
+                <CardTitle style={{color: '#2D2D2B'}}>Menu Management</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Add New Menu Item */}
-                <div className="p-4 rounded-2xl" style={{backgroundColor: '#F8F1C1', border: '2px dashed rgba(183, 65, 14, 0.3)'}}>
-                  <h4 className="font-medium mb-4" style={{color: '#3C3C3C'}}>Add New Menu Item</h4>
+                <div className="p-4 rounded-2xl" style={{backgroundColor: '#FAF8F2', border: '2px dashed rgba(90, 94, 62, 0.3)'}}>
+                  <h4 className="font-medium mb-4" style={{color: '#2D2D2B'}}>Add New Menu Item</h4>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <Label style={{color: '#3C3C3C'}}>Item Name</Label>
+                      <Label style={{color: '#2D2D2B'}}>Item Name</Label>
                       <Input
                         value={newMenuItem.name}
                         onChange={(e) => setNewMenuItem(prev => ({...prev, name: e.target.value}))}
@@ -377,7 +377,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                       />
                     </div>
                     <div>
-                      <Label style={{color: '#3C3C3C'}}>Category</Label>
+                      <Label style={{color: '#2D2D2B'}}>Category</Label>
                       <Input
                         value={newMenuItem.category}
                         onChange={(e) => setNewMenuItem(prev => ({...prev, category: e.target.value}))}
@@ -388,7 +388,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                     </div>
                   </div>
                   <div className="mb-4">
-                    <Label style={{color: '#3C3C3C'}}>Description</Label>
+                    <Label style={{color: '#2D2D2B'}}>Description</Label>
                     <Textarea
                       value={newMenuItem.description}
                       onChange={(e) => setNewMenuItem(prev => ({...prev, description: e.target.value}))}
@@ -400,7 +400,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                   </div>
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <Label style={{color: '#3C3C3C'}}>Price (AED)</Label>
+                      <Label style={{color: '#2D2D2B'}}>Price (AED)</Label>
                       <Input
                         type="number"
                         value={newMenuItem.price}
@@ -414,7 +414,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                       <Button
                         onClick={handleAddMenuItem}
                         className="pill-button"
-                        style={{backgroundColor: '#B7410E', color: 'white'}}
+                        style={{backgroundColor: '#3F4427', color: 'white'}}
                       >
                         Add Item
                       </Button>
@@ -424,21 +424,21 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
 
                 {/* Current Menu Items */}
                 <div className="space-y-4">
-                  <h4 className="font-medium" style={{color: '#3C3C3C'}}>Current Menu ({currentRestaurant.menu.length} items)</h4>
+                  <h4 className="font-medium" style={{color: '#2D2D2B'}}>Current Menu ({currentRestaurant.menu.length} items)</h4>
                   {currentRestaurant.menu.map((item, index) => (
-                    <div key={index} className="p-4 rounded-2xl border" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(183, 65, 14, 0.2)'}}>
+                    <div key={index} className="p-4 rounded-2xl border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h5 className="font-medium" style={{color: '#3C3C3C'}}>{item.name}</h5>
-                            <Badge className="text-xs" style={{backgroundColor: '#E8934F', color: '#B7410E'}}>
+                            <h5 className="font-medium" style={{color: '#2D2D2B'}}>{item.name}</h5>
+                            <Badge className="text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
                               {item.category}
                             </Badge>
                           </div>
                           {item.description && (
-                            <p className="text-sm mb-2" style={{color: '#3C3C3C'}}>{item.description}</p>
+                            <p className="text-sm mb-2" style={{color: '#2D2D2B'}}>{item.description}</p>
                           )}
-                          <p className="font-medium" style={{color: '#B7410E'}}>AED {item.price}</p>
+                          <p className="font-medium" style={{color: '#5A5E3E'}}>AED {item.price}</p>
                         </div>
                         <Button
                           size="sm"
@@ -454,7 +454,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                   ))}
 
                   {currentRestaurant.menu.length === 0 && (
-                    <div className="text-center py-8" style={{color: '#9FA0A0'}}>
+                    <div className="text-center py-8" style={{color: '#5B6142'}}>
                       <Menu className="h-12 w-12 mx-auto mb-3 opacity-50" />
                       <p>No menu items added yet</p>
                     </div>
@@ -468,52 +468,52 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
           <TabsContent value="security" className="space-y-6">
             <Card className="border-0 rounded-2xl card-shadow">
               <CardHeader>
-                <CardTitle style={{color: '#3C3C3C'}}>Change Password</CardTitle>
+                <CardTitle style={{color: '#2D2D2B'}}>Change Password</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="currentPassword" style={{color: '#3C3C3C'}}>Current Password</Label>
+                  <Label htmlFor="currentPassword" style={{color: '#2D2D2B'}}>Current Password</Label>
                   <Input
                     id="currentPassword"
                     type="password"
                     value={passwordData.currentPassword}
                     onChange={(e) => setPasswordData(prev => ({...prev, currentPassword: e.target.value}))}
                     className="rounded-xl"
-                    style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                    style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                     placeholder="Enter your current password"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="newPassword" style={{color: '#3C3C3C'}}>New Password</Label>
+                    <Label htmlFor="newPassword" style={{color: '#2D2D2B'}}>New Password</Label>
                     <Input
                       id="newPassword"
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData(prev => ({...prev, newPassword: e.target.value}))}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                       placeholder="Enter new password"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="confirmPassword" style={{color: '#3C3C3C'}}>Confirm New Password</Label>
+                    <Label htmlFor="confirmPassword" style={{color: '#2D2D2B'}}>Confirm New Password</Label>
                     <Input
                       id="confirmPassword"
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({...prev, confirmPassword: e.target.value}))}
                       className="rounded-xl"
-                      style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(60, 60, 60, 0.2)'}}
+                      style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(45, 45, 43, 0.2)'}}
                       placeholder="Confirm new password"
                     />
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl" style={{backgroundColor: '#F8F1C1', border: '1px solid rgba(183, 65, 14, 0.2)'}}>
-                  <h5 className="font-medium mb-2" style={{color: '#3C3C3C'}}>Password Requirements:</h5>
-                  <ul className="text-sm space-y-1" style={{color: '#3C3C3C'}}>
+                <div className="p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+                  <h5 className="font-medium mb-2" style={{color: '#2D2D2B'}}>Password Requirements:</h5>
+                  <ul className="text-sm space-y-1" style={{color: '#2D2D2B'}}>
                     <li>• At least 6 characters long</li>
                     <li>• Must contain both letters and numbers</li>
                     <li>• Cannot be the same as your current password</li>
@@ -524,7 +524,7 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
                   <Button
                     onClick={handlePasswordChange}
                     className="pill-button"
-                    style={{backgroundColor: '#B7410E', color: 'white'}}
+                    style={{backgroundColor: '#3F4427', color: 'white'}}
                     disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
                   >
                     <Lock className="h-4 w-4 mr-2" />
@@ -542,14 +542,14 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
             variant="outline"
             onClick={onClose}
             className="pill-button"
-            style={{borderColor: '#9FA0A0', color: '#9FA0A0'}}
+            style={{borderColor: '#5B6142', color: '#5B6142'}}
           >
             Cancel
           </Button>
           <Button
             onClick={handleSaveSettings}
             className="pill-button"
-            style={{backgroundColor: '#B7410E', color: 'white'}}
+            style={{backgroundColor: '#3F4427', color: 'white'}}
           >
             <Save className="h-4 w-4 mr-2" />
             Save Settings

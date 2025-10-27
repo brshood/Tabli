@@ -8,7 +8,7 @@ export function WaveBackground({ className = "" }: WaveBackgroundProps) {
   return (
     <div className={`absolute inset-0 overflow-hidden ${className}`} style={{ willChange: 'auto' }}>
       {/* Base background */}
-      <div className="absolute inset-0" style={{ backgroundColor: '#F8F1C1' }} />
+      <div className="absolute inset-0" style={{ backgroundColor: '#FAF8F2' }} />
       
       {/* Main Wave Layer - Large Bottom Wave (Orange Rufous) */}
       <div className="absolute bottom-0 w-full h-full">
@@ -31,7 +31,7 @@ export function WaveBackground({ className = "" }: WaveBackgroundProps) {
         >
           <path
             d="M0,300 C300,450 600,150 900,300 C1200,450 1500,150 1800,300 C2100,450 2400,150 2400,300 L2400,600 L0,600 Z"
-            fill="#B7410E"
+            fill="#5A5E3E"
             opacity="0.25"
           />
         </motion.svg>
@@ -108,7 +108,7 @@ export function WaveBackground({ className = "" }: WaveBackgroundProps) {
         >
           <path
             d="M0,30 Q300,15 600,30 T1200,30 Q1500,15 1800,30 T2400,30"
-            stroke="#B7410E"
+            stroke="#5A5E3E"
             strokeWidth="3"
             fill="none"
           />
@@ -121,7 +121,7 @@ export function WaveBackground({ className = "" }: WaveBackgroundProps) {
           key={i}
           className="absolute w-1.5 h-1.5 rounded-full"
           style={{
-            backgroundColor: i % 3 === 0 ? '#B7410E' : i % 3 === 1 ? '#3C3C3C' : '#D4621A',
+            backgroundColor: i % 3 === 0 ? '#5A5E3E' : i % 3 === 1 ? '#2D2D2B' : '#B6683B',
             left: `${(i * 15) + 10}%`,
             top: `${(i * 10) + 20}%`,
             opacity: 0.4

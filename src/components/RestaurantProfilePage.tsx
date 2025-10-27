@@ -20,7 +20,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import type { Restaurant } from './RestaurantContext';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
+import tabliLogo from '../assets/tabli-logo-new.png';
 
 interface RestaurantProfilePageProps {
   restaurant: Restaurant;
@@ -172,7 +172,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               {restaurant.status === 'available' ? (
                 <Button 
                   className={`w-full pill-button text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
-                  style={{backgroundColor: '#1F2937', color: '#FFFFFF'}}
+                  style={{backgroundColor: '#B8860B', color: '#FFFFFF'}}
                   onClick={() => {
                     setBookingMode('reserve');
                     setBookingModalOpen(true);

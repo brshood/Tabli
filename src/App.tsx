@@ -9,7 +9,7 @@ import { StaffAuthModal } from './components/StaffAuthModal';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 import { Search, Compass, Users } from 'lucide-react';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
+import tabliLogo from './assets/tabli-logo-new.png';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './components/WaveBackground';
@@ -294,10 +294,10 @@ function AppContent() {
       {/* Navigation */}
       {currentPage !== 'landing' && (
         <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)'}}>
-          <div className="container mx-auto px-4" style={{paddingTop: '0px', paddingBottom: '0px'}}>
+          <div className="container mx-auto px-4 py-3" style={{paddingTop: '12px', paddingBottom: '12px'}}>
             <div className="flex items-center justify-between gap-3 sm:gap-4">
               {/* Logo - Percentage-based sizing for consistent proportion */}
-              <div className="flex items-center" style={{width: '18%', minWidth: '80px', maxWidth: '140px'}}>
+              <div className="flex items-center" style={{width: '13.5%', minWidth: '60px', maxWidth: '105px'}}>
                 <button onClick={handleLogoClick} className="focus:outline-none w-full">
                   <img 
                     src={tabliLogo} 

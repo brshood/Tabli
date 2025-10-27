@@ -58,8 +58,8 @@ const seatedVsWaitingData = [
 ];
 
 const capacityData = [
-  { name: 'Occupied', value: 65, color: '#B7410E' },
-  { name: 'Available', value: 35, color: '#E8934F' }
+  { name: 'Occupied', value: 65, color: '#5A5E3E' },
+  { name: 'Available', value: 35, color: '#B889A6' }
 ];
 
 const peakHoursData = [
@@ -362,33 +362,33 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               {/* Waitlist */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-2xl flex items-center" style={{color: '#3C3C3C'}}>
-                    <Clock className="h-6 w-6 mr-2" style={{color: '#B7410E'}} />
+                  <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
+                    <Clock className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
                     Waitlist ({waitlist.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
                   <div className="space-y-4 max-h-96 overflow-y-auto">
                     {waitlist.map((customer) => (
-                      <div key={customer.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(183, 65, 14, 0.2)'}}>
+                      <div key={customer.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
-                            <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#E8934F'}}>
-                              <User className="h-5 w-5" style={{color: '#B7410E'}} />
+                            <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                              <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
                             </div>
                             <div>
-                              <h4 className="font-semibold" style={{color: '#3C3C3C'}}>{customer.name}</h4>
-                              <p className="text-sm" style={{color: '#3C3C3C'}}>Party of {customer.partySize} • Joined {customer.joined}</p>
+                              <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                              <p className="text-sm" style={{color: '#2D2D2B'}}>Party of {customer.partySize} • Joined {customer.joined}</p>
                             </div>
                           </div>
-                          <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#E8934F', color: '#B7410E'}}>
+                          <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
                             {customer.waitTime}
                           </Badge>
                         </div>
                         
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center text-sm" style={{color: '#3C3C3C'}}>
+                            <div className="flex items-center text-sm" style={{color: '#2D2D2B'}}>
                               <Phone className="h-4 w-4 mr-1" />
                               {customer.phone}
                             </div>
@@ -398,7 +398,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                                 size="sm" 
                                 onClick={() => seatCustomer(customer.id)}
                                 className="pill-button text-xs text-white"
-                                style={{backgroundColor: 'var(--where2go-accent)'}}
+                                style={{backgroundColor: '#3F4427'}}
                               >
                                 Seat Now
                               </Button>
@@ -440,15 +440,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-2xl flex items-center" style={{color: '#3C3C3C'}}>
-                      <Table className="h-6 w-6 mr-2" style={{color: '#B7410E'}} />
+                    <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
+                      <Table className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
                       Currently Seated ({seatedTables.length})
                     </CardTitle>
                     <Button
                       size="sm"
                       onClick={() => setTableManagementModalOpen(true)}
                       className="pill-button text-white h-8 w-8 p-0"
-                      style={{backgroundColor: '#B7410E'}}
+                      style={{backgroundColor: '#3F4427'}}
                       title="Add new table"
                     >
                       <Plus className="h-4 w-4" />
@@ -459,26 +459,26 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                   <div className="space-y-6">
                     {/* Occupied Tables */}
                     <div className="space-y-4 max-h-64 overflow-y-auto">
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#3C3C3C'}}>Occupied Tables</h5>
+                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Occupied Tables</h5>
                       {seatedTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#F8F1C1', borderColor: 'rgba(183, 65, 14, 0.2)'}}>
+                        <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center">
-                              <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#E8934F'}}>
-                                <Table className="h-5 w-5" style={{color: '#B7410E'}} />
+                              <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
                               </div>
                               <div>
-                                <h4 className="font-semibold" style={{color: '#3C3C3C'}}>{table.table}</h4>
-                                <p className="text-sm" style={{color: '#3C3C3C'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
+                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
+                                <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
                               </div>
                             </div>
-                            <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#E8934F', color: '#B7410E'}}>
+                            <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
                               {table.duration}
                             </Badge>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <div className="text-sm" style={{color: '#3C3C3C'}}>
+                            <div className="text-sm" style={{color: '#2D2D2B'}}>
                               Seated at {table.seatedTime}
                             </div>
                             
@@ -486,7 +486,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                               size="sm" 
                               onClick={() => checkOutTable(table.id)}
                               className="pill-button text-xs text-white"
-                              style={{backgroundColor: '#B7410E'}}
+                              style={{backgroundColor: '#3F4427'}}
                             >
                               Check Out
                             </Button>
@@ -504,17 +504,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
 
                     {/* Available Tables */}
                     <div className="space-y-4 max-h-32 overflow-y-auto border-t pt-4" style={{borderColor: 'rgba(183, 65, 14, 0.2)'}}>
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#3C3C3C'}}>Available Tables</h5>
+                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Available Tables</h5>
                       {availableTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(183, 65, 14, 0.2)'}}>
+                        <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
-                              <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#E8934F'}}>
-                                <Table className="h-4 w-4" style={{color: '#B7410E'}} />
+                              <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
                               </div>
                               <div>
-                                <h4 className="font-medium" style={{color: '#3C3C3C'}}>{table.tableName}</h4>
-                                <p className="text-xs" style={{color: '#3C3C3C'}}>Capacity: {table.capacity} guests</p>
+                                <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                                <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
                               </div>
                             </div>
                             
@@ -523,7 +523,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                                 size="sm" 
                                 onClick={() => seatWalkIn(table.id)}
                                 className="pill-button text-xs h-7 px-2 text-white"
-                                style={{backgroundColor: '#B7410E'}}
+                                style={{backgroundColor: '#3F4427'}}
                                 title="Seat walk-in customer"
                               >
                                 <UserPlus className="h-3 w-3 mr-1" />
@@ -559,23 +559,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             {/* Quick Actions */}
             <Card className="card-shadow border-0 rounded-3xl">
               <CardHeader>
-                <CardTitle className="text-xl" style={{color: '#3C3C3C'}}>Quick Actions</CardTitle>
+                <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-0">
                 <div className="flex flex-wrap gap-4">
                   <Button 
                     className="pill-button text-white"
                     onClick={callNext}
-                    style={{backgroundColor: '#B7410E'}}
+                    style={{backgroundColor: '#3F4427'}}
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Call Next in Waitlist
                   </Button>
-                  <Button className="pill-button text-white" style={{backgroundColor: '#D4621A'}}>
+                  <Button className="pill-button text-white" style={{backgroundColor: '#B6683B'}}>
                     <Table className="h-4 w-4 mr-2" />
                     View Table Layout
                   </Button>
-                  <Button className="pill-button text-white" style={{backgroundColor: '#E8934F'}}>
+                  <Button className="pill-button text-white" style={{backgroundColor: '#B889A6'}}>
                     <FileText className="h-4 w-4 mr-2" />
                     Daily Summary
                   </Button>
@@ -599,15 +599,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm mb-1" style={{color: '#3C3C3C'}}>Today's Customers</p>
-                      <p className="text-3xl font-bold" style={{color: '#3C3C3C'}}>247</p>
+                      <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Today's Customers</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>247</p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#B7410E'}} />
-                        <span className="text-sm" style={{color: '#B7410E'}}>+12% vs yesterday</span>
+                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>+12% vs yesterday</span>
                       </div>
                     </div>
-                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#F8F1C1'}}>
-                      <Users className="h-6 w-6" style={{color: '#B7410E'}} />
+                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
+                      <Users className="h-6 w-6" style={{color: '#5A5E3E'}} />
                     </div>
                   </div>
                 </CardContent>
@@ -617,15 +617,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm mb-1" style={{color: '#3C3C3C'}}>Avg Wait Time</p>
-                      <p className="text-3xl font-bold" style={{color: '#3C3C3C'}}>18m</p>
+                      <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Avg Wait Time</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>18m</p>
                       <div className="flex items-center mt-2">
-                        <TrendingDown className="h-4 w-4 mr-1" style={{color: '#B7410E'}} />
-                        <span className="text-sm" style={{color: '#B7410E'}}>-5m vs yesterday</span>
+                        <TrendingDown className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>-5m vs yesterday</span>
                       </div>
                     </div>
-                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#F8F1C1'}}>
-                      <Clock className="h-6 w-6" style={{color: '#B7410E'}} />
+                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
+                      <Clock className="h-6 w-6" style={{color: '#5A5E3E'}} />
                     </div>
                   </div>
                 </CardContent>
@@ -635,15 +635,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm mb-1" style={{color: '#3C3C3C'}}>Table Turnover</p>
-                      <p className="text-3xl font-bold" style={{color: '#3C3C3C'}}>3.2x</p>
+                      <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Table Turnover</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>3.2x</p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#B7410E'}} />
-                        <span className="text-sm" style={{color: '#B7410E'}}>+0.3x vs yesterday</span>
+                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>+0.3x vs yesterday</span>
                       </div>
                     </div>
-                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#F8F1C1'}}>
-                      <Table className="h-6 w-6" style={{color: '#B7410E'}} />
+                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
+                      <Table className="h-6 w-6" style={{color: '#5A5E3E'}} />
                     </div>
                   </div>
                 </CardContent>
@@ -653,15 +653,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm mb-1" style={{color: '#3C3C3C'}}>Peak Capacity</p>
-                      <p className="text-3xl font-bold" style={{color: '#3C3C3C'}}>85%</p>
+                      <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Peak Capacity</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>85%</p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#B7410E'}} />
-                        <span className="text-sm" style={{color: '#B7410E'}}>+8% vs yesterday</span>
+                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>+8% vs yesterday</span>
                       </div>
                     </div>
-                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#F8F1C1'}}>
-                      <Calendar className="h-6 w-6" style={{color: '#B7410E'}} />
+                    <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
+                      <Calendar className="h-6 w-6" style={{color: '#5A5E3E'}} />
                     </div>
                   </div>
                 </CardContent>
@@ -673,24 +673,24 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               {/* Seated vs Waiting Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#3C3C3C'}}>Weekly Overview: Seated vs Waiting</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Weekly Overview: Seated vs Waiting</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={seatedVsWaitingData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F3E5AB" />
-                      <XAxis dataKey="name" stroke="#3C3C3C" />
-                      <YAxis stroke="#3C3C3C" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
+                      <XAxis dataKey="name" stroke="#2D2D2B" />
+                      <YAxis stroke="#2D2D2B" />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#F3E5AB', 
-                          border: '1px solid #B7410E', 
+                          backgroundColor: '#E7D7C5', 
+                          border: '1px solid #5A5E3E', 
                           borderRadius: '12px',
-                          boxShadow: '0 8px 30px rgba(183, 65, 14, 0.15)'
+                          boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                         }}
                       />
-                      <Bar dataKey="seated" fill="#B7410E" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="waiting" fill="#E8934F" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="seated" fill="#5A5E3E" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -699,7 +699,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               {/* Capacity Pie Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#3C3C3C'}}>Current Capacity Distribution</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Current Capacity Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -719,10 +719,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: '#F3E5AB', 
-                          border: '1px solid #B7410E', 
+                          backgroundColor: '#E7D7C5', 
+                          border: '1px solid #5A5E3E', 
                           borderRadius: '12px',
-                          boxShadow: '0 8px 30px rgba(183, 65, 14, 0.15)'
+                          boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                         }}
                       />
                     </PieChart>
@@ -734,20 +734,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             {/* Peak Hours Chart */}
             <Card className="card-shadow border-0 rounded-3xl">
               <CardHeader>
-                <CardTitle className="text-xl" style={{color: '#3C3C3C'}}>Today's Peak Hours</CardTitle>
+                <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Today's Peak Hours</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={peakHoursData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F3E5AB" />
-                    <XAxis dataKey="time" stroke="#3C3C3C" />
-                    <YAxis stroke="#3C3C3C" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
+                    <XAxis dataKey="time" stroke="#2D2D2B" />
+                    <YAxis stroke="#2D2D2B" />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#F3E5AB', 
-                        border: '1px solid #B7410E', 
+                        backgroundColor: '#E7D7C5', 
+                        border: '1px solid #5A5E3E', 
                         borderRadius: '12px',
-                        boxShadow: '0 8px 30px rgba(183, 65, 14, 0.15)'
+                        boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                       }}
                     />
                     <Line 
@@ -784,27 +784,27 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
 
             {/* Summary Cards */}
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #F8F1C1 0%, #F3E5AB 100%)'}}>
+              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2" style={{color: '#B7410E'}}>Peak Hour</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>8:00 PM</p>
-                  <p className="text-sm" style={{color: '#3C3C3C'}}>72 customers served</p>
+                  <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Peak Hour</h3>
+                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>8:00 PM</p>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>72 customers served</p>
                 </CardContent>
               </Card>
 
-              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #F8F1C1 0%, #F3E5AB 100%)'}}>
+              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2" style={{color: '#B7410E'}}>Busiest Day</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>Saturday</p>
-                  <p className="text-sm" style={{color: '#3C3C3C'}}>82 customers average</p>
+                  <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Busiest Day</h3>
+                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>Saturday</p>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>82 customers average</p>
                 </CardContent>
               </Card>
 
-              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #F8F1C1 0%, #F3E5AB 100%)'}}>
+              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2" style={{color: '#B7410E'}}>Efficiency Score</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#3C3C3C'}}>94%</p>
-                  <p className="text-sm" style={{color: '#3C3C3C'}}>Above industry average</p>
+                  <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Efficiency Score</h3>
+                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>94%</p>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>Above industry average</p>
                 </CardContent>
               </Card>
             </div>

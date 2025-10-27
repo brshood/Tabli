@@ -44,13 +44,13 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating }:
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-2xl flex items-center" style={{color: '#3C3C3C'}}>
-                <Menu className="h-6 w-6 mr-2" style={{color: '#B7410E'}} />
+              <DialogTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
+                <Menu className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
                 {restaurantName} Menu
               </DialogTitle>
               <div className="flex items-center mt-2">
                 <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                <span className="text-sm font-medium" style={{color: '#3C3C3C'}}>{restaurantRating}</span>
+                <span className="text-sm font-medium" style={{color: '#2D2D2B'}}>{restaurantRating}</span>
               </div>
             </div>
             <Button
@@ -63,7 +63,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating }:
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <DialogDescription style={{color: '#3C3C3C'}}>
+          <DialogDescription style={{color: '#2D2D2B'}}>
             Browse our delicious menu items and their prices.
           </DialogDescription>
         </DialogHeader>
@@ -74,7 +74,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating }:
               <div className="flex items-center mb-4">
                 <Badge 
                   className="px-4 py-2 rounded-full text-lg font-medium"
-                  style={{backgroundColor: '#B7410E', color: 'white'}}
+                  style={{backgroundColor: '#3F4427', color: 'white'}}
                 >
                   {category}
                 </Badge>
@@ -86,11 +86,11 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating }:
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold mb-1" style={{color: '#3C3C3C'}}>{item.name}</h4>
-                          <p className="text-sm mb-2" style={{color: '#3C3C3C'}}>{item.description}</p>
+                          <h4 className="font-semibold mb-1" style={{color: '#2D2D2B'}}>{item.name}</h4>
+                          <p className="text-sm mb-2" style={{color: '#2D2D2B'}}>{item.description}</p>
                         </div>
                         <div className="ml-4">
-                          <span className="font-bold" style={{color: '#B7410E'}}>{item.price}</span>
+                          <span className="font-bold" style={{color: '#5A5E3E'}}>{item.price}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -105,7 +105,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating }:
           <Button
             onClick={onClose}
             className="pill-button"
-            style={{backgroundColor: '#B7410E', color: 'white'}}
+            style={{backgroundColor: '#3F4427', color: 'white'}}
           >
             Close Menu
           </Button>

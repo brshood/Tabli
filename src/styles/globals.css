@@ -5,65 +5,77 @@
 
 :root {
   --font-size: 16px;
-  --background: #FAFAFA;
-  --foreground: #3C3C3C;
+  --background: #F4F1E7;
+  --foreground: #2D2D2B;
   --card: #FFFFFF;
-  --card-foreground: #3C3C3C;
+  --card-foreground: #2D2D2B;
   --popover: #FFFFFF;
-  --popover-foreground: #3C3C3C;
-  --primary: #B7410E;
-  --primary-foreground: #ffffff;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #3C3C3C;
-  --muted: #F9FAFB;
-  --muted-foreground: #3C3C3C;
-  --accent: #B7410E;
-  --accent-foreground: #ffffff;
+  --popover-foreground: #2D2D2B;
+  --primary: #5A5E3E;
+  --primary-foreground: #F4F1E7;
+  --secondary: #E7D7C5;
+  --secondary-foreground: #2D2D2B;
+  --muted: #FAF8F2;
+  --muted-foreground: #5B6142;
+  --accent: #B6683B;
+  --accent-foreground: #F4F1E7;
   --destructive: #D77A61;
   --destructive-foreground: #ffffff;
-  --border: rgba(60, 60, 60, 0.2);
+  --border: rgba(45, 45, 43, 0.2);
   --input: transparent;
-  --input-background: #F9FAFB;
-  --switch-background: #F9FAFB;
+  --input-background: #FAF8F2;
+  --switch-background: #FAF8F2;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #B7410E;
-  --chart-1: #B7410E;
-  --chart-2: #D4621A;
-  --chart-3: #E8934F;
-  --chart-4: #F3C084;
-  --chart-5: #F8E6B9;
+  --ring: #5A5E3E;
+  --chart-1: #5A5E3E;
+  --chart-2: #B6683B;
+  --chart-3: #B889A6;
+  --chart-4: #E7D7C5;
+  --chart-5: #FAF8F2;
   --radius: 1rem;
-  --sidebar: #F3F4F6;
-  --sidebar-foreground: #3C3C3C;
-  --sidebar-primary: #B7410E;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F9FAFB;
-  --sidebar-accent-foreground: #3C3C3C;
-  --sidebar-border: rgba(60, 60, 60, 0.2);
-  --sidebar-ring: #B7410E;
+  --sidebar: #E7D7C5;
+  --sidebar-foreground: #2D2D2B;
+  --sidebar-primary: #5A5E3E;
+  --sidebar-primary-foreground: #F4F1E7;
+  --sidebar-accent: #FAF8F2;
+  --sidebar-accent-foreground: #2D2D2B;
+  --sidebar-border: rgba(45, 45, 43, 0.2);
+  --sidebar-ring: #5A5E3E;
   
-  /* Tabli custom colors - Ivory Buff + Orange Rufous + Charcoal Grey Palette */
-  --tabli-ivory-buff: #F3F4F6;
-  --tabli-light-ivory: #F9FAFB;
-  --tabli-orange-rufous: #B7410E;
-  --tabli-charcoal-grey: #3C3C3C;
-  --tabli-warm-gray: #9FA0A0;
-  --tabli-coral-accent: #D77A61;
-  --tabli-gradient-start: #F3F4F6;
-  --tabli-gradient-end: #F9FAFB;
-  --tabli-shadow: rgba(183, 65, 14, 0.15);
-  --tabli-glow: rgba(183, 65, 14, 0.4);
+  /* Tabli custom colors - New Earthy Green Palette */
+  --tabli-logo-text: #5A5E3E;
+  --tabli-tagline-text: #2D2D2B;
+  --tabli-accent-text: #B6683B;
+  --tabli-background: #F4F1E7;
+  --tabli-button-bg: #3F4427;
+  --tabli-button-text: #FFF527;
+  --tabli-dark-green-gray: #30332A;
+  --tabli-skin-tone: #E7D7C5;
+  --tabli-wood-brown: #B889A6;
+  --tabli-clothing-beige: #5B6142;
+  --tabli-gradient-start: #F4F1E7;
+  --tabli-gradient-end: #FAF8F2;
+  --tabli-shadow: rgba(90, 94, 62, 0.15);
+  --tabli-glow: rgba(90, 94, 62, 0.4);
   
-  /* Where2Go Style - All white backgrounds */
+  /* Legacy colors for compatibility */
+  --tabli-ivory-buff: #E7D7C5;
+  --tabli-light-ivory: #FAF8F2;
+  --tabli-orange-rufous: #B6683B;
+  --tabli-charcoal-grey: #2D2D2B;
+  --tabli-warm-gray: #5B6142;
+  --tabli-coral-accent: #B889A6;
+  
+  /* Where2Go Style - Updated with new palette */
   --where2go-white: #FFFFFF;
-  --where2go-bright-grey: #FFFFFF;
-  --where2go-buff: #FFFFFF;
-  --where2go-buff-light: #FFFFFF;
-  --where2go-accent: #B7410E; /* Orange rufous for CTAs and accents */
-  --where2go-text: #3C3C3C;
-  --where2go-shadow: rgba(0, 0, 0, 0.08);
-  --where2go-border: rgba(0, 0, 0, 0.1);
+  --where2go-bright-grey: #FAF8F2;
+  --where2go-buff: #F4F1E7;
+  --where2go-buff-light: #FAF8F2;
+  --where2go-accent: #5A5E3E;
+  --where2go-text: #2D2D2B;
+  --where2go-shadow: rgba(90, 94, 62, 0.15);
+  --where2go-border: rgba(45, 45, 43, 0.1);
 }
 
 .dark {
@@ -189,15 +201,15 @@
   }
   
   .cta-button {
-    background: var(--tabli-orange-rufous);
+    background: #B8860B;
     color: white;
     border: none;
     transition: all 0.3s ease;
   }
   
   .cta-button:hover {
-    background: #D4621A;
-    box-shadow: 0 8px 25px var(--tabli-glow);
+    background: #9A7209;
+    box-shadow: 0 8px 25px rgba(184, 134, 11, 0.4);
     transform: translateY(-2px);
   }
   
