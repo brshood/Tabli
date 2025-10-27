@@ -1,7 +1,8 @@
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Clock, CheckCircle, MessageSquare, Zap, TrendingUp, Users, Calendar, Star, Smartphone } from 'lucide-react';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
+import tabliLogo from '../assets/tabli-logo-new.png';
+import diningIllustration from '../assets/dining-illustration.png';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 
@@ -25,16 +26,16 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
           <div className="max-w-4xl mx-auto">
             {/* Logo */}
             <div className="mb-8">
-              <img src={tabliLogo} alt="Tabli" className="h-64 w-auto mx-auto mb-4" />
+              <img src={tabliLogo} alt="Tabli" className="h-32 w-auto mx-auto mb-4 floating-logo" />
             </div>
             
-            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C', letterSpacing: isRTL ? '0.15em' : 'normal', lineHeight: isRTL ? '1.1' : '1.25'}}>
+            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 floating-text-block ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: isRTL ? '0.15em' : 'normal', lineHeight: isRTL ? '1.1' : '1.25'}}>
               <div className="block">{t('hero.title.line1')}</div>
               <div className="block">{t('hero.title.line2')}</div>
-              <div className="block" style={{color: '#B7410E'}}>{t('hero.title.line3')}</div>
+              <div className="block" style={{color: '#B8860B'}}>{t('hero.title.line3')}</div>
             </h1>
             
-            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C', letterSpacing: isRTL ? '0.08em' : 'normal', lineHeight: isRTL ? '1.1' : '1.625'}}>
+            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: isRTL ? '0.08em' : 'normal', lineHeight: isRTL ? '1.1' : '1.625'}}>
               {t('hero.subtitle')}
             </p>
             
@@ -52,40 +53,40 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* Showcase Section */}
-      <section className="py-12 sm:py-20" style={{backgroundColor: '#F3E5AB'}}>
+      <section className="py-12 sm:py-20" style={{backgroundColor: '#E7D7C5'}}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 max-w-6xl mx-auto">
-            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
               <CardContent className="p-4 sm:p-8 text-center">
-                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#B7410E'}}>
+                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#5A5E3E'}}>
                   <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('showcase.instant.title')}</h3>
-                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('showcase.instant.title')}</h3>
+                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                   {t('showcase.instant.desc')}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
               <CardContent className="p-4 sm:p-8 text-center">
-                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#B7410E'}}>
+                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#5A5E3E'}}>
                   <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('showcase.waitlist.title')}</h3>
-                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('showcase.waitlist.title')}</h3>
+                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                   {t('showcase.waitlist.desc')}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300 sm:col-span-2 lg:col-span-1" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+            <Card className="card-shadow border-0 rounded-2xl sm:rounded-3xl hover:scale-105 transition-transform duration-300 sm:col-span-2 lg:col-span-1" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
               <CardContent className="p-4 sm:p-8 text-center">
-                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#B7410E'}}>
+                <div className="rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-6" style={{backgroundColor: '#5A5E3E'}}>
                   <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('showcase.sms.title')}</h3>
-                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+                <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('showcase.sms.title')}</h3>
+                <p className={`text-sm sm:text-base leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                   {t('showcase.sms.desc')}
                 </p>
               </CardContent>
@@ -95,42 +96,51 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* Why Tabli Matters Section */}
-      <section className="relative py-12 sm:py-20" style={{backgroundColor: '#F3E5AB'}}>
+      <section className="relative py-12 sm:py-20" style={{backgroundColor: '#E7D7C5'}}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-8 sm:mb-16">
-            <h2 className={`text-3xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('why.title')}</h2>
-            <p className={`text-base sm:text-xl max-w-3xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+            <h2 className={`text-3xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('why.title')}</h2>
+            <p className={`text-base sm:text-xl max-w-3xl mx-auto mb-8 sm:mb-12 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
               {t('why.subtitle')}
             </p>
+            
+            {/* Dining Illustration */}
+            <div className="flex justify-center mb-8 sm:mb-12">
+              <img 
+                src={diningIllustration} 
+                alt="People enjoying dining together" 
+                className="w-full max-w-md h-auto"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
             <div className="text-center">
               <div className="bg-white rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4 sm:mb-6 card-shadow">
-                <Zap className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#B7410E'}} />
+                <Zap className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#5A5E3E'}} />
               </div>
-              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('why.satisfaction.title')}</h3>
-              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('why.satisfaction.title')}</h3>
+              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                 {t('why.satisfaction.desc')}
               </p>
             </div>
 
             <div className="text-center">
               <div className="bg-white rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4 sm:mb-6 card-shadow">
-                <TrendingUp className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#B7410E'}} />
+                <TrendingUp className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#5A5E3E'}} />
               </div>
-              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('why.capacity.title')}</h3>
-              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('why.capacity.title')}</h3>
+              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                 {t('why.capacity.desc')}
               </p>
             </div>
 
             <div className="text-center sm:col-span-2 lg:col-span-1">
               <div className="bg-white rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4 sm:mb-6 card-shadow">
-                <Users className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#B7410E'}} />
+                <Users className="h-8 w-8 sm:h-10 sm:w-10" style={{color: '#5A5E3E'}} />
               </div>
-              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('why.connections.title')}</h3>
-              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>
+              <h3 className={`text-lg sm:text-2xl font-semibold mb-2 sm:mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('why.connections.title')}</h3>
+              <p className={`text-sm sm:text-lg leading-relaxed ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
                 {t('why.connections.desc')}
               </p>
             </div>
@@ -139,49 +149,49 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       </section>
 
       {/* For Customers vs For Restaurants Section */}
-      <section className="py-12 sm:py-20" style={{backgroundColor: '#F3E5AB'}}>
+      <section className="py-12 sm:py-20" style={{backgroundColor: '#E7D7C5'}}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-8 sm:mb-16">
-            <h2 className={`text-2xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('everyone.title')}</h2>
+            <h2 className={`text-2xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('everyone.title')}</h2>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 max-w-6xl mx-auto">
             {/* For Customers */}
             <div>
-              <h3 className={`text-xl sm:text-3xl font-semibold mb-4 sm:mb-8 text-center ${isRTL ? 'font-arabic' : ''}`} style={{color: '#B7410E'}}>{t('customers.title')}</h3>
+              <h3 className={`text-xl sm:text-3xl font-semibold mb-4 sm:mb-8 text-center ${isRTL ? 'font-arabic' : ''}`} style={{color: '#B6683B'}}>{t('customers.title')}</h3>
               <div className="space-y-3 sm:space-y-6">
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <Star className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.availability.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.availability.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.availability.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.availability.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.booking.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.booking.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.booking.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.booking.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.walkin.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('customers.walkin.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.walkin.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('customers.walkin.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -190,40 +200,40 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
 
             {/* For Restaurants */}
             <div>
-              <h3 className={`text-xl sm:text-3xl font-semibold mb-4 sm:mb-8 text-center ${isRTL ? 'font-arabic' : ''}`} style={{color: '#B7410E'}}>{t('restaurants.title')}</h3>
+              <h3 className={`text-xl sm:text-3xl font-semibold mb-4 sm:mb-8 text-center ${isRTL ? 'font-arabic' : ''}`} style={{color: '#B6683B'}}>{t('restaurants.title')}</h3>
               <div className="space-y-3 sm:space-y-6">
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.lost.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.lost.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.lost.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.lost.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.optimize.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.optimize.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.optimize.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.optimize.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(60, 60, 60, 0.1)'}}>
+                <Card className="rounded-xl sm:rounded-2xl transition-colors" style={{backgroundColor: 'white', borderColor: 'rgba(45, 45, 43, 0.1)'}}>
                   <CardContent className="p-3 sm:p-6 flex items-start space-x-3 sm:space-x-4">
-                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#B7410E'}}>
+                    <div className="rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0" style={{backgroundColor: '#5A5E3E'}}>
                       <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.fill.title')}</h4>
-                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('restaurants.fill.desc')}</p>
+                      <h4 className={`text-base sm:text-xl font-semibold mb-1 sm:mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.fill.title')}</h4>
+                      <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('restaurants.fill.desc')}</p>
                     </div>
                   </CardContent>
                 </Card>

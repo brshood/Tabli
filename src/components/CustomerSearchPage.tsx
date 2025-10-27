@@ -10,7 +10,7 @@ import { useRestaurant } from './RestaurantContext';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 import { Search, MapPin, Star, Clock, Users, Phone, Flame, TrendingUp, Menu, ArrowLeft } from 'lucide-react';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
+import tabliLogo from '../assets/tabli-logo-new.png';
 
 interface CustomerSearchPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
@@ -102,7 +102,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
               onClick={() => setSelectedLocation(null)}
               className={`pill-button ${isRTL ? 'font-arabic' : ''}`}
               size="sm"
-              style={selectedLocation === null ? {backgroundColor: '#B7410E', color: 'white'} : {}}
+              style={selectedLocation === null ? {backgroundColor: '#3F4427', color: 'white'} : {}}
             >
               <MapPin className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
               {t('search.all.locations')}
@@ -114,7 +114,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 onClick={() => setSelectedLocation(selectedLocation === location ? null : location)}
                 className="pill-button"
                 size="sm"
-                style={selectedLocation === location ? {backgroundColor: '#B7410E', color: 'white'} : {}}
+                style={selectedLocation === location ? {backgroundColor: '#3F4427', color: 'white'} : {}}
               >
                 <MapPin className="h-4 w-4 mr-1" />
                 {location}
@@ -151,8 +151,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
-              <div className="h-48 flex items-center justify-center relative" style={{background: 'linear-gradient(to bottom right, #F8F1C1, #F3E5AB)'}}>
-                <span className="text-lg font-medium" style={{color: '#B7410E'}}>{restaurant.name}</span>
+              <div className="h-48 flex items-center justify-center relative" style={{background: 'linear-gradient(to bottom right, #FAF8F2, #E7D7C5)'}}>
+                <span className="text-lg font-medium" style={{color: '#5A5E3E'}}>{restaurant.name}</span>
                 
                 {/* Trending badge for restaurants with >50 weekly average customers */}
                 {restaurant.weeklyAverageCustomers > 50 && (
@@ -174,8 +174,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-xl font-semibold mb-1" style={{color: '#3C3C3C'}}>{restaurant.name}</h3>
-                    <div className="flex items-center mb-2" style={{color: '#3C3C3C'}}>
+                    <h3 className="text-xl font-semibold mb-1" style={{color: '#2D2D2B'}}>{restaurant.name}</h3>
+                    <div className="flex items-center mb-2" style={{color: '#2D2D2B'}}>
                       <MapPin className="h-4 w-4 mr-1" />
                       <span className="text-sm">{restaurant.location}</span>
                     </div>
@@ -194,7 +194,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       {t('search.available')}
                     </Badge>
                   ) : (
-                    <Badge className={`px-3 py-1 rounded-full ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#F8F1C1', color: '#B7410E'}}>
+                    <Badge className={`px-3 py-1 rounded-full ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#FAF8F2', color: '#5A5E3E'}}>
                       {t('search.waitlist.only')}
                     </Badge>
                   )}
@@ -205,7 +205,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 </div>
 
                 {/* Info */}
-                <div className="flex items-center justify-between text-sm mb-4" style={{color: '#3C3C3C'}}>
+                <div className="flex items-center justify-between text-sm mb-4" style={{color: '#2D2D2B'}}>
                   {restaurant.status === 'available' ? (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
                       <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
@@ -224,7 +224,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                   <div className="flex gap-2">
                     {restaurant.status === 'available' ? (
                       <Button 
-                        className={`flex-1 pill-button cta-button ${isRTL ? 'font-arabic' : ''}`}
+                        className={`flex-1 pill-button ${isRTL ? 'font-arabic' : ''}`}
+                        style={{backgroundColor: '#B8860B', color: '#FFFFFF'}}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedRestaurantForBooking(restaurant);
@@ -268,7 +269,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       setSelectedRestaurant(restaurant);
                       setMenuModalOpen(true);
                     }}
-                    style={{borderColor: '#B7410E', color: '#B7410E'}}
+                    style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
                   >
                     <Menu className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
                     {t('search.view.menu')}
@@ -282,11 +283,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
         {/* No Results */}
         {filteredRestaurants.length === 0 && (
           <div className="text-center py-16">
-            <div className="rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6" style={{backgroundColor: '#F8F1C1'}}>
-              <Search className="h-12 w-12" style={{color: '#B7410E'}} />
+            <div className="rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6" style={{backgroundColor: '#FAF8F2'}}>
+              <Search className="h-12 w-12" style={{color: '#5A5E3E'}} />
             </div>
-            <h3 className={`text-2xl font-semibold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('search.no.results.title')}</h3>
-            <p className={`mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#3C3C3C'}}>{t('search.no.results.desc')}</p>
+            <h3 className={`text-2xl font-semibold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('search.no.results.title')}</h3>
+            <p className={`mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>{t('search.no.results.desc')}</p>
             <Button 
               onClick={() => {setSearchQuery(''); setSelectedLocation(null);}}
               className={`pill-button ${isRTL ? 'font-arabic' : ''}`}

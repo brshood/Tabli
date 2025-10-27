@@ -85,11 +85,11 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md mx-4" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
         <DialogHeader>
-          <DialogTitle className="flex items-center" style={{color: '#3C3C3C'}}>
+          <DialogTitle className="flex items-center" style={{color: '#2D2D2B'}}>
             <TableIcon className="h-5 w-5 mr-2" />
             Add New Table
           </DialogTitle>
-          <DialogDescription style={{color: '#3C3C3C'}}>
+          <DialogDescription style={{color: '#2D2D2B'}}>
             Create a new table for your restaurant with a custom name and seating capacity.
           </DialogDescription>
         </DialogHeader>
@@ -97,7 +97,7 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
         <div className="space-y-6">
           {/* Table Name */}
           <div className="space-y-2">
-            <Label htmlFor="tableName" style={{color: '#3C3C3C'}}>Table Name</Label>
+            <Label htmlFor="tableName" style={{color: '#2D2D2B'}}>Table Name</Label>
             <Input
               id="tableName"
               type="text"
@@ -114,7 +114,7 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
 
           {/* Seating Capacity */}
           <div className="space-y-2">
-            <Label htmlFor="capacity" style={{color: '#3C3C3C'}}>Seating Capacity</Label>
+            <Label htmlFor="capacity" style={{color: '#2D2D2B'}}>Seating Capacity</Label>
             <div className="flex items-center space-x-3">
               <Button
                 type="button"
@@ -127,7 +127,7 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
                 <Minus className="h-4 w-4" />
               </Button>
               <div className="text-center min-w-[3rem]">
-                <span className="text-lg font-medium" style={{color: '#3C3C3C'}}>{capacity}</span>
+                <span className="text-lg font-medium" style={{color: '#2D2D2B'}}>{capacity}</span>
               </div>
               <Button
                 type="button"
@@ -147,8 +147,8 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
           </div>
 
           {/* Summary */}
-          <div className="p-4 rounded-lg" style={{backgroundColor: '#F8F1C1'}}>
-            <p className="text-sm" style={{color: '#3C3C3C'}}>
+          <div className="p-4 rounded-lg" style={{backgroundColor: '#FAF8F2'}}>
+            <p className="text-sm" style={{color: '#2D2D2B'}}>
               <strong>Preview:</strong> "{tableName || 'Table Name'}" will be added with a capacity of {capacity} guests.
             </p>
           </div>
@@ -159,7 +159,7 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
               variant="outline"
               onClick={onClose}
               className="flex-1 pill-button"
-              style={{borderColor: 'rgba(60, 60, 60, 0.3)', color: '#3C3C3C'}}
+              style={{borderColor: 'rgba(45, 45, 43, 0.3)', color: '#2D2D2B'}}
             >
               Cancel
             </Button>

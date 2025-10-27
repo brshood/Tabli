@@ -53,15 +53,15 @@
   }
 
   .cta-button {
-    background: var(--tabli-orange-rufous);
-    color: #fff;
+    background: #B8860B;
+    color: white;
     border: none;
     transition: all 0.3s;
   }
 
   .cta-button:hover {
-    box-shadow: 0 8px 25px var(--tabli-glow);
-    background: #d4621a;
+    box-shadow: 0 8px 25px rgba(184, 134, 11, 0.4);
+    background: #9A7209;
     transform: translateY(-2px);
   }
 
@@ -105,6 +105,32 @@
     }
   }
 
+  @keyframes float-logo {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes float-text-block {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-15px);
+    }
+  }
+
+  .floating-logo {
+    animation: float-logo 3s ease-in-out infinite;
+  }
+
+  .floating-text-block {
+    animation: float-text-block 4s ease-in-out 0.7s infinite;
+  }
+
   .page-transition {
     will-change: transform, opacity;
     backface-visibility: hidden;
@@ -114,45 +140,49 @@
 
 :root {
   --font-size: 16px;
-  --background: 0 0% 98%;
-  --foreground: 0 0% 24%;
+  --background: 43 40% 94%;
+  --foreground: 60 8% 18%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 24%;
+  --card-foreground: 60 8% 18%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 24%;
-  --primary: 21 83% 39%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 0 0% 24%;
-  --muted: 210 20% 98%;
-  --muted-foreground: 0 0% 24%;
-  --accent: 21 83% 39%;
-  --accent-foreground: 0 0% 100%;
+  --popover-foreground: 60 8% 18%;
+  --primary: 67 20% 30%;
+  --primary-foreground: 43 50% 95%;
+  --secondary: 43 30% 86%;
+  --secondary-foreground: 60 8% 18%;
+  --muted: 43 40% 91%;
+  --muted-foreground: 60 8% 18%;
+  --accent: 32 56% 47%;
+  --accent-foreground: 43 50% 95%;
   --destructive: 10 60% 62%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 24% / 0.2;
+  --border: 60 8% 18% / 0.2;
   --input: 0 0% 0% / 0;
-  --input-background: 210 20% 98%;
-  --switch-background: 210 20% 98%;
-  --ring: 21 83% 39%;
-  --chart-1: 21 83% 39%;
-  --chart-2: 21 78% 47%;
-  --chart-3: 21 73% 62%;
-  --chart-4: 28 66% 73%;
-  --chart-5: 42 87% 85%;
+  --input-background: 43 40% 91%;
+  --switch-background: 43 40% 91%;
+  --ring: 67 20% 30%;
+  --chart-1: 67 20% 30%;
+  --chart-2: 32 56% 47%;
+  --chart-3: 35 48% 59%;
+  --chart-4: 38 40% 70%;
+  --chart-5: 43 30% 86%;
   --radius: 1rem;
   
-  /* Tabli custom colors */
-  --tabli-ivory-buff: #F3F4F6;
-  --tabli-light-ivory: #F9FAFB;
-  --tabli-orange-rufous: #b7410e;
-  --tabli-charcoal-grey: #3c3c3c;
-  --tabli-warm-gray: #9fa0a0;
-  --tabli-coral-accent: #d77a61;
-  --tabli-gradient-start: #F3F4F6;
-  --tabli-gradient-end: #F9FAFB;
-  --tabli-shadow: rgba(183, 65, 14, 0.15);
-  --tabli-glow: rgba(183, 65, 14, 0.4);
+  /* Tabli custom colors - New Palette */
+  --tabli-logo-text: #5A5E3E;
+  --tabli-tagline-text: #2D2D2B;
+  --tabli-accent-text: #B6683B;
+  --tabli-background: #F4F1E7;
+  --tabli-button-bg: #3F4427;
+  --tabli-button-text: #FFF527;
+  --tabli-dark-green-gray: #30332A;
+  --tabli-skin-tone: #E7D7C5;
+  --tabli-wood-brown: #B889A6;
+  --tabli-clothing-beige: #5B6142;
+  --tabli-gradient-start: #F4F1E7;
+  --tabli-gradient-end: #FAF8F2;
+  --tabli-shadow: rgba(90, 94, 62, 0.15);
+  --tabli-glow: rgba(90, 94, 62, 0.4);
 }
 
 .dark {

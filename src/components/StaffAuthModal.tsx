@@ -294,8 +294,8 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg mx-4 max-h-[90vh] overflow-hidden" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
         <DialogHeader>
-          <DialogTitle style={{color: '#3C3C3C'}}>Staff Access</DialogTitle>
-          <DialogDescription style={{color: '#3C3C3C'}}>
+          <DialogTitle style={{color: '#2D2D2B'}}>Staff Access</DialogTitle>
+          <DialogDescription style={{color: '#2D2D2B'}}>
             Log in to your staff account or create a new restaurant account to access the staff dashboard.
           </DialogDescription>
         </DialogHeader>
@@ -304,8 +304,8 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
           <TabsList className={`grid w-full mb-6 ${activeTab === 'forgot' ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {activeTab !== 'forgot' && (
               <>
-                <TabsTrigger value="login" style={{color: '#B7410E'}}>Log in</TabsTrigger>
-                <TabsTrigger value="signup" style={{color: '#B7410E'}}>Sign up</TabsTrigger>
+                <TabsTrigger value="login" style={{color: '#5A5E3E'}}>Log in</TabsTrigger>
+                <TabsTrigger value="signup" style={{color: '#5A5E3E'}}>Sign up</TabsTrigger>
               </>
             )}
             {activeTab === 'forgot' && (
@@ -317,7 +317,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
           <TabsContent value="login" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="loginEmail" style={{color: '#3C3C3C'}}>Email</Label>
+              <Label htmlFor="loginEmail" style={{color: '#2D2D2B'}}>Email</Label>
               <Input
                 id="loginEmail"
                 type="email"
@@ -333,7 +333,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="loginPassword" style={{color: '#3C3C3C'}}>Password</Label>
+              <Label htmlFor="loginPassword" style={{color: '#2D2D2B'}}>Password</Label>
               <div className="relative">
                 <Input
                   id="loginPassword"
@@ -372,7 +372,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                 variant="link"
                 onClick={() => setActiveTab('forgot')}
                 className="text-sm px-0"
-                style={{color: '#B7410E'}}
+                style={{color: '#5A5E3E'}}
               >
                 Forgot your password?
               </Button>
@@ -381,11 +381,11 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
           <TabsContent value="signup" className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {/* Personal Information Section */}
-            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#F8F1C1', border: '1px solid rgba(183, 65, 14, 0.2)'}}>
-              <h4 className="font-medium" style={{color: '#3C3C3C'}}>Personal Information</h4>
+            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+              <h4 className="font-medium" style={{color: '#2D2D2B'}}>Personal Information</h4>
               
               <div className="space-y-2">
-                <Label htmlFor="signupName" style={{color: '#3C3C3C'}}>Full Name</Label>
+                <Label htmlFor="signupName" style={{color: '#2D2D2B'}}>Full Name</Label>
                 <Input
                   id="signupName"
                   type="text"
@@ -402,7 +402,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signupEmail" style={{color: '#3C3C3C'}}>Email</Label>
+                  <Label htmlFor="signupEmail" style={{color: '#2D2D2B'}}>Email</Label>
                   <Input
                     id="signupEmail"
                     type="email"
@@ -418,7 +418,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signupPassword" style={{color: '#3C3C3C'}}>Password</Label>
+                  <Label htmlFor="signupPassword" style={{color: '#2D2D2B'}}>Password</Label>
                   <div className="relative">
                     <Input
                       id="signupPassword"
@@ -447,11 +447,11 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             </div>
 
             {/* Restaurant Information Section */}
-            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#F8F1C1', border: '1px solid rgba(183, 65, 14, 0.2)'}}>
-              <h4 className="font-medium" style={{color: '#3C3C3C'}}>Restaurant Information</h4>
+            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+              <h4 className="font-medium" style={{color: '#2D2D2B'}}>Restaurant Information</h4>
               
               <div className="space-y-2">
-                <Label htmlFor="restaurantName" style={{color: '#3C3C3C'}}>Restaurant Name</Label>
+                <Label htmlFor="restaurantName" style={{color: '#2D2D2B'}}>Restaurant Name</Label>
                 <Input
                   id="restaurantName"
                   type="text"
@@ -468,7 +468,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="restaurantCity" style={{color: '#3C3C3C'}}>City</Label>
+                  <Label htmlFor="restaurantCity" style={{color: '#2D2D2B'}}>City</Label>
                   <Select value={restaurantCity} onValueChange={(value: 'Al Ain' | 'Abu Dhabi' | 'Dubai') => setRestaurantCity(value)}>
                     <SelectTrigger className="bg-input-background" style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}>
                       <SelectValue placeholder="Select city" />
@@ -485,7 +485,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="restaurantCuisine" style={{color: '#3C3C3C'}}>Cuisine Type</Label>
+                  <Label htmlFor="restaurantCuisine" style={{color: '#2D2D2B'}}>Cuisine Type</Label>
                   <Select value={restaurantCuisine} onValueChange={setRestaurantCuisine}>
                     <SelectTrigger className="bg-input-background" style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}>
                       <SelectValue placeholder="Select cuisine" />
@@ -503,7 +503,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="restaurantPhone" style={{color: '#3C3C3C'}}>Phone Number</Label>
+                <Label htmlFor="restaurantPhone" style={{color: '#2D2D2B'}}>Phone Number</Label>
                 <Input
                   id="restaurantPhone"
                   type="tel"
@@ -519,7 +519,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="restaurantAddress" style={{color: '#3C3C3C'}}>Address</Label>
+                <Label htmlFor="restaurantAddress" style={{color: '#2D2D2B'}}>Address</Label>
                 <Input
                   id="restaurantAddress"
                   type="text"
@@ -536,11 +536,11 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             </div>
 
             {/* License Information Section */}
-            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#F8F1C1', border: '1px solid rgba(183, 65, 14, 0.2)'}}>
-              <h4 className="font-medium" style={{color: '#3C3C3C'}}>License Information</h4>
+            <div className="space-y-4 p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+              <h4 className="font-medium" style={{color: '#2D2D2B'}}>License Information</h4>
               
               <div className="space-y-2">
-                <Label htmlFor="licenseNumber" style={{color: '#3C3C3C'}}>License Number</Label>
+                <Label htmlFor="licenseNumber" style={{color: '#2D2D2B'}}>License Number</Label>
                 <Input
                   id="licenseNumber"
                   type="text"
@@ -556,7 +556,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="licenseFile" style={{color: '#3C3C3C'}}>License Document</Label>
+                <Label htmlFor="licenseFile" style={{color: '#2D2D2B'}}>License Document</Label>
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <Button
@@ -581,8 +581,8 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                   
                   {licenseFile && (
                     <div className="flex items-center gap-2 p-2 rounded-lg" style={{backgroundColor: '#F3E5AB'}}>
-                      <FileText className="h-4 w-4" style={{color: '#B7410E'}} />
-                      <span className="text-sm" style={{color: '#3C3C3C'}}>{licenseFile.name}</span>
+                      <FileText className="h-4 w-4" style={{color: '#5A5E3E'}} />
+                      <span className="text-sm" style={{color: '#2D2D2B'}}>{licenseFile.name}</span>
                     </div>
                   )}
                   
@@ -610,16 +610,16 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             {!resetSent ? (
               <>
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-medium mb-2" style={{color: '#3C3C3C'}}>
+                  <h3 className="text-lg font-medium mb-2" style={{color: '#2D2D2B'}}>
                     Reset Your Password
                   </h3>
-                  <p className="text-sm" style={{color: '#3C3C3C'}}>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>
                     Enter your email address and we'll send you a link to reset your password.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="forgotEmail" style={{color: '#3C3C3C'}}>Email Address</Label>
+                  <Label htmlFor="forgotEmail" style={{color: '#2D2D2B'}}>Email Address</Label>
                   <Input
                     id="forgotEmail"
                     type="email"
@@ -647,7 +647,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                     variant="link"
                     onClick={handleBackToLogin}
                     className="text-sm px-0"
-                    style={{color: '#B7410E'}}
+                    style={{color: '#5A5E3E'}}
                   >
                     ← Back to login
                   </Button>
@@ -656,22 +656,22 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             ) : (
               <div className="text-center space-y-4">
                 <div className="rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                  <Check className="w-8 h-8" style={{color: '#B7410E'}} />
+                  <Check className="w-8 h-8" style={{color: '#5A5E3E'}} />
                 </div>
                 
-                <h3 className="text-lg font-medium" style={{color: '#3C3C3C'}}>
+                <h3 className="text-lg font-medium" style={{color: '#2D2D2B'}}>
                   Check Your Email
                 </h3>
                 
-                <p className="text-sm" style={{color: '#3C3C3C'}}>
+                <p className="text-sm" style={{color: '#2D2D2B'}}>
                   We've sent password reset instructions to <strong>{forgotEmail}</strong>
                 </p>
                 
-                <div className="p-4 rounded-xl" style={{backgroundColor: '#F8F1C1', border: '1px solid rgba(183, 65, 14, 0.2)'}}>
-                  <p className="text-sm" style={{color: '#3C3C3C'}}>
+                <div className="p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>
                     <strong>Next steps:</strong>
                   </p>
-                  <ul className="text-sm mt-2 space-y-1" style={{color: '#3C3C3C'}}>
+                  <ul className="text-sm mt-2 space-y-1" style={{color: '#2D2D2B'}}>
                     <li>1. Check your email inbox</li>
                     <li>2. Click the reset link in the email</li>
                     <li>3. Create a new password</li>

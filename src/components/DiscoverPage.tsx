@@ -16,7 +16,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRestaurant } from './RestaurantContext';
-import tabliLogo from 'figma:asset/b9aff3f805d23772814268da68c337d8a54fb6dd.png';
+import tabliLogo from '../assets/tabli-logo-new.png';
 
 interface DiscoverPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile') => void;
