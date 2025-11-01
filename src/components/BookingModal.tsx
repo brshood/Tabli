@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Plus, Minus, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { calculateEstimatedWaitTime } from '../services/NotificationService';
+const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
 import type { Restaurant } from './RestaurantContext';
 
 interface BookingModalProps {
@@ -65,35 +66,30 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    const payload = {
-      type: mode,
-      partySize,
-      contactMethod,
-      seatingPreference,
-      gender,
-      ...(contactMethod === 'phone' ? { phone } : { email }),
-      restaurantId: restaurant?.id,
-      restaurantName: restaurant?.name,
-      queuePosition: mode === 'waitlist' ? queuePosition + 1 : undefined,
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('Booking data:', payload);
-
-    const successMessage = mode === 'reserve'
-      ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
-      : "You've been added to the queue! We'll notify you when your table is ready.";
-
-    toast.success(successMessage);
-    
-    // Call onSuccess callback if provided (to trigger survey)
-    if (onSuccess) {
-      onSuccess();
-    } else {
-      onClose();
+    try {
+      const res = await fetch(`${API_URL}/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
+          mode,
+          partySize,
+          contactMethod,
+          phone: contactMethod === 'phone' ? phone : undefined,
+          email: contactMethod === 'email' ? email : undefined,
+        })
+      });
+      if (!res.ok) throw new Error('reservation_failed');
+      const successMessage = mode === 'reserve'
+        ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
+        : "You've been added to the queue! We'll notify you when your table is ready.";
+      toast.success(successMessage);
+      if (onSuccess) onSuccess(); else onClose();
+    } catch (_e) {
+      toast.error('Could not submit request. Please try again.');
     }
   };
 

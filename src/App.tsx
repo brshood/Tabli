@@ -96,17 +96,9 @@ function AppContent() {
   };
 
   const handleStaffAuthSuccess = (user: StaffUser, restaurantData?: any) => {
-    if (restaurantData) {
-      // Generate a new ID for the restaurant
-      const newRestaurantId = Math.max(...allRestaurants.map(r => r.id), 0) + 1;
-      const newRestaurant = {
-        ...restaurantData,
-        id: newRestaurantId
-      };
-      
-      // Add the new restaurant to the list
-      updateRestaurantInList(newRestaurantId, newRestaurant);
-      
+    if (restaurantData && restaurantData.id) {
+      // Add the new restaurant to the list (ID from backend)
+      updateRestaurantInList(restaurantData.id, restaurantData);
       toast.success(`Welcome ${restaurantData.name}! Your restaurant is now visible to customers.`);
     }
     

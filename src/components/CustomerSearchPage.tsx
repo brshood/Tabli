@@ -151,8 +151,14 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
             >
-              <div className="h-48 flex items-center justify-center relative" style={{background: 'linear-gradient(to bottom right, #FAF8F2, #E7D7C5)'}}>
-                <span className="text-lg font-medium" style={{color: '#5A5E3E'}}>{restaurant.name}</span>
+              <div className="h-48 relative overflow-hidden" style={restaurant.coverImage ? {} : {background: 'linear-gradient(to bottom right, #FAF8F2, #E7D7C5)'}}>
+                {restaurant.coverImage ? (
+                  <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <span className="text-lg font-medium" style={{color: '#5A5E3E'}}>{restaurant.name}</span>
+                  </div>
+                )}
                 
                 {/* Trending badge for restaurants with >50 weekly average customers */}
                 {restaurant.weeklyAverageCustomers > 50 && (

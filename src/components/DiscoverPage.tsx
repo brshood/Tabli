@@ -126,14 +126,17 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                 >
                   <div 
                     className="h-48 relative overflow-hidden"
-                    style={{background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'}}
+                    style={restaurant.coverImage ? {} : {background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'}}
                   >
-                    {/* Placeholder restaurant photo */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
-                      <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                    {restaurant.coverImage ? (
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                        <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
 

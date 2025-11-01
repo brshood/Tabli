@@ -10,7 +10,7 @@ export interface QRCodeData {
 /**
  * Generates a check-in URL for a restaurant
  */
-export function generateRestaurantCheckInUrl(restaurantId: number): string {
+export function generateRestaurantCheckInUrl(restaurantId: string): string {
   const baseUrl = window.location.origin;
   return `${baseUrl}?qr=true&rid=${restaurantId}`;
 }
@@ -20,7 +20,7 @@ export function generateRestaurantCheckInUrl(restaurantId: number): string {
  * In a real app, this would use a QR code library
  * For now, we'll use a placeholder approach with an API
  */
-export async function generateQRCodeDataUrl(restaurantId: number, restaurantName: string): Promise<string> {
+export async function generateQRCodeDataUrl(restaurantId: string, restaurantName: string): Promise<string> {
   const checkInUrl = generateRestaurantCheckInUrl(restaurantId);
   
   // Using QR Server API as a simple solution (free, no API key needed)
@@ -33,21 +33,21 @@ export async function generateQRCodeDataUrl(restaurantId: number, restaurantName
 /**
  * Parses QR code parameters from URL
  */
-export function parseQRCodeFromUrl(): { isQRScan: boolean; restaurantId: number | null } {
+export function parseQRCodeFromUrl(): { isQRScan: boolean; restaurantId: string | null } {
   const urlParams = new URLSearchParams(window.location.search);
   const isQRScan = urlParams.get('qr') === 'true';
   const restaurantId = urlParams.get('rid');
   
   return {
     isQRScan,
-    restaurantId: restaurantId ? parseInt(restaurantId, 10) : null,
+    restaurantId: restaurantId || null,
   };
 }
 
 /**
  * Downloads a QR code as an image
  */
-export async function downloadQRCode(restaurantId: number, restaurantName: string): Promise<void> {
+export async function downloadQRCode(restaurantId: string, restaurantName: string): Promise<void> {
   const qrCodeUrl = await generateQRCodeDataUrl(restaurantId, restaurantName);
   
   // Create a temporary link to download
