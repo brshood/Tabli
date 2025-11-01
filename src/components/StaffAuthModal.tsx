@@ -8,7 +8,7 @@ import { Eye, EyeOff, Check, Upload, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 
-const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 interface StaffAuthModalProps {
   isOpen: boolean;
@@ -75,39 +75,64 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
   }, [isOpen]);
 
   const authLogin = async (email: string, password: string) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    if (res.status === 401) throw new Error('invalid');
-    if (!res.ok) throw new Error('login_failed');
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (res.status === 401) throw new Error('invalid');
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Login failed:', res.status, errorText);
+        throw new Error('login_failed');
+      }
+      return res.json();
+    } catch (error: any) {
+      if (error.message === 'invalid' || error.message === 'login_failed') {
+        throw error;
+      }
+      console.error('Login network error:', error);
+      throw new Error('Network error. Please check your connection and try again.');
+    }
   };
 
   const authSignup = async (name: string, email: string, password: string, restaurantData: any) => {
-    const res = await fetch(`${API_URL}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        restaurantName: restaurantData.name,
-        restaurantCity: restaurantData.city,
-        restaurantCuisine: restaurantData.cuisine,
-        restaurantPhone: restaurantData.phone,
-        restaurantAddress: restaurantData.address,
-      })
-    });
-    if (res.status === 409) throw new Error('exists');
-    if (res.status === 400) {
-      const data = await res.json();
-      if (data.details) throw new Error(data.details[0]?.message || 'validation_failed');
-      throw new Error('validation_failed');
+    try {
+      const res = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          restaurantName: restaurantData.name,
+          restaurantCity: restaurantData.city,
+          restaurantCuisine: restaurantData.cuisine,
+          restaurantPhone: restaurantData.phone,
+          restaurantAddress: restaurantData.address,
+        })
+      });
+      if (res.status === 409) throw new Error('exists');
+      if (res.status === 400) {
+        const data = await res.json();
+        if (data.details) throw new Error(data.details[0]?.message || 'validation_failed');
+        throw new Error('validation_failed');
+      }
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Signup failed:', res.status, errorText);
+        throw new Error('signup_failed');
+      }
+      return res.json();
+    } catch (error: any) {
+      if (error.message === 'exists' || error.message === 'validation_failed' || error.message === 'signup_failed') {
+        throw error;
+      }
+      // Network errors
+      console.error('Signup network error:', error);
+      throw new Error('Network error. Please check your connection and try again.');
     }
-    if (!res.ok) throw new Error('signup_failed');
-    return res.json();
   };
 
   const validateLogin = () => {
