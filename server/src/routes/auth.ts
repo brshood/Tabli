@@ -60,15 +60,20 @@ authRouter.post('/signup', async (req, res, next) => {
       restaurantId: restaurant._id,
     });
     
-    const token = signJwt({ sub: user.id, email: user.email, role: user.role });
+    const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      restaurant: { id: restaurant._id, name: restaurant.name, city: restaurant.city, cuisine: restaurant.cuisine },
+      user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role },
+      restaurant: { id: restaurant._id.toString(), name: restaurant.name, city: restaurant.city, cuisine: restaurant.cuisine },
     });
   } catch (err: any) {
+    console.error('Signup error:', err);
     if (err.name === 'ZodError') {
       return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
+    if (err.code === 11000) {
+      // MongoDB duplicate key error
+      return res.status(409).json({ error: 'Email already in use' });
     }
     next(err);
   }
@@ -86,8 +91,8 @@ authRouter.post('/login', async (req, res, next) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = signJwt({ sub: user.id, email: user.email, role: user.role });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
+    res.json({ token, user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role } });
   } catch (err) {
     next(err);
   }
@@ -101,7 +106,7 @@ authRouter.get('/me', async (req, res) => {
     const payload = verifyJwt(token);
     const user = await User.findById(payload.sub).lean();
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role } });
   } catch {
     return res.status(401).json({ error: 'Unauthorized' });
   }

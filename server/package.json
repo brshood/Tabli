@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
-    "start": "node dist/index.js"
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
@@ -29,6 +29,7 @@
     "multer": "^1.4.5-lts.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
+    "tsx": "^4.20.6",
     "twilio": "^5.10.4",
     "zod": "^3.23.8"
   },
@@ -42,7 +43,6 @@
     "@types/node": "^20.12.7",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
-    "tsx": "^4.20.6",
     "typescript": "^5.6.3"
   }
 }

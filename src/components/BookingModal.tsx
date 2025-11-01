@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Plus, Minus, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { calculateEstimatedWaitTime } from '../services/NotificationService';
-const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 import type { Restaurant } from './RestaurantContext';
 
 interface BookingModalProps {

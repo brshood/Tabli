@@ -12,7 +12,7 @@ import { Upload, Image, Menu, Settings, Save, X, Lock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useRestaurant } from './RestaurantContext';
 
-const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 interface RestaurantSettingsModalProps{
   isOpen: boolean;
