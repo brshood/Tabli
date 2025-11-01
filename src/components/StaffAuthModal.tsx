@@ -8,6 +8,8 @@ import { Eye, EyeOff, Check, Upload, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 
+const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+
 interface StaffAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -72,21 +74,40 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     }
   }, [isOpen]);
 
-  const authRequest = async (payload: any) => {
-    // Placeholder for authentication request
-    console.log('Auth request:', payload);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock successful authentication
-    return {
-      success: true,
-      user: {
-        name: payload.type === 'login' ? 'Staff Member' : payload.name,
-        email: payload.email
-      }
-    };
+  const authLogin = async (email: string, password: string) => {
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (res.status === 401) throw new Error('invalid');
+    if (!res.ok) throw new Error('login_failed');
+    return res.json();
+  };
+
+  const authSignup = async (name: string, email: string, password: string, restaurantData: any) => {
+    const res = await fetch(`${API_URL}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        restaurantName: restaurantData.name,
+        restaurantCity: restaurantData.city,
+        restaurantCuisine: restaurantData.cuisine,
+        restaurantPhone: restaurantData.phone,
+        restaurantAddress: restaurantData.address,
+      })
+    });
+    if (res.status === 409) throw new Error('exists');
+    if (res.status === 400) {
+      const data = await res.json();
+      if (data.details) throw new Error(data.details[0]?.message || 'validation_failed');
+      throw new Error('validation_failed');
+    }
+    if (!res.ok) throw new Error('signup_failed');
+    return res.json();
   };
 
   const validateLogin = () => {
@@ -159,19 +180,14 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     
     setIsLoading(true);
     try {
-      const result = await authRequest({
-        type: 'login',
-        email: loginEmail,
-        password: loginPassword
-      });
-      
-      if (result.success) {
-        toast.success('Welcome back!');
-        onAuthSuccess(result.user);
-        onClose();
-      }
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+      const { token, user } = await authLogin(loginEmail, loginPassword);
+      localStorage.setItem('auth_token', token);
+      toast.success('Welcome back!');
+      onAuthSuccess({ name: user.name, email: user.email });
+      onClose();
+    } catch (error: any) {
+      if (error?.message === 'invalid') toast.error('Invalid email or password');
+      else toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -182,52 +198,50 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     
     setIsLoading(true);
     try {
-      const result = await authRequest({
-        type: 'signup',
-        name: signupName.trim(),
-        email: signupEmail,
-        password: signupPassword
-      });
+      const restaurantData = {
+        name: restaurantName.trim(),
+        city: restaurantCity,
+        cuisine: restaurantCuisine,
+        phone: restaurantPhone.trim(),
+        address: restaurantAddress.trim(),
+      };
       
-      if (result.success) {
-        // Create restaurant data for the new signup
-        const restaurantData = {
-          name: restaurantName.trim(),
-          city: restaurantCity,
-          cuisine: restaurantCuisine,
-          phone: restaurantPhone.trim(),
-          email: signupEmail,
-          description: `Welcome to ${restaurantName.trim()}! We're excited to serve you.`,
-          location: `${restaurantAddress.trim()}, ${restaurantCity}`,
-          rating: 4.0, // Starting rating
-          status: 'available' as const,
-          waitTime: null,
-          tablesAvailable: 5, // Default tables
-          priceRange: '$', // Default price range
-          openingHours: '09:00',
-          closingHours: '22:00',
-          image: 'restaurant-generic',
-          waitingInLine: 0,
-          weeklyAverageCustomers: 25, // Starting average
-          coverImage: null,
-          menu: [
-            {
-              name: 'House Special',
-              category: 'Specials',
-              description: 'Our signature dish',
-              price: '25'
-            }
-          ],
-          licenseNumber: licenseNumber.trim(),
-          licenseFile: licenseFile ? URL.createObjectURL(licenseFile) : null
-        };
-
-        toast.success('Restaurant account created successfully!');
-        onAuthSuccess(result.user, restaurantData);
-        onClose();
-      }
-    } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      const { token, user, restaurant } = await authSignup(signupName.trim(), signupEmail, signupPassword, restaurantData);
+      localStorage.setItem('auth_token', token);
+      
+      const fullRestaurantData = {
+        id: restaurant.id,
+        name: restaurant.name,
+        city: restaurant.city,
+        cuisine: restaurant.cuisine,
+        phone: restaurantPhone.trim(),
+        email: signupEmail,
+        description: `Welcome to ${restaurant.name}!`,
+        location: `${restaurantAddress.trim()}, ${restaurant.city}`,
+        rating: 4.0,
+        status: 'available' as const,
+        waitTime: null,
+        tablesAvailable: 5,
+        priceRange: '$$',
+        openingHours: '09:00',
+        closingHours: '22:00',
+        image: 'restaurant-generic',
+        waitingInLine: 0,
+        weeklyAverageCustomers: 25,
+        coverImage: null,
+        menu: [],
+        address: restaurantAddress.trim(),
+        indoorSeating: true,
+        outdoorSeating: false,
+      };
+      
+      toast.success('Account created successfully!');
+      onAuthSuccess({ name: user.name, email: user.email }, fullRestaurantData);
+      onClose();
+    } catch (error: any) {
+      if (error?.message === 'exists') toast.error('Email already in use');
+      else if (error?.message?.includes('Password')) toast.error(error.message);
+      else toast.error('Signup failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -271,12 +285,15 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     
     setIsLoading(true);
     try {
-      // Simulate API call for password reset
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      if (!res.ok) throw new Error('reset_failed');
       setResetSent(true);
       toast.success('Password reset instructions sent to your email!');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to send reset email. Please try again.');
     } finally {
       setIsLoading(false);

@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
 
 export interface Restaurant {
-  id: number;
+  id: string; // MongoDB ObjectId
   name: string;
   city: 'Al Ain' | 'Abu Dhabi' | 'Dubai';
   cuisine: string;
@@ -39,11 +40,11 @@ interface RestaurantContextType {
   currentRestaurant: Restaurant;
   updateRestaurant: (updates: Partial<Restaurant>) => void;
   allRestaurants: Restaurant[];
-  updateRestaurantInList: (id: number, updates: Partial<Restaurant>) => void;
+  updateRestaurantInList: (id: string, updates: Partial<Restaurant>) => void;
 }
 
 const defaultRestaurant: Restaurant = {
-  id: 1,
+  id: "default-1",
   name: "Downtown Restaurant",
   city: "Dubai",
   cuisine: "Italian",
@@ -87,7 +88,7 @@ const defaultRestaurant: Restaurant = {
 const initialRestaurants: Restaurant[] = [
   {
     ...defaultRestaurant,
-    id: 1,
+    id: "mock-1",
     name: "Bella Vista Italian",
     location: "Downtown, 0.5 miles",
     city: "Dubai",
@@ -97,7 +98,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 2,
+    id: "mock-2",
     name: "Sakura Sushi",
     location: "Marina District, 0.8 miles", 
     city: "Dubai",
@@ -112,7 +113,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 3,
+    id: "mock-3",
     name: "Green Garden Café",
     location: "Al Jahili Fort Area, 1.2 miles",
     city: "Al Ain",
@@ -124,7 +125,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 4,
+    id: "mock-4",
     name: "Tony's Pizza Corner",
     location: "Corniche Road, 0.3 miles",
     city: "Abu Dhabi",
@@ -139,7 +140,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 5,
+    id: "mock-5",
     name: "Ocean Breeze Seafood",
     location: "Jumeirah Beach, 2.1 miles",
     city: "Dubai",
@@ -151,7 +152,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 6,
+    id: "mock-6",
     name: "Smoky Joe's BBQ",
     location: "Yas Island, 1.5 miles",
     city: "Abu Dhabi",
@@ -166,7 +167,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 7,
+    id: "mock-7",
     name: "Al Ain Oasis Café",
     location: "Al Ain Oasis, 0.7 miles",
     city: "Al Ain",
@@ -178,7 +179,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 8,
+    id: "mock-8",
     name: "Spice Route Indian",
     location: "Electra Street, 1.1 miles",
     city: "Abu Dhabi",
@@ -190,7 +191,7 @@ const initialRestaurants: Restaurant[] = [
   },
   {
     ...defaultRestaurant,
-    id: 9,
+    id: "mock-9",
     name: "Desert Pizza Co.",
     location: "Hili Mall Area, 0.9 miles",
     city: "Al Ain",
@@ -223,6 +224,51 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
   const [currentRestaurant, setCurrentRestaurant] = useState<Restaurant>(defaultRestaurant);
   const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>(initialRestaurants);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/restaurants`);
+        if (!res.ok) return;
+        const { items } = await res.json();
+        const mapped: Restaurant[] = (items || []).map((r: any) => ({
+          id: r._id || r.id,
+          name: r.name,
+          city: r.city,
+          cuisine: r.cuisine,
+          phone: r.phone || '',
+          email: r.email || '',
+          description: r.description || '',
+          location: r.address || '',
+          rating: 4.0,
+          status: 'available',
+          waitTime: null,
+          tablesAvailable: 0,
+          image: 'restaurant-generic',
+          waitingInLine: 0,
+          weeklyAverageCustomers: 0,
+          coverImage: null,
+          menu: [],
+          priceRange: r.priceRange || '$$',
+          openingHours: r.openingHours || '09:00',
+          closingHours: r.closingHours || '22:00',
+          averageTableTurnTime: 45,
+          maxHoldTime: 10,
+          address: r.address || '',
+          indoorSeating: true,
+          outdoorSeating: true,
+        }));
+        if (!cancelled && mapped.length) {
+          setAllRestaurants(mapped);
+          setCurrentRestaurant(mapped[0]);
+        }
+      } catch {
+        // keep mocks on failure
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const updateRestaurant = (updates: Partial<Restaurant>) => {
     setCurrentRestaurant(prev => ({ ...prev, ...updates }));
     
@@ -236,7 +282,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
     );
   };
 
-  const updateRestaurantInList = (id: number, updates: Partial<Restaurant>) => {
+  const updateRestaurantInList = (id: string, updates: Partial<Restaurant>) => {
     setAllRestaurants(prev => {
       const existingIndex = prev.findIndex(restaurant => restaurant.id === id);
       
@@ -249,7 +295,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
         );
       } else {
         // Add new restaurant
-        return [...prev, updates as Restaurant];
+        return [...prev, { ...updates, id } as Restaurant];
       }
     });
     

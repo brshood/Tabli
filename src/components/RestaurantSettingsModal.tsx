@@ -12,7 +12,9 @@ import { Upload, Image, Menu, Settings, Save, X, Lock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useRestaurant } from './RestaurantContext';
 
-interface RestaurantSettingsModalProps {
+const API_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:8080';
+
+interface RestaurantSettingsModalProps{
   isOpen: boolean;
   onClose: () => void;
 }
@@ -38,24 +40,51 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
     confirmPassword: ''
   });
 
-  const handleSaveSettings = () => {
-    // Update the restaurant data in context
-    updateRestaurant({
-      name: currentRestaurant.name,
-      city: currentRestaurant.city,
-      cuisine: currentRestaurant.cuisine,
-      phone: currentRestaurant.phone,
-      email: currentRestaurant.email,
-      description: currentRestaurant.description,
-      coverImage: currentRestaurant.coverImage,
-      menu: currentRestaurant.menu,
-      priceRange: currentRestaurant.priceRange,
-      openingHours: currentRestaurant.openingHours,
-      closingHours: currentRestaurant.closingHours
-    });
-    
-    toast.success('Restaurant settings saved successfully! Changes are now visible to customers.');
-    onClose();
+  const handleSaveSettings = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_URL}/restaurants/${currentRestaurant.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: currentRestaurant.name,
+          city: currentRestaurant.city,
+          cuisine: currentRestaurant.cuisine,
+          phone: currentRestaurant.phone,
+          email: currentRestaurant.email,
+          description: currentRestaurant.description,
+          priceRange: currentRestaurant.priceRange,
+          openingHours: currentRestaurant.openingHours,
+          closingHours: currentRestaurant.closingHours,
+          address: currentRestaurant.address,
+        }),
+      });
+      
+      if (!res.ok) throw new Error('Failed to save settings');
+      
+      // Update the restaurant data in context
+      updateRestaurant({
+        name: currentRestaurant.name,
+        city: currentRestaurant.city,
+        cuisine: currentRestaurant.cuisine,
+        phone: currentRestaurant.phone,
+        email: currentRestaurant.email,
+        description: currentRestaurant.description,
+        coverImage: currentRestaurant.coverImage,
+        menu: currentRestaurant.menu,
+        priceRange: currentRestaurant.priceRange,
+        openingHours: currentRestaurant.openingHours,
+        closingHours: currentRestaurant.closingHours
+      });
+      
+      toast.success('Restaurant settings saved successfully! Changes are now visible to customers.');
+      onClose();
+    } catch (error) {
+      toast.error('Failed to save settings. Please try again.');
+    }
   };
 
   const handlePasswordChange = () => {
@@ -79,18 +108,32 @@ export function RestaurantSettingsModal({ isOpen, onClose }: RestaurantSettingsM
     setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
-  const handleCoverImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // In a real app, you'd upload to a server and get back a URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        updateRestaurant({
-          coverImage: e.target?.result as string
-        });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${API_URL}/restaurants/${currentRestaurant.id}/media`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      
+      if (!res.ok) throw new Error('Upload failed');
+      
+      const { id } = await res.json();
+      const coverImageUrl = `${API_URL}/media/${id}`;
+      
+      updateRestaurant({ coverImage: coverImageUrl });
       toast.success('Cover image uploaded successfully!');
+    } catch (error) {
+      toast.error('Failed to upload image. Please try again.');
     }
   };
 
