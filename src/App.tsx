@@ -39,8 +39,12 @@ function AppContent() {
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
 
-  // Handle QR code scan on mount
+  // Initialize page from URL on mount
   useEffect(() => {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    
+    // Check for QR code scan
     const { isQRScan, restaurantId } = parseQRCodeFromUrl();
     
     if (isQRScan && restaurantId) {
@@ -57,11 +61,22 @@ function AppContent() {
         setCurrentPage('restaurant-profile');
         toast.success(`Welcome to ${restaurant.name}!`);
         
-        // Clean up URL
-        window.history.replaceState({}, '', window.location.pathname);
+        // Clean up URL but keep hash for history
+        window.history.replaceState({ page: 'restaurant-profile', restaurantId }, '', '#restaurant-profile');
       } else {
         toast.error('Restaurant not found');
       }
+    } else if (hash) {
+      // Parse hash to determine initial page
+      const pageFromHash = hash.replace('#', '') as Page;
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile'].includes(pageFromHash)) {
+        setCurrentPage(pageFromHash);
+        // Set initial history state
+        window.history.replaceState({ page: pageFromHash }, '', hash);
+      }
+    } else {
+      // No hash, set initial state for landing page
+      window.history.replaceState({ page: 'landing' }, '', '#landing');
     }
   }, [allRestaurants, updateRestaurantInList]);
 
@@ -83,15 +98,55 @@ function AppContent() {
     sessionStorage.setItem('staffAuth', JSON.stringify(staffAuth));
   }, [staffAuth]);
 
-  // Enhanced navigation with transition tracking
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      
+      if (state && state.page) {
+        setPreviousPage(currentPage);
+        setCurrentPage(state.page);
+        
+        if (state.page === 'restaurant-profile' && state.restaurantId) {
+          const restaurant = allRestaurants.find(r => r.id === state.restaurantId);
+          if (restaurant) {
+            setSelectedRestaurant(restaurant);
+          }
+        } else if (state.page !== 'restaurant-profile') {
+          setSelectedRestaurant(null);
+        }
+      } else {
+        // If no state, default to landing page
+        setPreviousPage(currentPage);
+        setCurrentPage('landing');
+        setSelectedRestaurant(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentPage, allRestaurants]);
+
+  // Enhanced navigation with transition tracking and browser history
   const navigateToPage = (newPage: Page, restaurant?: Restaurant) => {
     setPreviousPage(currentPage);
     setCurrentPage(newPage);
     
+    // Update browser history
+    const state: any = { page: newPage };
+    
     if (newPage === 'restaurant-profile' && restaurant) {
       setSelectedRestaurant(restaurant);
+      state.restaurantId = restaurant.id;
+      window.history.pushState(state, '', `#${newPage}`);
     } else if (newPage !== 'restaurant-profile') {
       setSelectedRestaurant(null);
+      window.history.pushState(state, '', `#${newPage}`);
+    } else {
+      window.history.pushState(state, '', `#${newPage}`);
     }
   };
 
