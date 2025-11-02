@@ -227,7 +227,8 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       const { token, user } = await authLogin(loginEmail, loginPassword);
       localStorage.setItem('auth_token', token);
       toast.success('Welcome back!');
-      onAuthSuccess({ name: user.name, email: user.email });
+      // Pass the full user object including restaurantId
+      onAuthSuccess({ name: user.name, email: user.email, restaurantId: user.restaurantId } as any);
       onClose();
     } catch (error: any) {
       if (error?.message === 'invalid') toast.error('Invalid email or password');

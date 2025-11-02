@@ -8,6 +8,7 @@ import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, 
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
+import { DocumentsManagement } from './DocumentsManagement';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
@@ -17,6 +18,8 @@ interface StaffDashboardProps {
   staffAuth: {
     isAuthenticated: boolean;
     user: { name: string; email: string } | null;
+    restaurantId?: string;
+    token?: string;
   };
   onLogout: () => void;
 }
@@ -255,9 +258,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
             <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
+            <TabsTrigger value="documents" style={{color: 'var(--where2go-accent)'}}>Documents</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
@@ -821,6 +825,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-8">
+            {staffAuth.restaurantId && staffAuth.token ? (
+              <DocumentsManagement 
+                restaurantId={staffAuth.restaurantId}
+                token={staffAuth.token}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <p style={{ color: '#9FA0A0' }}>Restaurant information not available. Please log in again.</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

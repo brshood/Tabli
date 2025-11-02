@@ -99,11 +99,15 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
         licenseFileRef = await new Promise((resolve, reject) => {
           stream.on('finish', () => {
             resolve({
-              fileId: stream.id,
+              fileId: stream.id as any,
               type: req.file!.mimetype.includes('pdf') ? 'pdf' : 'image',
               filename: req.file!.originalname,
-              contentType: req.file!.mimetype
-            });
+              contentType: req.file!.mimetype,
+              category: 'license' as any,
+              version: 1,
+              uploadedAt: new Date(),
+              isActive: true
+            } as any);
           });
           stream.on('error', reject);
         });
@@ -174,7 +178,16 @@ authRouter.post('/login', async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
-    res.json({ token, user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user._id.toString(), 
+        name: user.name, 
+        email: user.email, 
+        role: user.role,
+        restaurantId: user.restaurantId?.toString()
+      } 
+    });
   } catch (err) {
     next(err);
   }
@@ -188,7 +201,15 @@ authRouter.get('/me', async (req, res) => {
     const payload = verifyJwt(token);
     const user = await User.findById(payload.sub).lean();
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role } });
+    res.json({ 
+      user: { 
+        id: user._id.toString(), 
+        name: user.name, 
+        email: user.email, 
+        role: user.role,
+        restaurantId: user.restaurantId?.toString()
+      } 
+    });
   } catch {
     return res.status(401).json({ error: 'Unauthorized' });
   }

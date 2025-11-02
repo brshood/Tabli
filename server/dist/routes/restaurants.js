@@ -79,7 +79,16 @@ restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.s
         stream.end(req.file.buffer);
         stream.on('finish', async (file) => {
             r.mediaRefs = r.mediaRefs || [];
-            r.mediaRefs.push({ fileId: file._id, type: type, filename: file.filename, contentType: file.contentType || 'application/octet-stream' });
+            r.mediaRefs.push({
+                fileId: file._id,
+                type: type,
+                filename: file.filename,
+                contentType: file.contentType || 'application/octet-stream',
+                category: 'other',
+                version: 1,
+                uploadedAt: new Date(),
+                isActive: true,
+            });
             await r.save();
             res.json({ id: file._id, filename: file.filename, contentType: file.contentType, type });
         });

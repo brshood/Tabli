@@ -16,6 +16,11 @@ const restaurantSchema = new Schema({
             type: { type: String, enum: ['image', 'pdf'], required: true },
             filename: { type: String, required: true },
             contentType: { type: String, required: true },
+            category: { type: String, enum: ['license', 'menu', 'other'], required: true, default: 'other' },
+            menuType: { type: String, required: false },
+            version: { type: Number, required: true, default: 1 },
+            uploadedAt: { type: Date, required: true, default: Date.now },
+            isActive: { type: Boolean, required: true, default: true },
         },
     ],
 }, { timestamps: true });
