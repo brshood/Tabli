@@ -97,27 +97,39 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     }
   };
 
-  const authSignup = async (name: string, email: string, password: string, restaurantData: any) => {
+  const authSignup = async (name: string, email: string, password: string, restaurantData: any, licenseFile: File | null) => {
     try {
+      // Create FormData instead of JSON
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('restaurantName', restaurantData.name);
+      formData.append('restaurantCity', restaurantData.city);
+      formData.append('restaurantCuisine', restaurantData.cuisine);
+      formData.append('restaurantPhone', restaurantData.phone);
+      formData.append('restaurantAddress', restaurantData.address);
+      
+      // Add license file if provided
+      if (licenseFile) {
+        formData.append('licenseFile', licenseFile);
+      }
+
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          restaurantName: restaurantData.name,
-          restaurantCity: restaurantData.city,
-          restaurantCuisine: restaurantData.cuisine,
-          restaurantPhone: restaurantData.phone,
-          restaurantAddress: restaurantData.address,
-        })
+        // Don't set Content-Type - browser sets it automatically with boundary for multipart/form-data
+        body: formData,
       });
+      
       if (res.status === 409) throw new Error('exists');
       if (res.status === 400) {
         const data = await res.json();
-        if (data.details) throw new Error(data.details[0]?.message || 'validation_failed');
-        throw new Error('validation_failed');
+        // Return the full validation error data
+        const error: any = new Error('validation_failed');
+        error.validationData = data;
+        throw error;
       }
       if (!res.ok) {
         const errorText = await res.text();
@@ -162,8 +174,15 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       newErrors.signupEmail = 'Please enter a valid email address';
     }
     
-    if (!signupPassword || signupPassword.length < 6) {
-      newErrors.signupPassword = 'Password must be at least 6 characters';
+    // Match backend password validation
+    if (!signupPassword || signupPassword.length < 8) {
+      newErrors.signupPassword = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(signupPassword)) {
+      newErrors.signupPassword = 'Password must contain at least one uppercase letter';
+    } else if (!/[0-9]/.test(signupPassword)) {
+      newErrors.signupPassword = 'Password must contain at least one number';
+    } else if (!/[^A-Za-z0-9]/.test(signupPassword)) {
+      newErrors.signupPassword = 'Password must contain at least one special character';
     }
 
     // Restaurant information validation
@@ -231,7 +250,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
         address: restaurantAddress.trim(),
       };
       
-      const { token, user, restaurant } = await authSignup(signupName.trim(), signupEmail, signupPassword, restaurantData);
+      const { token, user, restaurant } = await authSignup(signupName.trim(), signupEmail, signupPassword, restaurantData, licenseFile);
       localStorage.setItem('auth_token', token);
       
       const fullRestaurantData = {
@@ -264,9 +283,32 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       onAuthSuccess({ name: user.name, email: user.email }, fullRestaurantData);
       onClose();
     } catch (error: any) {
-      if (error?.message === 'exists') toast.error('Email already in use');
-      else if (error?.message?.includes('Password')) toast.error(error.message);
-      else toast.error('Signup failed. Please try again.');
+      if (error?.message === 'exists') {
+        toast.error('Email already in use');
+      } else if (error?.message === 'validation_failed' && error?.validationData) {
+        const { details, passwordRequirements } = error.validationData;
+        
+        // Display all validation errors
+        if (details && Array.isArray(details)) {
+          details.forEach((err: any) => {
+            toast.error(err.message);
+          });
+          
+          // If there's a password error, show password requirements
+          if (passwordRequirements) {
+            toast.info('Password Requirements:', {
+              description: passwordRequirements.description.join('\n'),
+              duration: 10000, // Show for 10 seconds
+            });
+          }
+        } else {
+          toast.error('Validation failed. Please check your information.');
+        }
+      } else if (error?.message?.includes('Password')) {
+        toast.error(error.message);
+      } else {
+        toast.error('Signup failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -465,7 +507,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                     <Input
                       id="signupPassword"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Create a password (6+ characters)"
+                      placeholder="Create a password (8+ characters)"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       className="bg-input-background pr-10"
@@ -484,6 +526,15 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                   {errors.signupPassword && (
                     <p className="text-sm text-red-600">{errors.signupPassword}</p>
                   )}
+                  <div className="text-xs space-y-1 p-3 rounded-lg" style={{backgroundColor: '#F8F1C1', color: '#5A5E3E'}}>
+                    <p className="font-medium">Password must contain:</p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-1">
+                      <li>At least 8 characters</li>
+                      <li>One uppercase letter (A-Z)</li>
+                      <li>One number (0-9)</li>
+                      <li>One special character (!@#$%^&*)</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
