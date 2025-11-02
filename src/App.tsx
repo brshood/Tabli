@@ -28,6 +28,8 @@ interface StaffUser {
 interface StaffAuth {
   isAuthenticated: boolean;
   user: StaffUser | null;
+  restaurantId?: string;
+  token?: string;
 }
 
 function AppContent() {
@@ -35,7 +37,7 @@ function AppContent() {
   const { t, isRTL } = useLanguage();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [previousPage, setPreviousPage] = useState<Page>('landing');
-  const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null });
+  const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
 
@@ -151,18 +153,37 @@ function AppContent() {
   };
 
   const handleStaffAuthSuccess = (user: StaffUser, restaurantData?: any) => {
+    // Get token from localStorage (set by StaffAuthModal)
+    const token = localStorage.getItem('auth_token') || '';
+    
     if (restaurantData && restaurantData.id) {
       // Add the new restaurant to the list (ID from backend)
       updateRestaurantInList(restaurantData.id, restaurantData);
       toast.success(`Welcome ${restaurantData.name}! Your restaurant is now visible to customers.`);
+      setStaffAuth({ 
+        isAuthenticated: true, 
+        user, 
+        restaurantId: restaurantData.id,
+        token 
+      });
+    } else {
+      // For login (no restaurantData), we need to get restaurantId from somewhere
+      // It should be in the user object from the login response
+      const restaurantId = (user as any).restaurantId;
+      setStaffAuth({ 
+        isAuthenticated: true, 
+        user, 
+        restaurantId,
+        token 
+      });
     }
     
-    setStaffAuth({ isAuthenticated: true, user });
     navigateToPage('staff');
   };
 
   const handleStaffLogout = () => {
-    setStaffAuth({ isAuthenticated: false, user: null });
+    localStorage.removeItem('auth_token');
+    setStaffAuth({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
     navigateToPage('landing');
   };
 

@@ -14,6 +14,7 @@ import { reservationsRouter } from './routes/reservations.ts';
 import { qrRouter } from './routes/qr.ts';
 import { analyticsRouter } from './routes/analytics.ts';
 import { tablesRouter } from './routes/tables.ts';
+import { documentsRouter } from './routes/documents.ts';
 // Global rate limiter: 100 requests per 15 minutes
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -46,6 +47,7 @@ export function createApp() {
     app.use('/reservations', reservationsRouter);
     app.use('/qr', qrRouter);
     app.use('/analytics', analyticsRouter);
+    app.use('/documents', documentsRouter);
     app.use('/', tablesRouter);
     // 404 handler
     app.use((req, res) => {
@@ -54,8 +56,10 @@ export function createApp() {
     // Error handler
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     app.use((err, _req, res, _next) => {
-        const status = err.status || 500;
-        res.status(status).json({ error: err.message || 'Internal Server Error' });
+        console.error('Error:', err);
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || 'Internal Server Error';
+        res.status(status).json({ error: message });
     });
     return app;
 }

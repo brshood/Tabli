@@ -14,6 +14,7 @@ import { reservationsRouter } from './routes/reservations.ts';
 import { qrRouter } from './routes/qr.ts';
 import { analyticsRouter } from './routes/analytics.ts';
 import { tablesRouter } from './routes/tables.ts';
+import { documentsRouter } from './routes/documents.ts';
 
 // Global rate limiter: 100 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -51,6 +52,7 @@ export function createApp(): Application {
   app.use('/reservations', reservationsRouter);
   app.use('/qr', qrRouter);
   app.use('/analytics', analyticsRouter);
+  app.use('/documents', documentsRouter);
   app.use('/', tablesRouter);
 
   // 404 handler

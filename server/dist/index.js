@@ -2,6 +2,15 @@ import { createServer } from 'http';
 import { connectMongo } from './db/mongo.ts';
 import { createApp } from './app.ts';
 import { env } from './config/env.ts';
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Don't exit immediately, let the error handler catch it
+});
 async function main() {
     await connectMongo();
     const app = createApp();

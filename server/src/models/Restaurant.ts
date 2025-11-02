@@ -1,5 +1,17 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+export interface DocumentRef {
+  fileId: mongoose.Types.ObjectId;
+  type: 'image' | 'pdf';
+  filename: string;
+  contentType: string;
+  category: 'license' | 'menu' | 'other';
+  menuType?: string;
+  version: number;
+  uploadedAt: Date;
+  isActive: boolean;
+}
+
 export interface RestaurantDocument extends Document {
   name: string;
   city: 'Al Ain' | 'Abu Dhabi' | 'Dubai';
@@ -11,7 +23,7 @@ export interface RestaurantDocument extends Document {
   openingHours?: string;
   closingHours?: string;
   priceRange?: string;
-  mediaRefs?: Array<{ fileId: mongoose.Types.ObjectId; type: 'image' | 'pdf'; filename: string; contentType: string }>; 
+  mediaRefs?: DocumentRef[]; 
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +46,11 @@ const restaurantSchema = new Schema<RestaurantDocument>(
         type: { type: String, enum: ['image', 'pdf'], required: true },
         filename: { type: String, required: true },
         contentType: { type: String, required: true },
+        category: { type: String, enum: ['license', 'menu', 'other'], required: true, default: 'other' },
+        menuType: { type: String, required: false },
+        version: { type: Number, required: true, default: 1 },
+        uploadedAt: { type: Date, required: true, default: Date.now },
+        isActive: { type: Boolean, required: true, default: true },
       },
     ],
   },
