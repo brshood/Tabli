@@ -247,5 +247,105 @@ authRouter.post('/forgot-password', async (req, res, next) => {
   }
 });
 
+// Update profile schema
+const updateProfileSchema = z.object({
+  name: z.string().min(2).trim().optional(),
+  email: z.string().email().trim().toLowerCase().optional(),
+});
+
+// PUT /auth/profile - Update personal information
+authRouter.put('/profile', async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const payload = verifyJwt(token);
+    const user = await User.findById(payload.sub);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const updates = updateProfileSchema.parse(req.body);
+
+    // Check if email is being changed and if it's already in use
+    if (updates.email && updates.email !== user.email) {
+      const existing = await User.findOne({ email: updates.email });
+      if (existing) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+      user.email = updates.email;
+    }
+
+    if (updates.name) {
+      user.name = updates.name;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        restaurantId: user.restaurantId?.toString(),
+      },
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation failed', details: err.errors });
+    }
+    next(err);
+  }
+});
+
+// Change password schema
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+  confirmPassword: z.string().min(1),
+});
+
+// PUT /auth/password - Change password
+authRouter.put('/password', async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const payload = verifyJwt(token);
+    const user = await User.findById(payload.sub);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { currentPassword, newPassword, confirmPassword } = changePasswordSchema.parse(req.body);
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Verify new passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'New passwords do not match' });
+    }
+
+    // Hash and save new password
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: err.errors,
+        passwordRequirements: PASSWORD_REQUIREMENTS 
+      });
+    }
+    next(err);
+  }
+});
+
 
 

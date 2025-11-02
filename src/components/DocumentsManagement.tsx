@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus } from 'lucide-react';
+import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
   fetchRestaurantDocuments,
@@ -15,6 +15,7 @@ import {
   type DocumentRef,
   type GroupedDocuments,
 } from '../services/documentsApi';
+import { updateMenuType } from '../services/profileApi';
 
 interface DocumentsManagementProps {
   restaurantId: string;
@@ -29,6 +30,11 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
   const [menuTypeModalOpen, setMenuTypeModalOpen] = useState(false);
   const [menuType, setMenuType] = useState('');
   const [pendingMenuFile, setPendingMenuFile] = useState<File | null>(null);
+  
+  const [editMenuTypeModalOpen, setEditMenuTypeModalOpen] = useState(false);
+  const [editingMenuType, setEditingMenuType] = useState('');
+  const [editingFileId, setEditingFileId] = useState('');
+  const [newMenuTypeName, setNewMenuTypeName] = useState('');
   
   const licenseInputRef = useRef<HTMLInputElement>(null);
   const menuInputRef = useRef<HTMLInputElement>(null);
@@ -130,6 +136,36 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
     setMenuTypeModalOpen(false);
     setMenuType('');
     setPendingMenuFile(null);
+  };
+
+  const handleEditMenuType = (menuType: string, fileId: string) => {
+    setEditingMenuType(menuType);
+    setEditingFileId(fileId);
+    setNewMenuTypeName(menuType);
+    setEditMenuTypeModalOpen(true);
+  };
+
+  const handleSaveMenuType = async () => {
+    if (!newMenuTypeName.trim()) {
+      toast.error('Menu type is required.');
+      return;
+    }
+
+    try {
+      await updateMenuType(restaurantId, editingFileId, newMenuTypeName.trim().toLowerCase(), token);
+      toast.success('Menu type updated successfully!');
+      setEditMenuTypeModalOpen(false);
+      await loadDocuments();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update menu type');
+    }
+  };
+
+  const handleCancelEditMenuType = () => {
+    setEditMenuTypeModalOpen(false);
+    setEditingMenuType('');
+    setEditingFileId('');
+    setNewMenuTypeName('');
   };
 
   const handleDelete = async (fileId: string, filename: string) => {
@@ -350,9 +386,24 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
 
                 return (
                   <div key={menuType} className="border-b pb-6 last:border-b-0 last:pb-0" style={{ borderColor: 'rgba(183, 65, 14, 0.2)' }}>
-                    <h5 className="text-lg font-semibold mb-3 capitalize" style={{ color: '#2D2D2B' }}>
-                      {menuType} Menu
-                    </h5>
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="text-lg font-semibold capitalize" style={{ color: '#2D2D2B' }}>
+                        {menuType} Menu
+                      </h5>
+                      {activeMenu && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditMenuType(menuType, activeMenu.fileId.toString())}
+                          className="pill-button text-xs"
+                          style={{ borderColor: '#5A5E3E', color: '#5A5E3E' }}
+                          title="Edit menu type"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit Type
+                        </Button>
+                      )}
+                    </div>
                     
                     {activeMenu && (
                       <div className="mb-4">
@@ -451,6 +502,57 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
               style={{ backgroundColor: '#3F4427' }}
             >
               OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Menu Type Modal */}
+      <Dialog open={editMenuTypeModalOpen} onOpenChange={setEditMenuTypeModalOpen}>
+        <DialogContent className="sm:max-w-md" style={{ backgroundColor: '#F3F4F6', borderColor: 'rgba(60, 60, 60, 0.2)' }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: '#2D2D2B' }}>Edit Menu Type</DialogTitle>
+            <DialogDescription style={{ color: '#5A5E3E' }}>
+              Update the menu type name (e.g., lunch, dinner, drinks):
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newMenuType" style={{ color: '#2D2D2B' }}>Menu Type</Label>
+              <Input
+                id="newMenuType"
+                value={newMenuTypeName}
+                onChange={(e) => setNewMenuTypeName(e.target.value)}
+                placeholder="e.g., lunch, dinner, drinks"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveMenuType();
+                  }
+                }}
+                autoFocus
+                style={{ 
+                  borderColor: 'rgba(90, 94, 62, 0.3)',
+                  backgroundColor: '#FFFFFF'
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={handleCancelEditMenuType}
+              className="pill-button"
+              style={{ borderColor: '#5A5E3E', color: '#5A5E3E' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveMenuType}
+              disabled={!newMenuTypeName.trim()}
+              className="pill-button text-white"
+              style={{ backgroundColor: '#3F4427' }}
+            >
+              Save
             </Button>
           </div>
         </DialogContent>

@@ -266,3 +266,55 @@ documentsRouter.delete(
   }
 );
 
+// PUT /documents/:restaurantId/menu/:fileId/type - Update menu type for a specific menu
+documentsRouter.put(
+  '/:restaurantId/menu/:fileId/type',
+  requireAuth,
+  requireOwnRestaurant,
+  async (req, res, next) => {
+    try {
+      const { restaurantId, fileId } = req.params;
+      const { menuType } = req.body;
+
+      if (!menuType || !menuType.trim()) {
+        return res.status(400).json({ error: 'Menu type is required' });
+      }
+
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: 'Restaurant not found' });
+      }
+
+      // Find the document
+      const document = restaurant.mediaRefs?.find(
+        doc => doc.fileId.toString() === fileId
+      );
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Verify it's a menu document
+      if (document.category !== 'menu') {
+        return res.status(400).json({ error: 'Can only update menu type for menu documents' });
+      }
+
+      // Update the menu type
+      document.menuType = menuType.trim().toLowerCase();
+      await restaurant.save();
+
+      res.json({
+        success: true,
+        message: 'Menu type updated successfully',
+        document: {
+          fileId: document.fileId.toString(),
+          filename: document.filename,
+          menuType: document.menuType,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+

@@ -8,7 +8,7 @@ import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, 
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
-import { DocumentsManagement } from './DocumentsManagement';
+import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
@@ -22,6 +22,7 @@ interface StaffDashboardProps {
     token?: string;
   };
   onLogout: () => void;
+  onUserUpdate: (user: any) => void;
 }
 
 const mockWaitlist = [
@@ -80,7 +81,7 @@ const peakHoursData = [
   { time: '10 PM', male: 19, female: 16, all: 35 }
 ];
 
-export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: StaffDashboardProps) {
+export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
   const [availableTables, setAvailableTables] = useState(mockAvailableTables);
@@ -258,11 +259,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
-            <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
-            <TabsTrigger value="documents" style={{color: 'var(--where2go-accent)'}}>Documents</TabsTrigger>
-          </TabsList>
+        <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
+          <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
+          <TabsTrigger value="profile" style={{color: 'var(--where2go-accent)'}}>Profile</TabsTrigger>
+        </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
             {/* KPI Stats */}
@@ -827,11 +828,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             </div>
           </TabsContent>
 
-          <TabsContent value="documents" className="space-y-8">
-            {staffAuth.restaurantId && staffAuth.token ? (
-              <DocumentsManagement 
+          <TabsContent value="profile" className="space-y-8">
+            {staffAuth.restaurantId && staffAuth.token && staffAuth.user ? (
+              <RestaurantProfile
+                user={staffAuth.user}
                 restaurantId={staffAuth.restaurantId}
                 token={staffAuth.token}
+                onUserUpdate={onUserUpdate}
               />
             ) : (
               <div className="text-center py-12">

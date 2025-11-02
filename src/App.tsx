@@ -187,6 +187,16 @@ function AppContent() {
     navigateToPage('landing');
   };
 
+  const handleUserUpdate = (updatedUser: any) => {
+    setStaffAuth(prev => ({
+      ...prev,
+      user: {
+        name: updatedUser.name,
+        email: updatedUser.email
+      }
+    }));
+  };
+
   const handleStaffClick = () => {
     if (staffAuth.isAuthenticated) {
       navigateToPage('staff');
@@ -336,7 +346,7 @@ function AppContent() {
             transition={pageTransition}
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
-            <StaffDashboardWithTabs onNavigate={navigateToPage} staffAuth={staffAuth} onLogout={handleStaffLogout} />
+            <StaffDashboardWithTabs onNavigate={navigateToPage} staffAuth={staffAuth} onLogout={handleStaffLogout} onUserUpdate={handleUserUpdate} />
           </motion.div>
         );
       default:
