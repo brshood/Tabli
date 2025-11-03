@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -81,12 +81,34 @@ const peakHoursData = [
 ];
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: StaffDashboardProps) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
   const [availableTables, setAvailableTables] = useState(mockAvailableTables);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [waitingCount, setWaitingCount] = useState<number>(0);
+  const [seatedToday, setSeatedToday] = useState<number>(0);
+  const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: any;
+    const load = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const res = await fetch(`${API_URL}/dashboard/${staffAuth.restaurantId}/summary`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setWaitingCount(data.waiting || 0);
+        setSeatedToday(data.seatedToday || 0);
+        setAvgWaitMinutes(data.avgWaitMinutes || 0);
+      } catch {}
+    };
+    load();
+    timer = setInterval(load, 15000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
 
   const markAsNoShow = (id: number) => {
     const customer = waitlist.find(item => item.id === id);
@@ -284,7 +306,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Clock className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitlist.length}</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitingCount}</div>
                     <div style={{color: 'var(--where2go-text)'}}>People Waiting</div>
                   </CardContent>
                 </Card>
@@ -307,7 +329,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Users className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length}</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedToday}</div>
                     <div style={{color: 'var(--where2go-text)'}}>Tables Seated</div>
                   </CardContent>
                 </Card>
