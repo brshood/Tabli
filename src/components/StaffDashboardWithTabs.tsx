@@ -66,6 +66,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
   const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
   const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
+  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number }[]>([]);
 
   useEffect(() => {
     let timer: any;
@@ -159,9 +160,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
         const rid = staffAuth?.restaurantId;
         if (!rid) return;
         const q = new URLSearchParams({ restaurantId: rid, range: 'day' });
-        const [ovrRes, peakRes] = await Promise.all([
+        const [ovrRes, peakRes, dailyRes] = await Promise.all([
           fetch(`${API_URL}/analytics/overview?${q.toString()}`),
           fetch(`${API_URL}/analytics/peak-hours?${q.toString()}`),
+          fetch(`${API_URL}/analytics/daily?restaurantId=${rid}&range=week`)
         ]);
         if (ovrRes.ok) {
           const { totals } = await ovrRes.json();
@@ -171,6 +173,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
           const { items } = await peakRes.json();
           const mapped = (items || []).map((i: any) => ({ time: `${String(i._id).padStart(2,'0')}:00`, all: i.count || 0 }));
           setPeakHoursData(mapped);
+        }
+        if (dailyRes.ok) {
+          const { items } = await dailyRes.json();
+          setDailyData(items || []);
         }
       } catch {}
     };
@@ -711,10 +717,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Today's Customers</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>247</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>{overview.total}</p>
                       <div className="flex items-center mt-2">
                         <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>+12% vs yesterday</span>
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>vs yesterday (weekly)</span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -788,7 +794,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[{ name: 'Today', seated: overview.seated, waiting: Math.max(overview.total - overview.seated, 0) }] }>
+                    <BarChart data={
+                      (dailyData.length ? dailyData : [{ day: new Date().toISOString().slice(0,10), total: overview.total, seated: overview.seated }])
+                        .map(d => ({ name: d.day.slice(5), seated: d.seated, waiting: Math.max(d.total - d.seated, 0) }))
+                    }>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
                       <YAxis stroke="#2D2D2B" />
@@ -886,24 +895,36 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Peak Hour</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>8:00 PM</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>72 customers served</p>
+                  {peakHoursData.length ? (
+                    <>
+                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).time}</p>
+                      <p className="text-sm" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).all} customers</p>
+                    </>
+                  ) : (
+                    <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Busiest Day</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>Saturday</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>82 customers average</p>
+                  {dailyData.length ? (
+                    <>
+                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{new Date(dailyData.reduce((a,b)=> (b.total > a.total? b : a)).day).toLocaleDateString()}</p>
+                      <p className="text-sm" style={{color: '#2D2D2B'}}>{dailyData.reduce((a,b)=> (b.total > a.total? b : a)).total} customers</p>
+                    </>
+                  ) : (
+                    <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Efficiency Score</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>94%</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>Above industry average</p>
+                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{Math.max(0, Math.min(100, Math.round((100 - avgWaitMinutes) * 0.6 + (tablesCount ? (seatedToday / tablesCount) * 40 : 0))))}%</p>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>Based on wait time and turnover</p>
                 </CardContent>
               </Card>
             </div>

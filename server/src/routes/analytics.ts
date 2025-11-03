@@ -60,5 +60,36 @@ analyticsRouter.get('/wait-times', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /analytics/daily?restaurantId=&range=week|month
+// Returns per-day totals for the selected window
+analyticsRouter.get('/daily', async (req, res, next) => {
+  try {
+    const restaurantId = req.query.restaurantId as string;
+    const range = (req.query.range as string) || 'week';
+    const now = new Date();
+    const start = new Date(now);
+    if (range === 'month') start.setMonth(now.getMonth() - 1);
+    else start.setDate(now.getDate() - 7);
+
+    const pipeline: any[] = [
+      { $match: { requestedAt: { $gte: start } } },
+      { $addFields: { day: { $dateToString: { format: '%Y-%m-%d', date: '$requestedAt' } } } },
+      { $group: {
+        _id: '$day',
+        total: { $sum: 1 },
+        seated: { $sum: { $cond: [{ $eq: ['$status','seated'] }, 1, 0] } },
+      } },
+      { $sort: { _id: 1 } },
+    ];
+
+    if (restaurantId) {
+      pipeline.unshift({ $match: { restaurantId } });
+    }
+
+    const items = await Reservation.aggregate(pipeline);
+    res.json({ items: items.map((i: any) => ({ day: i._id, total: i.total, seated: i.seated })) });
+  } catch (err) { next(err); }
+});
+
 
 
