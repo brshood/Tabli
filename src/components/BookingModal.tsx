@@ -83,9 +83,13 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         })
       });
       if (!res.ok) throw new Error('reservation_failed');
+      const data = await res.json().catch(() => ({}));
+      const position = data?.reservation?.queuePosition;
       const successMessage = mode === 'reserve'
         ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
-        : "You've been added to the queue! We'll notify you when your table is ready.";
+        : (typeof position === 'number'
+            ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
+            : "You've been added to the queue! We'll notify you when your table is ready.");
       toast.success(successMessage);
       if (onSuccess) onSuccess(); else onClose();
     } catch (_e) {
