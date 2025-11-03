@@ -1,6 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant.ts';
+import { Rating } from '../models/Rating.ts';
 import multer from 'multer';
 import { getGridFsBucket } from '../db/gridfs.ts';
 import { ObjectId } from 'mongodb';
@@ -11,6 +12,14 @@ export const restaurantsRouter = express.Router();
 restaurantsRouter.get('/', async (_req, res, next) => {
   try {
     const items = await Restaurant.find().lean();
+    const ids = items.map((r: any) => r._id);
+    // Aggregate rating summaries for all restaurants in one query
+    const summaries = await Rating.aggregate([
+      { $match: { restaurantId: { $in: ids } } },
+      { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
+    ]);
+    const summaryById = new Map<string, { count: number; avg: number }>();
+    summaries.forEach((s: any) => summaryById.set(String(s._id), { count: s.count, avg: s.avg }));
     // Enrich with imageUrl from featuredImageFileId or first active image
     const enriched = items.map((r: any) => {
       let imageFileId = r.featuredImageFileId?.toString();
@@ -19,7 +28,9 @@ restaurantsRouter.get('/', async (_req, res, next) => {
         if (activeImg) imageFileId = activeImg.fileId.toString();
       }
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
-      return { ...r, imageUrl };
+      const s = summaryById.get(String(r._id));
+      const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
+      return { ...r, imageUrl, ratingSummary };
     });
     res.json({ items: enriched });
   } catch (err) { next(err); }
@@ -35,7 +46,13 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
       if (activeImg) imageFileId = activeImg.fileId.toString();
     }
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
-    res.json({ item: { ...item, imageUrl } });
+    const s = await Rating.aggregate([
+      { $match: { restaurantId: new ObjectId(req.params.id) } },
+      { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
+      { $limit: 1 },
+    ]);
+    const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
+    res.json({ item: { ...item, imageUrl, ratingSummary } });
   } catch (err) { next(err); }
 });
 
@@ -119,6 +136,32 @@ restaurantsRouter.post('/:id/feature-image', requireAuth, requireOwnRestaurant, 
     (r as any).featuredImageFileId = new ObjectId(fileId);
     await r.save();
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// Ratings endpoints
+const ratingCreateSchema = z.object({ value: z.number().min(1).max(5), comment: z.string().max(500).optional() });
+restaurantsRouter.post('/:id/ratings', async (req, res, next) => {
+  try {
+    const { value, comment } = ratingCreateSchema.parse(req.body);
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+    const doc = await Rating.create({
+      restaurantId: restaurant._id,
+      value,
+      comment,
+    });
+    res.json({ success: true, rating: { id: doc._id, value: doc.value, comment: doc.comment, createdAt: doc.createdAt } });
+  } catch (err) { next(err); }
+});
+
+restaurantsRouter.get('/:id/ratings', async (req, res, next) => {
+  try {
+    const list = await Rating.find({ restaurantId: new ObjectId(req.params.id) })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    res.json({ items: list });
   } catch (err) { next(err); }
 });
 
