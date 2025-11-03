@@ -98,7 +98,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
         const data = await res.json();
         const items: any[] = data.items || [];
         const wl = items
-          .filter(r => r.mode === 'waitlist' && (r.status === 'pending' || r.status === 'confirmed'))
+          .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
           .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
           .map((r, idx) => ({
             id: idx + 1,
