@@ -23,9 +23,9 @@ async function main() {
   const app = createApp();
   const server = createServer(app);
   const port = env.PORT;
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
-    console.log(`API listening on :${port}`);
+    console.log(`API listening on 0.0.0.0:${port}`);
   });
 }
 
