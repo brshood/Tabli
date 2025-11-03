@@ -11,7 +11,17 @@ export const restaurantsRouter = express.Router();
 restaurantsRouter.get('/', async (_req, res, next) => {
   try {
     const items = await Restaurant.find().lean();
-    res.json({ items });
+    // Enrich with imageUrl from featuredImageFileId or first active image
+    const enriched = items.map((r: any) => {
+      let imageFileId = r.featuredImageFileId?.toString();
+      if (!imageFileId && Array.isArray(r.mediaRefs)) {
+        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
+        if (activeImg) imageFileId = activeImg.fileId.toString();
+      }
+      const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
+      return { ...r, imageUrl };
+    });
+    res.json({ items: enriched });
   } catch (err) { next(err); }
 });
 
@@ -19,7 +29,13 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
   try {
     const item = await Restaurant.findById(req.params.id).lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
-    res.json({ item });
+    let imageFileId = (item as any).featuredImageFileId?.toString();
+    if (!imageFileId && Array.isArray((item as any).mediaRefs)) {
+      const activeImg = (item as any).mediaRefs.find((m: any) => m.isActive && m.type === 'image');
+      if (activeImg) imageFileId = activeImg.fileId.toString();
+    }
+    const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
+    res.json({ item: { ...item, imageUrl } });
   } catch (err) { next(err); }
 });
 
@@ -88,6 +104,21 @@ restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.s
       res.json({ id: file._id, filename: file.filename, contentType: file.contentType, type });
     });
     stream.on('error', (err) => next(err));
+  } catch (err) { next(err); }
+});
+
+// Set featured image for discover/profile cards
+const featureSchema = z.object({ fileId: z.string().min(10) });
+restaurantsRouter.post('/:id/feature-image', requireAuth, requireOwnRestaurant, async (req: AuthRequest, res, next) => {
+  try {
+    const { fileId } = featureSchema.parse(req.body);
+    const r = await Restaurant.findById(req.params.id);
+    if (!r) return res.status(404).json({ error: 'Restaurant not found' });
+    const hasImage = (r.mediaRefs || []).some(m => m.fileId.toString() === fileId && m.type === 'image');
+    if (!hasImage) return res.status(400).json({ error: 'Image not found in restaurant media' });
+    (r as any).featuredImageFileId = new ObjectId(fileId);
+    await r.save();
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 

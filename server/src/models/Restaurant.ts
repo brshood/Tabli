@@ -22,6 +22,7 @@ export interface RestaurantDocument extends Document {
   address?: string;
   openingHours?: string;
   closingHours?: string;
+  featuredImageFileId?: mongoose.Types.ObjectId;
   priceRange?: string;
   mediaRefs?: DocumentRef[]; 
   createdAt: Date;
@@ -40,6 +41,7 @@ const restaurantSchema = new Schema<RestaurantDocument>(
     openingHours: String,
     closingHours: String,
     priceRange: String,
+    featuredImageFileId: { type: Schema.Types.ObjectId, required: false },
     mediaRefs: [
       {
         fileId: { type: Schema.Types.ObjectId, required: true },
