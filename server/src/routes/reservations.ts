@@ -84,7 +84,19 @@ const patchSchema = z.object({
 reservationsRouter.patch('/:id', async (req, res, next) => {
   try {
     const data = patchSchema.parse(req.body);
-    const reservation = await Reservation.findByIdAndUpdate(req.params.id, { $set: data }, { new: true });
+    const r = await Reservation.findById(req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found' });
+    const prevStatus = r.status;
+    if (data.status && data.status !== prevStatus) {
+      if (data.status === 'confirmed') r.confirmedAt = new Date();
+      if (data.status === 'seated') r.seatedAt = new Date();
+      if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
+      r.status = data.status;
+    }
+    if (typeof data.queuePosition === 'number') r.queuePosition = data.queuePosition;
+    if (data.tableId) (r as any).tableId = data.tableId;
+    await r.save();
+    const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
     res.json({ reservation });
   } catch (err) { next(err); }

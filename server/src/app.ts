@@ -12,9 +12,11 @@ import { restaurantsRouter } from './routes/restaurants.ts';
 import { mediaRouter } from './routes/media.ts';
 import { reservationsRouter } from './routes/reservations.ts';
 import { qrRouter } from './routes/qr.ts';
+import { queueRouter } from './routes/queue.ts';
 import { analyticsRouter } from './routes/analytics.ts';
 import { tablesRouter } from './routes/tables.ts';
 import { documentsRouter } from './routes/documents.ts';
+import { dashboardRouter } from './routes/dashboard.ts';
 
 // Global rate limiter: 100 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -55,8 +57,10 @@ export function createApp(): Application {
   app.use('/restaurants', restaurantsRouter);
   app.use('/media', mediaRouter);
   app.use('/reservations', reservationsRouter);
+  app.use('/queue', queueRouter);
   app.use('/qr', qrRouter);
   app.use('/analytics', analyticsRouter);
+  app.use('/dashboard', dashboardRouter);
   app.use('/documents', documentsRouter);
   app.use('/', tablesRouter);
 
