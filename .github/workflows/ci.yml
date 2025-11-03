@@ -21,6 +21,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm test -- --run
 
   client:
     runs-on: ubuntu-latest
