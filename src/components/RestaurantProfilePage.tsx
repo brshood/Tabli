@@ -34,6 +34,9 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingValue, setRatingValue] = useState<number>(0);
+  const [ratingComment, setRatingComment] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -213,6 +216,56 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 >
                   <Phone className="h-4 w-4 mr-2" />
                   Call
+                </Button>
+              </div>
+            </div>
+
+            {/* Rating Widget */}
+            <div className="mb-6 p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+              <h3 className="font-medium mb-3" style={{color: '#2D2D2B'}}>Rate this restaurant</h3>
+              <div className="flex items-center gap-2 mb-3">
+                {[1,2,3,4,5].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setRatingValue(v)}
+                    className="p-1"
+                    aria-label={`Rate ${v}`}
+                  >
+                    <Star className={`h-6 w-6 ${v <= ratingValue ? 'text-yellow-400' : 'text-gray-300'}`} />
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  placeholder="Optional comment"
+                  className="flex-1 border rounded px-3 py-2 bg-input-background"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+                <Button
+                  disabled={!ratingValue || ratingSubmitting}
+                  onClick={async () => {
+                    try {
+                      setRatingSubmitting(true);
+                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: ratingValue, comment: ratingComment || undefined })
+                      });
+                      if (!res.ok) throw new Error('failed');
+                      setRatingValue(0);
+                      setRatingComment('');
+                    } catch {
+                      // ignore failures silently for now
+                    } finally {
+                      setRatingSubmitting(false);
+                    }
+                  }}
+                  className="pill-button"
+                >
+                  Submit
                 </Button>
               </div>
             </div>
