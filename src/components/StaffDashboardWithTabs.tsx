@@ -396,8 +396,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length + availableTables.length}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedToday + waitingCount}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Active Parties (Waiting + Seated Today)</div>
                   </CardContent>
                 </Card>
               </div>
