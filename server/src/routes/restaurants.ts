@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant.ts';
 import { Rating } from '../models/Rating.ts';
+import { Table } from '../models/Table.ts';
 import multer from 'multer';
 import { getGridFsBucket } from '../db/gridfs.ts';
 import { ObjectId } from 'mongodb';
@@ -21,7 +22,7 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const summaryById = new Map<string, { count: number; avg: number }>();
     summaries.forEach((s: any) => summaryById.set(String(s._id), { count: s.count, avg: s.avg }));
     // Enrich with imageUrl from featuredImageFileId or first active image
-    const enriched = items.map((r: any) => {
+    const enriched = await Promise.all(items.map(async (r: any) => {
       let imageFileId = r.featuredImageFileId?.toString();
       if (!imageFileId && Array.isArray(r.mediaRefs)) {
         const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
@@ -30,8 +31,9 @@ restaurantsRouter.get('/', async (_req, res, next) => {
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
       const s = summaryById.get(String(r._id));
       const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
-      return { ...r, imageUrl, ratingSummary };
-    });
+      const availableTables = await Table.countDocuments({ restaurantId: r._id, status: 'available' });
+      return { ...r, imageUrl, ratingSummary, availableTables };
+    }));
     res.json({ items: enriched });
   } catch (err) { next(err); }
 });
@@ -46,13 +48,14 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
       if (activeImg) imageFileId = activeImg.fileId.toString();
     }
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
+    const availableTables = await Table.countDocuments({ restaurantId: item._id, status: 'available' });
     const s = await Rating.aggregate([
       { $match: { restaurantId: new ObjectId(req.params.id) } },
       { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
       { $limit: 1 },
     ]);
     const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
-    res.json({ item: { ...item, imageUrl, ratingSummary } });
+    res.json({ item: { ...item, imageUrl, ratingSummary, availableTables } });
   } catch (err) { next(err); }
 });
 

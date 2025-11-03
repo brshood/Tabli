@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Reservation } from '../models/Reservation.ts';
 import { Restaurant } from '../models/Restaurant.ts';
+import { Table } from '../models/Table.ts';
 import { sendEmail } from '../services/email.ts';
 import { sendSMS } from '../services/sms.ts';
 
@@ -25,6 +26,24 @@ reservationsRouter.post('/', async (req, res, next) => {
       const count = await Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
       queuePosition = count + 1;
     }
+    // Seating logic
+    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
+    const capacities = availableTables.map(t => t.capacity);
+    const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
+    const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
+    let status: any = 'pending';
+    let tableToSeat: any = null;
+    if (data.partySize <= maxCapacity) {
+      // find first fitting table
+      tableToSeat = availableTables.find(t => t.capacity >= data.partySize) || null;
+      if (tableToSeat) status = 'seated';
+    } else if (data.partySize > maxCapacity && totalCapacity >= data.partySize) {
+      // queue with rearrangement note (client can message)
+      status = 'pending';
+    } else {
+      status = 'pending';
+    }
+
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
       name: data.name,
@@ -33,9 +52,15 @@ reservationsRouter.post('/', async (req, res, next) => {
       contactMethod: data.contactMethod,
       phone: data.contactMethod === 'phone' ? data.phone : undefined,
       email: data.contactMethod === 'email' ? data.email : undefined,
-      status: 'pending',
+      status,
       queuePosition,
+      confirmedAt: status !== 'pending' ? new Date() : undefined,
+      seatedAt: status === 'seated' ? new Date() : undefined,
     });
+
+    if (status === 'seated' && tableToSeat) {
+      await Table.findByIdAndUpdate(tableToSeat._id, { $set: { status: 'occupied', currentReservationId: doc._id } });
+    }
 
     // Send confirmation notification
     const restaurant = await Restaurant.findById(data.restaurantId);
