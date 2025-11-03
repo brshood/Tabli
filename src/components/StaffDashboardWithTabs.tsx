@@ -231,17 +231,29 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
     }
   };
 
-  const addTable = (tableName: string, capacity: number) => {
-    const newTable = {
-      id: Math.max(...availableTables.map(t => t.id), ...seatedTables.map(t => t.id)) + 1,
-      tableName,
-      capacity,
-      isOccupied: false
-    };
-    setAvailableTables(prev => [...prev, newTable]);
+  const addTable = async (tableName: string, capacity: number) => {
+    try {
+      if (!staffAuth.restaurantId) return;
+      await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tableName, capacity })
+      });
+      // Refresh tables
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+      if (res.ok) {
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+      }
+    } catch {}
   };
 
-  const removeTable = (tableId: number) => {
+  const removeTable = async (tableId: any) => {
     // Check if table is currently occupied
     const occupiedTable = seatedTables.find(table => table.id === tableId);
     if (occupiedTable) {
@@ -249,11 +261,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
       return;
     }
 
-    // Remove from available tables
-    const tableToRemove = availableTables.find(table => table.id === tableId);
-    if (tableToRemove) {
-      setAvailableTables(prev => prev.filter(table => table.id !== tableId));
-      toast.success(`${tableToRemove.tableName} has been removed`);
+    try {
+      await fetch(`${API_URL}/tables/${tableId}`, { method: 'DELETE' });
+      // Refresh tables
+      if (!staffAuth.restaurantId) return;
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+      if (res.ok) {
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+        toast.success('Table removed');
+      }
+    } catch {
+      toast.error('Failed to remove table');
     }
   };
 
