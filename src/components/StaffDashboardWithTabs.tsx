@@ -613,6 +613,22 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     <BarChart3 className="h-4 w-4 mr-2" />
                     View Analytics
                   </Button>
+                    <Button 
+                      className="pill-button text-white"
+                      style={{backgroundColor: '#B7410E'}}
+                      onClick={async () => {
+                        try {
+                          if (!staffAuth.restaurantId) return;
+                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
+                          // Refresh KPIs next tick
+                          alert('Queue cleared for this restaurant.');
+                        } catch {
+                          alert('Failed to clear queue.');
+                        }
+                      }}
+                    >
+                      Clear Queue
+                    </Button>
                 </div>
               </CardContent>
             </Card>
