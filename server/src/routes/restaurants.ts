@@ -143,17 +143,29 @@ restaurantsRouter.post('/:id/feature-image', requireAuth, requireOwnRestaurant, 
 });
 
 // Ratings endpoints
-const ratingCreateSchema = z.object({ value: z.number().min(1).max(5), comment: z.string().max(500).optional() });
+const ratingCreateSchema = z.object({ 
+  value: z.number().min(1).max(5), 
+  comment: z.string().max(500).optional(),
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().min(6).max(30),
+});
 restaurantsRouter.post('/:id/ratings', async (req, res, next) => {
   try {
-    const { value, comment } = ratingCreateSchema.parse(req.body);
+    const { value, comment, name, email, phone } = ratingCreateSchema.parse(req.body);
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
-    const doc = await Rating.create({
-      restaurantId: restaurant._id,
-      value,
-      comment,
-    });
+    const existing = await Rating.findOne({ restaurantId: restaurant._id, $or: [{ email }, { phone }] });
+    if (existing) {
+      existing.value = value;
+      existing.comment = comment;
+      existing.name = name;
+      existing.email = email;
+      existing.phone = phone;
+      await existing.save();
+      return res.json({ success: true, updated: true });
+    }
+    const doc = await Rating.create({ restaurantId: restaurant._id, value, comment, name, email, phone });
     res.json({ success: true, rating: { id: doc._id, value: doc.value, comment: doc.comment, createdAt: doc.createdAt } });
   } catch (err) { next(err); }
 });

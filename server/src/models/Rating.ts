@@ -5,6 +5,9 @@ export interface RatingDocument extends Document {
   userId?: mongoose.Types.ObjectId;
   value: number; // 1-5
   comment?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +18,9 @@ const ratingSchema = new Schema<RatingDocument>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     value: { type: Number, min: 1, max: 5, required: true },
     comment: { type: String },
+    name: { type: String },
+    email: { type: String, index: true },
+    phone: { type: String, index: true },
   },
   { timestamps: true }
 );
