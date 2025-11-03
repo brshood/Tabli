@@ -11,6 +11,7 @@ import { Card, CardContent } from './components/ui/card';
 import { Search, Compass, Users } from 'lucide-react';
 import tabliLogo from './assets/tabli-logo-new.png';
 import { Toaster } from './components/ui/sonner';
+import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './components/WaveBackground';
 import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
@@ -40,11 +41,19 @@ function AppContent() {
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Initialize page from URL on mount
   useEffect(() => {
     const path = window.location.pathname;
     const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      setResetToken(token);
+      setResetOpen(true);
+    }
     
     // Check for QR code scan
     const { isQRScan, restaurantId } = parseQRCodeFromUrl();
@@ -418,6 +427,9 @@ function AppContent() {
 
       {/* Toast notifications */}
       <Toaster position="top-right" />
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal isOpen={resetOpen} token={resetToken} onClose={() => setResetOpen(false)} />
     </div>
   );
 }
