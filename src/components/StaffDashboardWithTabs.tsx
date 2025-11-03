@@ -49,36 +49,8 @@ const mockAvailableTables = [
   { id: 10, tableName: "Bar Counter", capacity: 8, isOccupied: false }
 ];
 
-// Analytics data
-const seatedVsWaitingData = [
-  { name: 'Mon', seated: 45, waiting: 12 },
-  { name: 'Tue', seated: 38, waiting: 8 },
-  { name: 'Wed', seated: 52, waiting: 15 },
-  { name: 'Thu', seated: 61, waiting: 22 },
-  { name: 'Fri', seated: 78, waiting: 35 },
-  { name: 'Sat', seated: 82, waiting: 28 },
-  { name: 'Sun', seated: 71, waiting: 18 }
-];
-
-const capacityData = [
-  { name: 'Occupied', value: 65, color: '#5A5E3E' },
-  { name: 'Available', value: 35, color: '#B889A6' }
-];
-
-const peakHoursData = [
-  { time: '11 AM', male: 8, female: 7, all: 15 },
-  { time: '12 PM', male: 15, female: 13, all: 28 },
-  { time: '1 PM', male: 23, female: 19, all: 42 },
-  { time: '2 PM', male: 21, female: 17, all: 38 },
-  { time: '3 PM', male: 12, female: 10, all: 22 },
-  { time: '4 PM', male: 10, female: 8, all: 18 },
-  { time: '5 PM', male: 13, female: 11, all: 24 },
-  { time: '6 PM', male: 25, female: 20, all: 45 },
-  { time: '7 PM', male: 38, female: 30, all: 68 },
-  { time: '8 PM', male: 40, female: 32, all: 72 },
-  { time: '9 PM', male: 32, female: 26, all: 58 },
-  { time: '10 PM', male: 19, female: 16, all: 35 }
-];
+// Analytics state (live)
+type Overview = { total: number; confirmed: number; seated: number; cancelled: number };
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -92,6 +64,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   const [waitingCount, setWaitingCount] = useState<number>(0);
   const [seatedToday, setSeatedToday] = useState<number>(0);
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
+  const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
+  const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
 
   useEffect(() => {
     let timer: any;
@@ -174,6 +148,34 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
     };
     loadTables();
     timer = setInterval(loadTables, 20000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
+  // Load analytics (overview and peak hours)
+  useEffect(() => {
+    let timer: any;
+    const loadAnalytics = async () => {
+      try {
+        const rid = staffAuth?.restaurantId;
+        if (!rid) return;
+        const q = new URLSearchParams({ restaurantId: rid, range: 'day' });
+        const [ovrRes, peakRes] = await Promise.all([
+          fetch(`${API_URL}/analytics/overview?${q.toString()}`),
+          fetch(`${API_URL}/analytics/peak-hours?${q.toString()}`),
+        ]);
+        if (ovrRes.ok) {
+          const { totals } = await ovrRes.json();
+          setOverview({ total: totals?.total || 0, confirmed: totals?.confirmed || 0, seated: totals?.seated || 0, cancelled: totals?.cancelled || 0 });
+        }
+        if (peakRes.ok) {
+          const { items } = await peakRes.json();
+          const mapped = (items || []).map((i: any) => ({ time: `${String(i._id).padStart(2,'0')}:00`, all: i.count || 0 }));
+          setPeakHoursData(mapped);
+        }
+      } catch {}
+    };
+    loadAnalytics();
+    timer = setInterval(loadAnalytics, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -782,11 +784,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
               {/* Seated vs Waiting Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Weekly Overview: Seated vs Waiting</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={seatedVsWaitingData}>
+                    <BarChart data={[{ name: 'Today', seated: overview.seated, waiting: Math.max(overview.total - overview.seated, 0) }] }>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
                       <YAxis stroke="#2D2D2B" />
@@ -814,7 +816,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={capacityData}
+                        data={[
+                          { name: 'Occupied', value: Math.max(tablesCount - availableTables.length, 0), color: '#5A5E3E' },
+                          { name: 'Available', value: availableTables.length, color: '#B889A6' }
+                        ]}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
@@ -822,7 +827,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                         label={({ name, value }) => `${name}: ${value}%`}
                         labelLine={false}
                       >
-                        {capacityData.map((entry, index) => (
+                        {[
+                          { name: 'Occupied', color: '#5A5E3E' },
+                          { name: 'Available', color: '#B889A6' }
+                        ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -841,7 +849,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             </div>
 
             {/* Peak Hours Chart */}
-            <Card className="card-shadow border-0 rounded-3xl">
+              <Card className="card-shadow border-0 rounded-3xl">
               <CardHeader>
                 <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Today's Peak Hours</CardTitle>
               </CardHeader>
@@ -858,24 +866,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                         borderRadius: '12px',
                         boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                       }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="male" 
-                      stroke="#3B82F6" 
-                      strokeWidth={2}
-                      name="Male"
-                      dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#3B82F6', strokeWidth: 2 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="female" 
-                      stroke="#EF4444" 
-                      strokeWidth={2}
-                      name="Female"
-                      dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#EF4444', strokeWidth: 2 }}
                     />
                     <Line 
                       type="monotone" 
