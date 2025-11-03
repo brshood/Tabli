@@ -110,6 +110,50 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
+  // Replace hardcoded waitlist/seated with live data
+  useEffect(() => {
+    let timer: any;
+    const loadReservations = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const params = new URLSearchParams({ restaurantId: staffAuth.restaurantId });
+        const res = await fetch(`${API_URL}/reservations?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        const wl = items
+          .filter(r => r.mode === 'waitlist' && (r.status === 'pending' || r.status === 'confirmed'))
+          .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
+          .map((r, idx) => ({
+            id: idx + 1,
+            name: r.name || 'Queue Customer',
+            partySize: r.partySize || 2,
+            waitTime: '—',
+            phone: r.phone || '',
+            joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            contactMethod: (r.contactMethod || 'phone') as any,
+            holdTimeExpires: Date.now() + 10 * 60000,
+          }));
+        setWaitlist(wl);
+        const seated = items
+          .filter(r => r.status === 'seated')
+          .map((r, idx) => ({
+            id: idx + 1,
+            table: r.tableId ? `Table ${String(r.tableId).slice(-2)}` : 'Table',
+            guests: 'Seated Party',
+            partySize: r.partySize || 2,
+            capacity: r.partySize || 4,
+            seatedTime: r.seatedAt ? new Date(r.seatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            duration: '—',
+          }));
+        setSeatedTables(seated);
+      } catch {}
+    };
+    loadReservations();
+    timer = setInterval(loadReservations, 20000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
   const markAsNoShow = (id: number) => {
     const customer = waitlist.find(item => item.id === id);
     if (customer) {
