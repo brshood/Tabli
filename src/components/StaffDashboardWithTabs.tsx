@@ -85,6 +85,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
   const [availableTables, setAvailableTables] = useState(mockAvailableTables);
+  const [tablesCount, setTablesCount] = useState<number>(mockAvailableTables.length + mockSeatedTables.length);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -151,6 +152,28 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
     };
     loadReservations();
     timer = setInterval(loadReservations, 20000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
+  // Load tables list for totals and availability
+  useEffect(() => {
+    let timer: any;
+    const loadTables = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+      } catch {}
+    };
+    loadTables();
+    timer = setInterval(loadTables, 20000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -396,8 +419,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedToday + waitingCount}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>Active Parties (Waiting + Seated Today)</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{tablesCount}</div>
+                    <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
                   </CardContent>
                 </Card>
               </div>
