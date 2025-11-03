@@ -11,6 +11,7 @@ export interface Restaurant {
   description: string;
   location: string;
   rating: number;
+  ratingCount?: number;
   status: 'available' | 'waitlist';
   waitTime: string | null;
   tablesAvailable: number;
@@ -241,6 +242,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
           description: r.description || '',
           location: r.address || '',
           rating: r.ratingSummary?.average ?? 0,
+          ratingCount: r.ratingSummary?.count ?? 0,
           status: (r.availableTables && r.availableTables > 0) ? 'available' : 'waitlist',
           waitTime: null,
           tablesAvailable: r.availableTables || 0,

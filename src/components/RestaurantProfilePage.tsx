@@ -113,11 +113,25 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                     {restaurant.name}
                   </h1>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center">
+                    <button
+                      type="button"
+                      className="flex items-center"
+                      onClick={async () => {
+                        try {
+                          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                          const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
+                          if (res.ok) {
+                            const data = await res.json();
+                            setComments(data.items || []);
+                            setShowComments(true);
+                          }
+                        } catch {}
+                      }}
+                    >
                       <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
-                      <span className="font-semibold" style={{color: '#1F2937'}}>{restaurant.rating}</span>
-                      <span className="text-sm ml-1" style={{color: '#6B7280'}}>({restaurant.weeklyAverageCustomers} reviews)</span>
-                    </div>
+                      <span className="font-semibold" style={{color: '#1F2937'}}>{restaurant.rating.toFixed(1)}</span>
+                      <span className="text-sm ml-1" style={{color: '#6B7280'}}>({restaurant.ratingCount ?? 0})</span>
+                    </button>
                     <Badge variant="outline" className="rounded-full">
                       {restaurant.cuisine}
                     </Badge>
