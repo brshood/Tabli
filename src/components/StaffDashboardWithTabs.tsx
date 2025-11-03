@@ -111,6 +111,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             holdTimeExpires: Date.now() + 10 * 60000,
           }));
         setWaitlist(wl);
+        // Optionally: expose pending reservations separately in future
         const seated = items
           .filter(r => r.status === 'seated')
           .map((r, idx) => ({

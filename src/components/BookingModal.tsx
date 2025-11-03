@@ -20,6 +20,7 @@ interface BookingModalProps {
 
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
   const [partySize, setPartySize] = useState(2);
+  const [customerName, setCustomerName] = useState('');
   const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('phone');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -76,6 +77,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         body: JSON.stringify({
           restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
           mode,
+          name: customerName || undefined,
           partySize,
           contactMethod,
           phone: contactMethod === 'phone' ? phone : undefined,
@@ -144,6 +146,19 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         )}
 
         <div className="space-y-6">
+          {/* Optional Customer Name */}
+          <div className="space-y-2">
+            <Label htmlFor="custName" style={{color: 'var(--where2go-text)'}}>Your name (optional)</Label>
+            <Input
+              id="custName"
+              type="text"
+              placeholder="Enter your name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-white"
+              style={{borderColor: 'var(--where2go-border)'}}
+            />
+          </div>
           {/* Party Size */}
           <div className="space-y-2">
             <Label htmlFor="partySize" style={{color: 'var(--where2go-text)'}}>Number of party members</Label>

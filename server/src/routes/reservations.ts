@@ -10,6 +10,7 @@ export const reservationsRouter = express.Router();
 const createSchema = z.object({
   restaurantId: z.string(),
   mode: z.enum(['reserve', 'waitlist']),
+  name: z.string().min(1).max(100).optional(),
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
@@ -26,6 +27,7 @@ reservationsRouter.post('/', async (req, res, next) => {
     }
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
+      name: data.name,
       mode: data.mode,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
