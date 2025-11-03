@@ -17,6 +17,7 @@ import { analyticsRouter } from './routes/analytics.ts';
 import { tablesRouter } from './routes/tables.ts';
 import { documentsRouter } from './routes/documents.ts';
 import { maintenanceRouter } from './routes/maintenance.ts';
+import { notificationsRouter } from './routes/notifications.ts';
 import { dashboardRouter } from './routes/dashboard.ts';
 
 // Global rate limiter: 100 requests per 15 minutes
@@ -64,6 +65,7 @@ export function createApp(): Application {
   app.use('/dashboard', dashboardRouter);
   app.use('/documents', documentsRouter);
   app.use('/maintenance', maintenanceRouter);
+  app.use('/notifications', notificationsRouter);
   app.use('/', tablesRouter);
 
   // 404 handler

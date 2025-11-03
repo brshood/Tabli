@@ -180,5 +180,30 @@ restaurantsRouter.get('/:id/ratings', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// DELETE /restaurants/:id - owner/admin only (assumes requireAuth + requireOwnRestaurant middleware if needed)
+restaurantsRouter.delete('/:id', requireAuth, requireOwnRestaurant, async (req: AuthRequest, res, next) => {
+  try {
+    const rid = new ObjectId(req.params.id);
+    // Delete related data best-effort
+    await Promise.all([
+      Rating.deleteMany({ restaurantId: rid }),
+      import('../models/Reservation.ts').then(m => m.Reservation.deleteMany({ restaurantId: rid })),
+      import('../models/Table.ts').then(m => m.Table.deleteMany({ restaurantId: rid })),
+    ]);
+    // Delete media in GridFS (best effort)
+    try {
+      const bucket = (await import('../db/gridfs.ts')).getGridFsBucket();
+      const r = await Restaurant.findById(rid).lean();
+      const refs: any[] = (r as any)?.mediaRefs || [];
+      for (const ref of refs) {
+        try { await bucket.delete(new ObjectId(ref.fileId)); } catch {}
+      }
+    } catch {}
+    // Delete restaurant
+    await Restaurant.findByIdAndDelete(rid);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 
 
