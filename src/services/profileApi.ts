@@ -144,3 +144,59 @@ export async function getRestaurantInfo(
   return response.json();
 }
 
+/**
+ * Upload restaurant profile picture
+ */
+export async function uploadProfilePicture(
+  restaurantId: string,
+  file: File,
+  token: string
+): Promise<{ success: boolean; profilePictureId: string; message: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_URL}/restaurants/${restaurantId}/profile-picture`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to upload profile picture' }));
+    throw new Error(error.error || 'Failed to upload profile picture');
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete restaurant profile picture
+ */
+export async function deleteProfilePicture(
+  restaurantId: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_URL}/restaurants/${restaurantId}/profile-picture`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete profile picture' }));
+    throw new Error(error.error || 'Failed to delete profile picture');
+  }
+
+  return response.json();
+}
+
+/**
+ * Get profile picture URL
+ */
+export function getProfilePictureUrl(profilePictureId: string): string {
+  return `${API_URL}/media/${profilePictureId}`;
+}
+

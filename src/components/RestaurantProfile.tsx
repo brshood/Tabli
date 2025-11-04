@@ -30,7 +30,7 @@ export function RestaurantProfile({ user, restaurantId, token, onUserUpdate }: R
             Restaurant Info
           </TabsTrigger>
           <TabsTrigger value="documents" style={{ color: 'var(--where2go-accent)' }}>
-            Documents
+            Files & Media
           </TabsTrigger>
         </TabsList>
 

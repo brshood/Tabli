@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2 } from 'lucide-react';
+import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2, Camera } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
   fetchRestaurantDocuments,
@@ -15,7 +15,7 @@ import {
   type DocumentRef,
   type GroupedDocuments,
 } from '../services/documentsApi';
-import { updateMenuType } from '../services/profileApi';
+import { updateMenuType, uploadProfilePicture, deleteProfilePicture, getProfilePictureUrl, getRestaurantInfo } from '../services/profileApi';
 
 interface DocumentsManagementProps {
   restaurantId: string;
@@ -36,8 +36,12 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
   const [editingFileId, setEditingFileId] = useState('');
   const [newMenuTypeName, setNewMenuTypeName] = useState('');
   
+  const [profilePictureId, setProfilePictureId] = useState<string | null>(null);
+  const [uploadingProfilePicture, setUploadingProfilePicture] = useState(false);
+  
   const licenseInputRef = useRef<HTMLInputElement>(null);
   const menuInputRef = useRef<HTMLInputElement>(null);
+  const profilePictureInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -48,6 +52,13 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
       setLoading(true);
       const data = await fetchRestaurantDocuments(restaurantId, token);
       setDocuments(data.documents);
+      
+      // Find active profile picture in the 'all' documents array
+      const allDocs = data.all || [];
+      const profilePic = allDocs.find(
+        doc => doc.category === 'profile-picture' && doc.isActive
+      );
+      setProfilePictureId(profilePic?.fileId?.toString() || null);
     } catch (error: any) {
       toast.error(error.message || 'Failed to load documents');
     } finally {
@@ -168,6 +179,56 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
     setNewMenuTypeName('');
   };
 
+  const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only image files (JPEG, PNG, WebP) are allowed');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploadingProfilePicture(true);
+      const result = await uploadProfilePicture(restaurantId, file, token);
+      toast.success('Profile picture uploaded successfully!');
+      // Reload documents to get the new profile picture
+      await loadDocuments();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload profile picture');
+    } finally {
+      setUploadingProfilePicture(false);
+      if (profilePictureInputRef.current) {
+        profilePictureInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteProfilePicture = async () => {
+    const confirmed = confirm('Are you sure you want to delete your profile picture?');
+    if (!confirmed) return;
+
+    try {
+      setUploadingProfilePicture(true);
+      await deleteProfilePicture(restaurantId, token);
+      toast.success('Profile picture deleted successfully');
+      // Reload documents to update the state
+      await loadDocuments();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete profile picture');
+    } finally {
+      setUploadingProfilePicture(false);
+    }
+  };
+
   const handleDelete = async (fileId: string, filename: string) => {
     const confirmed = confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`);
     if (!confirmed) return;
@@ -280,6 +341,124 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
   const licenseHistory = documents.license.filter(doc => !doc.isActive).sort((a, b) => b.version - a.version);
 
   return (
+    <div className="space-y-8">
+      {/* Profile Picture Card */}
+      <Card className="card-shadow border-0 rounded-3xl overflow-hidden">
+        <CardHeader style={{ background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)' }}>
+          <CardTitle className="text-2xl flex items-center" style={{ color: '#2D2D2B' }}>
+            <Camera className="h-6 w-6 mr-2" style={{ color: '#5A5E3E' }} />
+            Restaurant Profile Picture
+          </CardTitle>
+          <p className="text-sm mt-2" style={{ color: '#5A5E3E' }}>
+            This picture will represent your restaurant across the platform
+          </p>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+            {/* Profile Picture Display */}
+            <div className="flex-shrink-0">
+              {profilePictureId ? (
+                <div className="relative group">
+                  <div className="relative w-40 h-40 rounded-2xl overflow-hidden shadow-lg">
+                    <img
+                      src={getProfilePictureUrl(profilePictureId)}
+                      alt="Restaurant Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Image failed to load');
+                        e.currentTarget.src = '';
+                      }}
+                    />
+                  </div>
+                  <div className="absolute inset-0 rounded-2xl bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteProfilePicture}
+                      disabled={uploadingProfilePicture}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity pill-button shadow-lg"
+                      style={{ borderColor: '#B7410E', color: '#B7410E', backgroundColor: 'white' }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="w-40 h-40 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed shadow-inner"
+                  style={{ borderColor: '#5A5E3E', backgroundColor: '#F9FAFB' }}
+                >
+                  <Camera className="h-12 w-12 mb-2" style={{ color: '#9FA0A0' }} />
+                  <p className="text-xs text-center px-4" style={{ color: '#9FA0A0' }}>
+                    No photo yet
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Upload Controls */}
+            <div className="flex-1 space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2" style={{ color: '#2D2D2B' }}>
+                  Upload Guidelines
+                </h4>
+                <ul className="text-sm space-y-1" style={{ color: '#5A5E3E' }}>
+                  <li className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>Use a high-quality image (at least 400x400px)</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>Square images work best</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>Supported formats: JPEG, PNG, WebP</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>Maximum file size: 5MB</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <input
+                  ref={profilePictureInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleProfilePictureUpload}
+                  className="hidden"
+                  disabled={uploadingProfilePicture}
+                />
+                <Button
+                  onClick={() => profilePictureInputRef.current?.click()}
+                  disabled={uploadingProfilePicture}
+                  className="pill-button text-white shadow-md hover:shadow-lg transition-shadow"
+                  style={{ backgroundColor: '#3F4427' }}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploadingProfilePicture ? 'Uploading...' : profilePictureId ? 'Change Picture' : 'Upload Picture'}
+                </Button>
+                
+                {profilePictureId && !uploadingProfilePicture && (
+                  <Button
+                    variant="outline"
+                    onClick={handleDeleteProfilePicture}
+                    className="pill-button"
+                    style={{ borderColor: '#B7410E', color: '#B7410E' }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove Picture
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
     <div className="space-y-8">
       {/* Business License Section */}
       <Card className="card-shadow border-0 rounded-3xl">
@@ -557,6 +736,7 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
           </div>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }
