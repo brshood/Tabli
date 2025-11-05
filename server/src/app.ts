@@ -20,10 +20,10 @@ import { maintenanceRouter } from './routes/maintenance.ts';
 import { notificationsRouter } from './routes/notifications.ts';
 import { dashboardRouter } from './routes/dashboard.ts';
 
-// Global rate limiter: 100 requests per 15 minutes
+// Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,

@@ -83,7 +83,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       } catch {}
     };
     load();
-    timer = setInterval(load, 15000);
+    timer = setInterval(load, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -128,7 +128,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       } catch {}
     };
     loadReservations();
-    timer = setInterval(loadReservations, 20000);
+    timer = setInterval(loadReservations, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -150,7 +150,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       } catch {}
     };
     loadTables();
-    timer = setInterval(loadTables, 20000);
+    timer = setInterval(loadTables, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -183,7 +183,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       } catch {}
     };
     loadAnalytics();
-    timer = setInterval(loadAnalytics, 30000);
+    timer = setInterval(loadAnalytics, 60000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
