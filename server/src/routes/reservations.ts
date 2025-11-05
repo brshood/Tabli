@@ -21,13 +21,18 @@ const createSchema = z.object({
 reservationsRouter.post('/', async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    let queuePosition: number | undefined = undefined;
-    if (data.mode === 'waitlist') {
-      const count = await Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
-      queuePosition = count + 1;
-    }
+    
+    // Parallelize independent queries for better performance
+    const [count, availableTables] = await Promise.all([
+      data.mode === 'waitlist' 
+        ? Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } })
+        : Promise.resolve(0),
+      Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
+    ]);
+    
+    const queuePosition = data.mode === 'waitlist' ? count + 1 : undefined;
+    
     // Seating logic
-    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
     const capacities = availableTables.map(t => t.capacity);
     const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
     const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
