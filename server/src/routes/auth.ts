@@ -254,7 +254,6 @@ authRouter.post('/forgot-password', async (req, res, next) => {
   }
 });
 
-<<<<<<< HEAD
 // Update profile schema
 const updateProfileSchema = z.object({
   name: z.string().min(2).trim().optional(),
@@ -351,7 +350,9 @@ authRouter.put('/password', async (req, res, next) => {
         passwordRequirements: PASSWORD_REQUIREMENTS 
       });
     }
-=======
+    next(err);
+  }
+});
 const resetSchema = z.object({
   token: z.string().min(10),
   password: z.string().min(8),
@@ -370,7 +371,6 @@ authRouter.post('/reset-password', async (req, res, next) => {
     }
     res.json({ success: true });
   } catch (err) {
->>>>>>> main
     next(err);
   }
 });
