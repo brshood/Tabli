@@ -5,11 +5,17 @@
 
   export default defineConfig({
     plugins: [react()],
-    test: {
-      environment: 'jsdom',
-      setupFiles: ['./vitest.setup.ts'],
-      globals: true,
-    },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+    globals: true,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      'server/**',  // Exclude all server files from Vitest
+    ],
+  },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
