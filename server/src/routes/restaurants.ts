@@ -1,12 +1,12 @@
 import express from 'express';
 import { z } from 'zod';
-import { Restaurant } from '../models/Restaurant.ts';
-import { Rating } from '../models/Rating.ts';
-import { Table } from '../models/Table.ts';
+import { Restaurant } from '../models/Restaurant';
+import { Rating } from '../models/Rating';
+import { Table } from '../models/Table';
 import multer from 'multer';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
-import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth.ts';
+import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth';
 import mongoose from 'mongoose';
 
 export const restaurantsRouter = express.Router();
@@ -124,10 +124,10 @@ restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.s
     const bucket = getGridFsBucket();
     const stream = bucket.openUploadStream(req.file.originalname, {
       contentType: req.file.mimetype,
-      metadata: { restaurantId: r._id.toString(), type },
+      metadata: { restaurantId: (r._id as any).toString(), type },
     });
     stream.end(req.file.buffer);
-    stream.on('finish', async (file) => {
+    stream.on('finish', async (file: any) => {
       r.mediaRefs = r.mediaRefs || [];
       r.mediaRefs.push({ 
         fileId: file._id as ObjectId, 

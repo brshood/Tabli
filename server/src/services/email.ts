@@ -1,4 +1,4 @@
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 import sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid
@@ -28,8 +28,8 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
       to: opts.to,
       from: env.EMAIL_FROM!,
       subject: opts.subject,
-      text: opts.text,
-      html: opts.html || opts.text,
+      text: opts.text || '',
+      html: opts.html || opts.text || '',
     });
     // eslint-disable-next-line no-console
     console.log('[EMAIL:SENT]', { to: opts.to, subject: opts.subject });

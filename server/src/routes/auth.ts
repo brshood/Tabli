@@ -2,13 +2,13 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import multer from 'multer';
-import { User } from '../models/User.ts';
-import { Restaurant } from '../models/Restaurant.ts';
-import { signJwt, verifyJwt } from '../utils/jwt.ts';
-import { sendEmail } from '../services/email.ts';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { User } from '../models/User';
+import { Restaurant } from '../models/Restaurant';
+import { signJwt, verifyJwt } from '../utils/jwt';
+import { sendEmail } from '../services/email';
+import { getGridFsBucket } from '../db/gridfs';
 import crypto from 'crypto';
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -91,7 +91,7 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
           metadata: { 
             type: 'license', 
             restaurantName: restaurantName,
-            restaurantId: restaurant._id.toString() // Add restaurant ID to metadata
+            restaurantId: (restaurant._id as any).toString() // Add restaurant ID to metadata
           }
         });
         
@@ -117,7 +117,7 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
         console.log('License file uploaded to GridFS:', licenseFileRef);
         
         // Update restaurant with file reference
-        restaurant.mediaRefs = [licenseFileRef];
+        restaurant.mediaRefs = [licenseFileRef as any];
         await restaurant.save();
         console.log('Restaurant updated with license file reference');
       } catch (uploadError: any) {
@@ -132,15 +132,15 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
       email,
       passwordHash,
       role: 'staff',
-      restaurantId: restaurant._id,
+      restaurantId: restaurant._id as any,
     });
     
-    const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
+    const token = signJwt({ sub: (user._id as any).toString(), email: user.email, role: user.role });
     res.json({
       token,
-      user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role },
+      user: { id: (user._id as any).toString(), name: user.name, email: user.email, role: user.role },
       restaurant: { 
-        id: restaurant._id.toString(), 
+        id: (restaurant._id as any).toString(), 
         name: restaurant.name, 
         city: restaurant.city, 
         cuisine: restaurant.cuisine,
@@ -179,11 +179,11 @@ authRouter.post('/login', async (req, res, next) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
+    const token = signJwt({ sub: (user._id as any).toString(), email: user.email, role: user.role });
     res.json({ 
       token, 
       user: { 
-        id: user._id.toString(), 
+        id: (user._id as any).toString(), 
         name: user.name, 
         email: user.email, 
         role: user.role,
@@ -205,7 +205,7 @@ authRouter.get('/me', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     res.json({ 
       user: { 
-        id: user._id.toString(), 
+        id: (user._id as any).toString(), 
         name: user.name, 
         email: user.email, 
         role: user.role,
@@ -247,127 +247,6 @@ authRouter.post('/forgot-password', async (req, res, next) => {
         subject: 'Reset your Tabli password',
         text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
       });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Update profile schema
-const updateProfileSchema = z.object({
-  name: z.string().min(2).trim().optional(),
-  email: z.string().email().trim().toLowerCase().optional(),
-});
-
-// PUT /auth/profile - Update personal information
-authRouter.put('/profile', async (req, res, next) => {
-  try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-    const payload = verifyJwt(token);
-    const user = await User.findById(payload.sub);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-
-    const updates = updateProfileSchema.parse(req.body);
-
-    // Check if email is being changed and if it's already in use
-    if (updates.email && updates.email !== user.email) {
-      const existing = await User.findOne({ email: updates.email });
-      if (existing) {
-        return res.status(409).json({ error: 'Email already in use' });
-      }
-      user.email = updates.email;
-    }
-
-    if (updates.name) {
-      user.name = updates.name;
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        restaurantId: user.restaurantId?.toString(),
-      },
-    });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: err.errors });
-    }
-    next(err);
-  }
-});
-
-// Change password schema
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: passwordSchema,
-  confirmPassword: z.string().min(1),
-});
-
-// PUT /auth/password - Change password
-authRouter.put('/password', async (req, res, next) => {
-  try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-    const payload = verifyJwt(token);
-    const user = await User.findById(payload.sub);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-
-    const { currentPassword, newPassword, confirmPassword } = changePasswordSchema.parse(req.body);
-
-    // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
-    }
-
-    // Verify new passwords match
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ error: 'New passwords do not match' });
-    }
-
-    // Hash and save new password
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.json({ success: true, message: 'Password changed successfully' });
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: err.errors,
-        passwordRequirements: PASSWORD_REQUIREMENTS 
-      });
-    }
-    next(err);
-  }
-});
-const resetSchema = z.object({
-  token: z.string().min(10),
-  password: z.string().min(8),
-});
-
-authRouter.post('/reset-password', async (req, res, next) => {
-  try {
-    const { token, password } = resetSchema.parse(req.body);
-    const user = await User.findOne({ resetToken: token });
-    // Always respond 200 to avoid token probing; only update if valid
-    if (user && user.resetTokenExpiresAt && user.resetTokenExpiresAt.getTime() > Date.now()) {
-      user.passwordHash = await bcrypt.hash(password, 10);
-      user.resetToken = null;
-      user.resetTokenExpiresAt = null;
-      await user.save();
     }
     res.json({ success: true });
   } catch (err) {

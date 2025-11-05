@@ -1,7 +1,7 @@
 import { createServer } from 'http';
-import { connectMongo } from './db/mongo.ts';
-import { createApp } from './app.ts';
-import { env } from './config/env.ts';
+import { connectMongo } from './db/mongo';
+import { createApp } from './app';
+import { env } from './config/env';
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {

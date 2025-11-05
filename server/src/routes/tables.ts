@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { Table } from '../models/Table.ts';
+import { Table } from '../models/Table';
 
 export const tablesRouter = express.Router();
 

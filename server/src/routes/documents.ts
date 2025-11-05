@@ -1,10 +1,10 @@
 import express from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { Restaurant } from '../models/Restaurant.ts';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { Restaurant } from '../models/Restaurant';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
-import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth.ts';
+import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth';
 
 export const documentsRouter = express.Router();
 
@@ -136,7 +136,7 @@ documentsRouter.post(
       const stream = bucket.openUploadStream(req.file.originalname, {
         contentType: req.file.mimetype,
         metadata: {
-          restaurantId: restaurant._id.toString(),
+          restaurantId: (restaurant._id as any).toString(),
           type,
           category,
           menuType: menuType || null,
