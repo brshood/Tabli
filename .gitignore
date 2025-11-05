@@ -38,8 +38,7 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# Package manager lock files
-package-lock.json
+# Package manager lock files (yarn.lock and pnpm-lock.yaml kept out, but package-lock.json should be committed for CI)
 yarn.lock
 pnpm-lock.yaml
 
