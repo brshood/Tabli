@@ -34,6 +34,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingValue, setRatingValue] = useState<number>(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingName, setRatingName] = useState('');
+  const [ratingEmail, setRatingEmail] = useState('');
+  const [ratingPhone, setRatingPhone] = useState('');
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -105,11 +113,25 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                     {restaurant.name}
                   </h1>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center">
+                    <button
+                      type="button"
+                      className="flex items-center"
+                      onClick={async () => {
+                        try {
+                          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                          const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
+                          if (res.ok) {
+                            const data = await res.json();
+                            setComments(data.items || []);
+                            setShowComments(true);
+                          }
+                        } catch {}
+                      }}
+                    >
                       <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
-                      <span className="font-semibold" style={{color: '#1F2937'}}>{restaurant.rating}</span>
-                      <span className="text-sm ml-1" style={{color: '#6B7280'}}>({restaurant.weeklyAverageCustomers} reviews)</span>
-                    </div>
+                      <span className="font-semibold" style={{color: '#1F2937'}}>{restaurant.rating.toFixed(1)}</span>
+                      <span className="text-sm ml-1" style={{color: '#6B7280'}}>({restaurant.ratingCount ?? 0})</span>
+                    </button>
                     <Badge variant="outline" className="rounded-full">
                       {restaurant.cuisine}
                     </Badge>
@@ -217,6 +239,107 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               </div>
             </div>
 
+            {/* Rating Widget */}
+            <div className="mb-6 p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
+              <h3 className="font-medium mb-3" style={{color: '#2D2D2B'}}>Rate this restaurant</h3>
+              <div className="flex items-center gap-2 mb-3">
+                {[1,2,3,4,5].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setRatingValue(v)}
+                    className="p-1"
+                    aria-label={`Rate ${v}`}
+                  >
+                    <Star className={`h-6 w-6 ${v <= ratingValue ? 'text-yellow-400' : 'text-gray-300'}`} />
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                <input
+                  value={ratingName}
+                  onChange={(e) => setRatingName(e.target.value)}
+                  placeholder="Your name"
+                  className="border rounded px-3 py-2 bg-input-background"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+                <input
+                  value={ratingEmail}
+                  onChange={(e) => setRatingEmail(e.target.value)}
+                  placeholder="Your email"
+                  type="email"
+                  className="border rounded px-3 py-2 bg-input-background"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+                <input
+                  value={ratingPhone}
+                  onChange={(e) => setRatingPhone(e.target.value)}
+                  placeholder="Your phone"
+                  className="border rounded px-3 py-2 bg-input-background"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  placeholder="Optional comment"
+                  className="flex-1 border rounded px-3 py-2 bg-input-background"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+                <Button
+                  disabled={!ratingValue || ratingSubmitting}
+                  onClick={async () => {
+                    try {
+                      setRatingSubmitting(true);
+                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                          value: ratingValue, 
+                          comment: ratingComment || undefined,
+                          name: ratingName,
+                          email: ratingEmail,
+                          phone: ratingPhone,
+                        })
+                      });
+                      if (!res.ok) throw new Error('failed');
+                      setRatingValue(0);
+                      setRatingComment('');
+                      setRatingName('');
+                      setRatingEmail('');
+                      setRatingPhone('');
+                    } catch {
+                      // ignore failures silently for now
+                    } finally {
+                      setRatingSubmitting(false);
+                    }
+                  }}
+                  className="pill-button"
+                >
+                  Submit
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        setComments(data.items || []);
+                        setShowComments(true);
+                      }
+                    } catch {}
+                  }}
+                  className="pill-button"
+                  style={{borderColor: '#6B7280', color: '#4B5563'}}
+                >
+                  View Comments
+                </Button>
+              </div>
+            </div>
+
             {/* Additional Info */}
             {restaurant.maxHoldTime && (
               <Card className="border rounded-xl p-4 mb-4" style={{backgroundColor: '#F9FAFB', borderColor: '#E5E7EB'}}>
@@ -302,6 +425,33 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         onClose={() => setSurveyModalOpen(false)}
         restaurantName={restaurant.name}
       />
+
+      {/* Ratings Comments Modal (simple) */}
+      {showComments && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowComments(false)}>
+          <div className="bg-white rounded-xl max-w-lg w-full p-4 m-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold" style={{color: '#1F2937'}}>Ratings & Comments</h3>
+              <Button variant="outline" className="pill-button" onClick={() => setShowComments(false)}>Close</Button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {comments.length ? comments.map((c, idx) => (
+                <div key={idx} className="border rounded-lg p-3" style={{borderColor: '#E5E7EB'}}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {[1,2,3,4,5].map(v => (
+                      <Star key={v} className={`h-4 w-4 ${v <= (c.value || 0) ? 'text-yellow-400' : 'text-gray-300'}`} />
+                    ))}
+                  </div>
+                  <div className="text-sm" style={{color: '#374151'}}>{c.comment || 'No comment'}</div>
+                  <div className="text-xs mt-1" style={{color: '#6B7280'}}>{c.name || 'Anonymous'} • {new Date(c.createdAt).toLocaleString()}</div>
+                </div>
+              )) : (
+                <div className="text-sm" style={{color: '#6B7280'}}>No comments yet.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

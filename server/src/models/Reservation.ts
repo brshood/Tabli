@@ -5,6 +5,7 @@ export type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'cancelled'
 
 export interface ReservationDocument extends Document {
   restaurantId: mongoose.Types.ObjectId;
+  name?: string;
   mode: ReservationMode;
   partySize: number;
   contactMethod: 'phone' | 'email';
@@ -22,6 +23,7 @@ export interface ReservationDocument extends Document {
 const reservationSchema = new Schema<ReservationDocument>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    name: { type: String },
     mode: { type: String, enum: ['reserve', 'waitlist'], required: true },
     partySize: { type: Number, required: true },
     contactMethod: { type: String, enum: ['phone', 'email'], required: true },

@@ -49,5 +49,12 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+tablesRouter.delete('/tables/:id', async (req, res, next) => {
+  try {
+    await Table.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 
 

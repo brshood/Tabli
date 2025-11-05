@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Reservation } from '../models/Reservation.ts';
 import { Restaurant } from '../models/Restaurant.ts';
+import { Table } from '../models/Table.ts';
 import { sendEmail } from '../services/email.ts';
 import { sendSMS } from '../services/sms.ts';
 
@@ -10,6 +11,7 @@ export const reservationsRouter = express.Router();
 const createSchema = z.object({
   restaurantId: z.string(),
   mode: z.enum(['reserve', 'waitlist']),
+  name: z.string().min(1).max(100).optional(),
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
@@ -24,16 +26,41 @@ reservationsRouter.post('/', async (req, res, next) => {
       const count = await Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
       queuePosition = count + 1;
     }
+    // Seating logic
+    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
+    const capacities = availableTables.map(t => t.capacity);
+    const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
+    const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
+    let status: any = 'pending';
+    let tableToSeat: any = null;
+    if (data.partySize <= maxCapacity) {
+      // find first fitting table
+      tableToSeat = availableTables.find(t => t.capacity >= data.partySize) || null;
+      if (tableToSeat) status = 'seated';
+    } else if (data.partySize > maxCapacity && totalCapacity >= data.partySize) {
+      // queue with rearrangement note (client can message)
+      status = 'pending';
+    } else {
+      status = 'pending';
+    }
+
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
+      name: data.name,
       mode: data.mode,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
       phone: data.contactMethod === 'phone' ? data.phone : undefined,
       email: data.contactMethod === 'email' ? data.email : undefined,
-      status: 'pending',
+      status,
       queuePosition,
+      confirmedAt: status !== 'pending' ? new Date() : undefined,
+      seatedAt: status === 'seated' ? new Date() : undefined,
     });
+
+    if (status === 'seated' && tableToSeat) {
+      await Table.findByIdAndUpdate(tableToSeat._id, { $set: { status: 'occupied', currentReservationId: doc._id } });
+    }
 
     // Send confirmation notification
     const restaurant = await Restaurant.findById(data.restaurantId);
@@ -84,7 +111,19 @@ const patchSchema = z.object({
 reservationsRouter.patch('/:id', async (req, res, next) => {
   try {
     const data = patchSchema.parse(req.body);
-    const reservation = await Reservation.findByIdAndUpdate(req.params.id, { $set: data }, { new: true });
+    const r = await Reservation.findById(req.params.id);
+    if (!r) return res.status(404).json({ error: 'Not found' });
+    const prevStatus = r.status;
+    if (data.status && data.status !== prevStatus) {
+      if (data.status === 'confirmed') r.confirmedAt = new Date();
+      if (data.status === 'seated') r.seatedAt = new Date();
+      if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
+      r.status = data.status;
+    }
+    if (typeof data.queuePosition === 'number') r.queuePosition = data.queuePosition;
+    if (data.tableId) (r as any).tableId = data.tableId;
+    await r.save();
+    const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
     res.json({ reservation });
   } catch (err) { next(err); }

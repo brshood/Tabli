@@ -16,12 +16,16 @@ process.on('uncaughtException', (error: Error) => {
 
 async function main() {
   await connectMongo();
+  console.log('Environment variables loaded:');
+  console.log('- CORS_ORIGIN:', env.CORS_ORIGIN);
+  console.log('- NODE_ENV:', env.NODE_ENV);
+  console.log('- PORT:', env.PORT);
   const app = createApp();
   const server = createServer(app);
   const port = env.PORT;
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
-    console.log(`API listening on :${port}`);
+    console.log(`API listening on 0.0.0.0:${port}`);
   });
 }
 

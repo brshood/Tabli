@@ -20,6 +20,7 @@ interface BookingModalProps {
 
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
   const [partySize, setPartySize] = useState(2);
+  const [customerName, setCustomerName] = useState('');
   const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('phone');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -76,6 +77,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         body: JSON.stringify({
           restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
           mode,
+          name: customerName || undefined,
           partySize,
           contactMethod,
           phone: contactMethod === 'phone' ? phone : undefined,
@@ -83,9 +85,13 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         })
       });
       if (!res.ok) throw new Error('reservation_failed');
+      const data = await res.json().catch(() => ({}));
+      const position = data?.reservation?.queuePosition;
       const successMessage = mode === 'reserve'
         ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
-        : "You've been added to the queue! We'll notify you when your table is ready.";
+        : (typeof position === 'number'
+            ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
+            : "You've been added to the queue! We'll notify you when your table is ready.");
       toast.success(successMessage);
       if (onSuccess) onSuccess(); else onClose();
     } catch (_e) {
@@ -140,6 +146,19 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         )}
 
         <div className="space-y-6">
+          {/* Optional Customer Name */}
+          <div className="space-y-2">
+            <Label htmlFor="custName" style={{color: 'var(--where2go-text)'}}>Your name (optional)</Label>
+            <Input
+              id="custName"
+              type="text"
+              placeholder="Enter your name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-white"
+              style={{borderColor: 'var(--where2go-border)'}}
+            />
+          </div>
           {/* Party Size */}
           <div className="space-y-2">
             <Label htmlFor="partySize" style={{color: 'var(--where2go-text)'}}>Number of party members</Label>

@@ -167,6 +167,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                     <span>{t('search.trending')}</span>
                   </div>
                 )}
+
+                {/* Available tables badge */}
+                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg`} style={{backgroundColor: '#000000', color: '#FFFFFF'}}>
+                  {restaurant.tablesAvailable} available
+                </div>
                 
                 {/* Fire icon for restaurants with >5 people waiting */}
                 {restaurant.waitingInLine > 5 && (

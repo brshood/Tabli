@@ -7,6 +7,8 @@ import { Restaurant } from '../models/Restaurant.ts';
 import { signJwt, verifyJwt } from '../utils/jwt.ts';
 import { sendEmail } from '../services/email.ts';
 import { getGridFsBucket } from '../db/gridfs.ts';
+import crypto from 'crypto';
+import { env } from '../config/env.ts';
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -230,15 +232,20 @@ authRouter.post('/forgot-password', async (req, res, next) => {
     const user = await User.findOne({ email });
     // Respond 200 always for privacy, but only send email if user exists
     if (user) {
-      // Generate a temporary password and set it
-      const temp = Math.random().toString(36).slice(-10);
-      const passwordHash = await bcrypt.hash(temp, 10);
-      user.passwordHash = passwordHash;
+      // Issue a reset token valid for 1 hour
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000);
+      user.resetToken = token;
+      user.resetTokenExpiresAt = expires;
       await user.save();
+
+      const resetBase = env.CORS_ORIGIN || 'http://localhost:5173';
+      const link = `${resetBase.replace(/\/$/, '')}/reset-password?token=${token}`;
+
       await sendEmail({
         to: user.email,
-        subject: 'Your temporary password',
-        text: `Hello ${user.name},\n\nYour temporary password is: ${temp}\nPlease log in and change it immediately.`,
+        subject: 'Reset your Tabli password',
+        text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
       });
     }
     res.json({ success: true });
@@ -247,6 +254,7 @@ authRouter.post('/forgot-password', async (req, res, next) => {
   }
 });
 
+<<<<<<< HEAD
 // Update profile schema
 const updateProfileSchema = z.object({
   name: z.string().min(2).trim().optional(),
@@ -343,6 +351,26 @@ authRouter.put('/password', async (req, res, next) => {
         passwordRequirements: PASSWORD_REQUIREMENTS 
       });
     }
+=======
+const resetSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(8),
+});
+
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, password } = resetSchema.parse(req.body);
+    const user = await User.findOne({ resetToken: token });
+    // Always respond 200 to avoid token probing; only update if valid
+    if (user && user.resetTokenExpiresAt && user.resetTokenExpiresAt.getTime() > Date.now()) {
+      user.passwordHash = await bcrypt.hash(password, 10);
+      user.resetToken = null;
+      user.resetTokenExpiresAt = null;
+      await user.save();
+    }
+    res.json({ success: true });
+  } catch (err) {
+>>>>>>> main
     next(err);
   }
 });

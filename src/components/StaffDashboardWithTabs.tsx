@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -50,44 +50,142 @@ const mockAvailableTables = [
   { id: 10, tableName: "Bar Counter", capacity: 8, isOccupied: false }
 ];
 
-// Analytics data
-const seatedVsWaitingData = [
-  { name: 'Mon', seated: 45, waiting: 12 },
-  { name: 'Tue', seated: 38, waiting: 8 },
-  { name: 'Wed', seated: 52, waiting: 15 },
-  { name: 'Thu', seated: 61, waiting: 22 },
-  { name: 'Fri', seated: 78, waiting: 35 },
-  { name: 'Sat', seated: 82, waiting: 28 },
-  { name: 'Sun', seated: 71, waiting: 18 }
-];
-
-const capacityData = [
-  { name: 'Occupied', value: 65, color: '#5A5E3E' },
-  { name: 'Available', value: 35, color: '#B889A6' }
-];
-
-const peakHoursData = [
-  { time: '11 AM', male: 8, female: 7, all: 15 },
-  { time: '12 PM', male: 15, female: 13, all: 28 },
-  { time: '1 PM', male: 23, female: 19, all: 42 },
-  { time: '2 PM', male: 21, female: 17, all: 38 },
-  { time: '3 PM', male: 12, female: 10, all: 22 },
-  { time: '4 PM', male: 10, female: 8, all: 18 },
-  { time: '5 PM', male: 13, female: 11, all: 24 },
-  { time: '6 PM', male: 25, female: 20, all: 45 },
-  { time: '7 PM', male: 38, female: 30, all: 68 },
-  { time: '8 PM', male: 40, female: 32, all: 72 },
-  { time: '9 PM', male: 32, female: 26, all: 58 },
-  { time: '10 PM', male: 19, female: 16, all: 35 }
-];
+// Analytics state (live)
+type Overview = { total: number; confirmed: number; seated: number; cancelled: number };
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
   const [availableTables, setAvailableTables] = useState(mockAvailableTables);
+  const [tablesCount, setTablesCount] = useState<number>(mockAvailableTables.length + mockSeatedTables.length);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [waitingCount, setWaitingCount] = useState<number>(0);
+  const [seatedToday, setSeatedToday] = useState<number>(0);
+  const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
+  const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
+  const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
+  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number }[]>([]);
+
+  useEffect(() => {
+    let timer: any;
+    const load = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const res = await fetch(`${API_URL}/dashboard/${staffAuth.restaurantId}/summary`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setWaitingCount(data.waiting || 0);
+        setSeatedToday(data.seatedToday || 0);
+        setAvgWaitMinutes(data.avgWaitMinutes || 0);
+      } catch {}
+    };
+    load();
+    timer = setInterval(load, 15000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
+  // Replace hardcoded waitlist/seated with live data
+  useEffect(() => {
+    let timer: any;
+    const loadReservations = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const params = new URLSearchParams({ restaurantId: staffAuth.restaurantId });
+        const res = await fetch(`${API_URL}/reservations?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        const wl = items
+          .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
+          .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
+          .map((r, idx) => ({
+            id: idx + 1,
+            name: r.name || 'Queue Customer',
+            partySize: r.partySize || 2,
+            waitTime: '—',
+            phone: r.phone || '',
+            joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            contactMethod: (r.contactMethod || 'phone') as any,
+            holdTimeExpires: Date.now() + 10 * 60000,
+          }));
+        setWaitlist(wl);
+        // Optionally: expose pending reservations separately in future
+        const seated = items
+          .filter(r => r.status === 'seated')
+          .map((r, idx) => ({
+            id: idx + 1,
+            table: r.tableId ? `Table ${String(r.tableId).slice(-2)}` : 'Table',
+            guests: 'Seated Party',
+            partySize: r.partySize || 2,
+            capacity: r.partySize || 4,
+            seatedTime: r.seatedAt ? new Date(r.seatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            duration: '—',
+          }));
+        setSeatedTables(seated);
+      } catch {}
+    };
+    loadReservations();
+    timer = setInterval(loadReservations, 20000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
+  // Load tables list for totals and availability
+  useEffect(() => {
+    let timer: any;
+    const loadTables = async () => {
+      try {
+        if (!staffAuth?.restaurantId) return;
+        const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+      } catch {}
+    };
+    loadTables();
+    timer = setInterval(loadTables, 20000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
+
+  // Load analytics (overview and peak hours)
+  useEffect(() => {
+    let timer: any;
+    const loadAnalytics = async () => {
+      try {
+        const rid = staffAuth?.restaurantId;
+        if (!rid) return;
+        const q = new URLSearchParams({ restaurantId: rid, range: 'day' });
+        const [ovrRes, peakRes, dailyRes] = await Promise.all([
+          fetch(`${API_URL}/analytics/overview?${q.toString()}`),
+          fetch(`${API_URL}/analytics/peak-hours?${q.toString()}`),
+          fetch(`${API_URL}/analytics/daily?restaurantId=${rid}&range=week`)
+        ]);
+        if (ovrRes.ok) {
+          const { totals } = await ovrRes.json();
+          setOverview({ total: totals?.total || 0, confirmed: totals?.confirmed || 0, seated: totals?.seated || 0, cancelled: totals?.cancelled || 0 });
+        }
+        if (peakRes.ok) {
+          const { items } = await peakRes.json();
+          const mapped = (items || []).map((i: any) => ({ time: `${String(i._id).padStart(2,'0')}:00`, all: i.count || 0 }));
+          setPeakHoursData(mapped);
+        }
+        if (dailyRes.ok) {
+          const { items } = await dailyRes.json();
+          setDailyData(items || []);
+        }
+      } catch {}
+    };
+    loadAnalytics();
+    timer = setInterval(loadAnalytics, 30000);
+    return () => clearInterval(timer);
+  }, [API_URL, staffAuth?.restaurantId]);
 
   const markAsNoShow = (id: number) => {
     const customer = waitlist.find(item => item.id === id);
@@ -134,17 +232,29 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const addTable = (tableName: string, capacity: number) => {
-    const newTable = {
-      id: Math.max(...availableTables.map(t => t.id), ...seatedTables.map(t => t.id)) + 1,
-      tableName,
-      capacity,
-      isOccupied: false
-    };
-    setAvailableTables(prev => [...prev, newTable]);
+  const addTable = async (tableName: string, capacity: number) => {
+    try {
+      if (!staffAuth.restaurantId) return;
+      await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tableName, capacity })
+      });
+      // Refresh tables
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+      if (res.ok) {
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+      }
+    } catch {}
   };
 
-  const removeTable = (tableId: number) => {
+  const removeTable = async (tableId: any) => {
     // Check if table is currently occupied
     const occupiedTable = seatedTables.find(table => table.id === tableId);
     if (occupiedTable) {
@@ -152,11 +262,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       return;
     }
 
-    // Remove from available tables
-    const tableToRemove = availableTables.find(table => table.id === tableId);
-    if (tableToRemove) {
-      setAvailableTables(prev => prev.filter(table => table.id !== tableId));
-      toast.success(`${tableToRemove.tableName} has been removed`);
+    try {
+      await fetch(`${API_URL}/tables/${tableId}`, { method: 'DELETE' });
+      // Refresh tables
+      if (!staffAuth.restaurantId) return;
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+      if (res.ok) {
+        const data = await res.json();
+        const items: any[] = data.items || [];
+        setTablesCount(items.length);
+        const avail = items
+          .filter(t => t.status === 'available')
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+        setAvailableTables(avail);
+        toast.success('Table removed');
+      }
+    } catch {
+      toast.error('Failed to remove table');
     }
   };
 
@@ -285,7 +407,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Clock className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitlist.length}</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitingCount}</div>
                     <div style={{color: 'var(--where2go-text)'}}>People Waiting</div>
                   </CardContent>
                 </Card>
@@ -308,7 +430,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Users className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length}</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedToday}</div>
                     <div style={{color: 'var(--where2go-text)'}}>Tables Seated</div>
                   </CardContent>
                 </Card>
@@ -331,7 +453,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
                       <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
                     </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedTables.length + availableTables.length}</div>
+                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{tablesCount}</div>
                     <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
                   </CardContent>
                 </Card>
@@ -592,6 +714,22 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <BarChart3 className="h-4 w-4 mr-2" />
                     View Analytics
                   </Button>
+                    <Button 
+                      className="pill-button text-white"
+                      style={{backgroundColor: '#B7410E'}}
+                      onClick={async () => {
+                        try {
+                          if (!staffAuth.restaurantId) return;
+                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
+                          // Refresh KPIs next tick
+                          alert('Queue cleared for this restaurant.');
+                        } catch {
+                          alert('Failed to clear queue.');
+                        }
+                      }}
+                    >
+                      Clear Queue
+                    </Button>
                 </div>
               </CardContent>
             </Card>
@@ -605,10 +743,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Today's Customers</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>247</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>{overview.total}</p>
                       <div className="flex items-center mt-2">
                         <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>+12% vs yesterday</span>
+                        <span className="text-sm" style={{color: '#5A5E3E'}}>vs yesterday (weekly)</span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -678,11 +816,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               {/* Seated vs Waiting Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Weekly Overview: Seated vs Waiting</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={seatedVsWaitingData}>
+                    <BarChart data={
+                      (dailyData.length ? dailyData : [{ day: new Date().toISOString().slice(0,10), total: overview.total, seated: overview.seated }])
+                        .map(d => ({ name: d.day.slice(5), seated: d.seated, waiting: Math.max(d.total - d.seated, 0) }))
+                    }>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
                       <YAxis stroke="#2D2D2B" />
@@ -710,7 +851,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={capacityData}
+                        data={[
+                          { name: 'Occupied', value: Math.max(tablesCount - availableTables.length, 0), color: '#5A5E3E' },
+                          { name: 'Available', value: availableTables.length, color: '#B889A6' }
+                        ]}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
@@ -718,7 +862,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         label={({ name, value }) => `${name}: ${value}%`}
                         labelLine={false}
                       >
-                        {capacityData.map((entry, index) => (
+                        {[
+                          { name: 'Occupied', color: '#5A5E3E' },
+                          { name: 'Available', color: '#B889A6' }
+                        ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -737,7 +884,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </div>
 
             {/* Peak Hours Chart */}
-            <Card className="card-shadow border-0 rounded-3xl">
+              <Card className="card-shadow border-0 rounded-3xl">
               <CardHeader>
                 <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Today's Peak Hours</CardTitle>
               </CardHeader>
@@ -754,24 +901,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         borderRadius: '12px',
                         boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                       }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="male" 
-                      stroke="#3B82F6" 
-                      strokeWidth={2}
-                      name="Male"
-                      dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#3B82F6', strokeWidth: 2 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="female" 
-                      stroke="#EF4444" 
-                      strokeWidth={2}
-                      name="Female"
-                      dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, fill: '#ffffff', stroke: '#EF4444', strokeWidth: 2 }}
                     />
                     <Line 
                       type="monotone" 
@@ -792,24 +921,36 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Peak Hour</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>8:00 PM</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>72 customers served</p>
+                  {peakHoursData.length ? (
+                    <>
+                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).time}</p>
+                      <p className="text-sm" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).all} customers</p>
+                    </>
+                  ) : (
+                    <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Busiest Day</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>Saturday</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>82 customers average</p>
+                  {dailyData.length ? (
+                    <>
+                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{new Date(dailyData.reduce((a,b)=> (b.total > a.total? b : a)).day).toLocaleDateString()}</p>
+                      <p className="text-sm" style={{color: '#2D2D2B'}}>{dailyData.reduce((a,b)=> (b.total > a.total? b : a)).total} customers</p>
+                    </>
+                  ) : (
+                    <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Efficiency Score</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>94%</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>Above industry average</p>
+                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{Math.max(0, Math.min(100, Math.round((100 - avgWaitMinutes) * 0.6 + (tablesCount ? (seatedToday / tablesCount) * 40 : 0))))}%</p>
+                  <p className="text-sm" style={{color: '#2D2D2B'}}>Based on wait time and turnover</p>
                 </CardContent>
               </Card>
             </div>

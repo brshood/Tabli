@@ -12,9 +12,13 @@ import { restaurantsRouter } from './routes/restaurants.ts';
 import { mediaRouter } from './routes/media.ts';
 import { reservationsRouter } from './routes/reservations.ts';
 import { qrRouter } from './routes/qr.ts';
+import { queueRouter } from './routes/queue.ts';
 import { analyticsRouter } from './routes/analytics.ts';
 import { tablesRouter } from './routes/tables.ts';
 import { documentsRouter } from './routes/documents.ts';
+import { maintenanceRouter } from './routes/maintenance.ts';
+import { notificationsRouter } from './routes/notifications.ts';
+import { dashboardRouter } from './routes/dashboard.ts';
 
 // Global rate limiter: 100 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -39,7 +43,12 @@ export function createApp(): Application {
 
   app.use(helmet());
   app.use(compression());
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  app.use(cors({ 
+    origin: env.CORS_ORIGIN, 
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
   app.use(express.json());
   app.use(mongoSanitize());
   app.use(pinoHttp());
@@ -50,9 +59,13 @@ export function createApp(): Application {
   app.use('/restaurants', restaurantsRouter);
   app.use('/media', mediaRouter);
   app.use('/reservations', reservationsRouter);
+  app.use('/queue', queueRouter);
   app.use('/qr', qrRouter);
   app.use('/analytics', analyticsRouter);
+  app.use('/dashboard', dashboardRouter);
   app.use('/documents', documentsRouter);
+  app.use('/maintenance', maintenanceRouter);
+  app.use('/notifications', notificationsRouter);
   app.use('/', tablesRouter);
 
   // 404 handler
