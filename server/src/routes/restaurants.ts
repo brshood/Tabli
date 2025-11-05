@@ -128,9 +128,6 @@ restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.s
   } catch (err) { next(err); }
 });
 
-  } catch (err) { next(err); }
-});
-
 // POST /:id/profile-picture - Upload restaurant profile picture
 restaurantsRouter.post('/:id/profile-picture', requireAuth, requireOwnRestaurant, upload.single('file'), async (req, res, next) => {
   try {
@@ -336,8 +333,3 @@ restaurantsRouter.delete('/:id', requireAuth, requireOwnRestaurant, async (req: 
     res.json({ success: true });
   } catch (err) { next(err); }
 });
->>>>>>> main
-});
-
-
-
