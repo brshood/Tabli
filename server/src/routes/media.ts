@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -32,7 +32,7 @@ mediaRouter.post('/upload', upload.single('file'), async (req, res, next) => {
       metadata: {},
     });
     stream.end(req.file.buffer);
-    stream.on('finish', (file) => {
+    stream.on('finish', (file: any) => {
       res.json({ id: file._id, filename: file.filename, contentType: file.contentType });
     });
     stream.on('error', (err) => next(err));

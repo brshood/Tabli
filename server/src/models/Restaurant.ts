@@ -5,7 +5,7 @@ export interface DocumentRef {
   type: 'image' | 'pdf';
   filename: string;
   contentType: string;
-  category: 'license' | 'menu' | 'other';
+  category: 'license' | 'menu' | 'profile-picture' | 'other';
   menuType?: string;
   version: number;
   uploadedAt: Date;
@@ -22,8 +22,9 @@ export interface RestaurantDocument extends Document {
   address?: string;
   openingHours?: string;
   closingHours?: string;
-  featuredImageFileId?: mongoose.Types.ObjectId;
   priceRange?: string;
+  profilePictureId?: mongoose.Types.ObjectId;
+  featuredImageFileId?: mongoose.Types.ObjectId;
   mediaRefs?: DocumentRef[]; 
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,7 @@ const restaurantSchema = new Schema<RestaurantDocument>(
     openingHours: String,
     closingHours: String,
     priceRange: String,
+    profilePictureId: { type: Schema.Types.ObjectId, required: false },
     featuredImageFileId: { type: Schema.Types.ObjectId, required: false },
     mediaRefs: [
       {
@@ -48,7 +50,7 @@ const restaurantSchema = new Schema<RestaurantDocument>(
         type: { type: String, enum: ['image', 'pdf'], required: true },
         filename: { type: String, required: true },
         contentType: { type: String, required: true },
-        category: { type: String, enum: ['license', 'menu', 'other'], required: true, default: 'other' },
+        category: { type: String, enum: ['license', 'menu', 'profile-picture', 'other'], required: true, default: 'other' },
         menuType: { type: String, required: false },
         version: { type: Number, required: true, default: 1 },
         uploadedAt: { type: Date, required: true, default: Date.now },

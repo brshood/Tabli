@@ -5,25 +5,25 @@ import compression from 'compression';
 import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
-import { env } from './config/env.ts';
-import { healthRouter } from './routes/health.ts';
-import { authRouter } from './routes/auth.ts';
-import { restaurantsRouter } from './routes/restaurants.ts';
-import { mediaRouter } from './routes/media.ts';
-import { reservationsRouter } from './routes/reservations.ts';
-import { qrRouter } from './routes/qr.ts';
-import { queueRouter } from './routes/queue.ts';
-import { analyticsRouter } from './routes/analytics.ts';
-import { tablesRouter } from './routes/tables.ts';
-import { documentsRouter } from './routes/documents.ts';
-import { maintenanceRouter } from './routes/maintenance.ts';
-import { notificationsRouter } from './routes/notifications.ts';
-import { dashboardRouter } from './routes/dashboard.ts';
+import { env } from './config/env';
+import { healthRouter } from './routes/health';
+import { authRouter } from './routes/auth';
+import { restaurantsRouter } from './routes/restaurants';
+import { mediaRouter } from './routes/media';
+import { reservationsRouter } from './routes/reservations';
+import { qrRouter } from './routes/qr';
+import { queueRouter } from './routes/queue';
+import { analyticsRouter } from './routes/analytics';
+import { tablesRouter } from './routes/tables';
+import { documentsRouter } from './routes/documents';
+import { maintenanceRouter } from './routes/maintenance';
+import { notificationsRouter } from './routes/notifications';
+import { dashboardRouter } from './routes/dashboard';
 
-// Global rate limiter: 100 requests per 15 minutes
+// Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,

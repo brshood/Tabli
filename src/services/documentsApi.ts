@@ -16,6 +16,7 @@ export interface GroupedDocuments {
   license: DocumentRef[];
   menus: Record<string, DocumentRef[]>;
   other: DocumentRef[];
+  all?: DocumentRef[];
 }
 
 /**

@@ -1,5 +1,5 @@
 import express from 'express';
-import { Reservation } from '../models/Reservation.ts';
+import { Reservation } from '../models/Reservation';
 
 export const analyticsRouter = express.Router();
 

@@ -1,10 +1,10 @@
 import express from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { Restaurant } from '../models/Restaurant.ts';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { Restaurant } from '../models/Restaurant';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
-import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth.ts';
+import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth';
 
 export const documentsRouter = express.Router();
 
@@ -136,7 +136,7 @@ documentsRouter.post(
       const stream = bucket.openUploadStream(req.file.originalname, {
         contentType: req.file.mimetype,
         metadata: {
-          restaurantId: restaurant._id.toString(),
+          restaurantId: (restaurant._id as any).toString(),
           type,
           category,
           menuType: menuType || null,
@@ -258,6 +258,58 @@ documentsRouter.delete(
           fileId,
           filename: document.filename,
           category: document.category,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PUT /documents/:restaurantId/menu/:fileId/type - Update menu type for a specific menu
+documentsRouter.put(
+  '/:restaurantId/menu/:fileId/type',
+  requireAuth,
+  requireOwnRestaurant,
+  async (req, res, next) => {
+    try {
+      const { restaurantId, fileId } = req.params;
+      const { menuType } = req.body;
+
+      if (!menuType || !menuType.trim()) {
+        return res.status(400).json({ error: 'Menu type is required' });
+      }
+
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: 'Restaurant not found' });
+      }
+
+      // Find the document
+      const document = restaurant.mediaRefs?.find(
+        doc => doc.fileId.toString() === fileId
+      );
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Verify it's a menu document
+      if (document.category !== 'menu') {
+        return res.status(400).json({ error: 'Can only update menu type for menu documents' });
+      }
+
+      // Update the menu type
+      document.menuType = menuType.trim().toLowerCase();
+      await restaurant.save();
+
+      res.json({
+        success: true,
+        message: 'Menu type updated successfully',
+        document: {
+          fileId: document.fileId.toString(),
+          filename: document.filename,
+          menuType: document.menuType,
         },
       });
     } catch (err) {

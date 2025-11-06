@@ -8,7 +8,7 @@ import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, 
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
-import { DocumentsManagement } from './DocumentsManagement';
+import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
@@ -22,6 +22,7 @@ interface StaffDashboardProps {
     token?: string;
   };
   onLogout: () => void;
+  onUserUpdate: (user: any) => void;
 }
 
 const mockWaitlist = [
@@ -52,7 +53,7 @@ const mockAvailableTables = [
 // Analytics state (live)
 type Overview = { total: number; confirmed: number; seated: number; cancelled: number };
 
-export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: StaffDashboardProps) {
+export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
@@ -82,7 +83,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
       } catch {}
     };
     load();
-    timer = setInterval(load, 15000);
+    timer = setInterval(load, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -127,7 +128,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
       } catch {}
     };
     loadReservations();
-    timer = setInterval(loadReservations, 20000);
+    timer = setInterval(loadReservations, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -149,7 +150,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
       } catch {}
     };
     loadTables();
-    timer = setInterval(loadTables, 20000);
+    timer = setInterval(loadTables, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -182,7 +183,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
       } catch {}
     };
     loadAnalytics();
-    timer = setInterval(loadAnalytics, 30000);
+    timer = setInterval(loadAnalytics, 60000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -380,11 +381,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
-            <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
-            <TabsTrigger value="documents" style={{color: 'var(--where2go-accent)'}}>Documents</TabsTrigger>
-          </TabsList>
+        <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
+          <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
+          <TabsTrigger value="profile" style={{color: 'var(--where2go-accent)'}}>Profile</TabsTrigger>
+        </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
             {/* KPI Stats */}
@@ -968,11 +969,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout }: Staf
             </div>
           </TabsContent>
 
-          <TabsContent value="documents" className="space-y-8">
-            {staffAuth.restaurantId && staffAuth.token ? (
-              <DocumentsManagement 
+          <TabsContent value="profile" className="space-y-8">
+            {staffAuth.restaurantId && staffAuth.token && staffAuth.user ? (
+              <RestaurantProfile
+                user={staffAuth.user}
                 restaurantId={staffAuth.restaurantId}
                 token={staffAuth.token}
+                onUserUpdate={onUserUpdate}
               />
             ) : (
               <div className="text-center py-12">

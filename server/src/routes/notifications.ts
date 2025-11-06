@@ -1,6 +1,6 @@
 import express from 'express';
-import { sendEmail } from '../services/email.ts';
-import { sendSMS } from '../services/sms.ts';
+import { sendEmail } from '../services/email';
+import { sendSMS } from '../services/sms';
 
 export const notificationsRouter = express.Router();
 

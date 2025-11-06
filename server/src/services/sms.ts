@@ -1,4 +1,4 @@
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 import twilio from 'twilio';
 
 let twilioClient: ReturnType<typeof twilio> | null = null;

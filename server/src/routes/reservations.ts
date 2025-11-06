@@ -1,10 +1,10 @@
 import express from 'express';
 import { z } from 'zod';
-import { Reservation } from '../models/Reservation.ts';
-import { Restaurant } from '../models/Restaurant.ts';
-import { Table } from '../models/Table.ts';
-import { sendEmail } from '../services/email.ts';
-import { sendSMS } from '../services/sms.ts';
+import { Reservation } from '../models/Reservation';
+import { Restaurant } from '../models/Restaurant';
+import { Table } from '../models/Table';
+import { sendEmail } from '../services/email';
+import { sendSMS } from '../services/sms';
 
 export const reservationsRouter = express.Router();
 
@@ -21,13 +21,18 @@ const createSchema = z.object({
 reservationsRouter.post('/', async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    let queuePosition: number | undefined = undefined;
-    if (data.mode === 'waitlist') {
-      const count = await Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
-      queuePosition = count + 1;
-    }
+    
+    // Parallelize independent queries for better performance
+    const [count, availableTables] = await Promise.all([
+      data.mode === 'waitlist' 
+        ? Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } })
+        : Promise.resolve(0),
+      Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
+    ]);
+    
+    const queuePosition = data.mode === 'waitlist' ? count + 1 : undefined;
+    
     // Seating logic
-    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
     const capacities = availableTables.map(t => t.capacity);
     const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
     const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
