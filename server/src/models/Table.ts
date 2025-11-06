@@ -23,6 +23,10 @@ const tableSchema = new Schema<TableDocument>(
   { timestamps: true }
 );
 
+// Compound indexes for better query performance
+tableSchema.index({ restaurantId: 1, status: 1 }); // For filtering available/occupied tables by restaurant
+tableSchema.index({ currentReservationId: 1 }); // For reverse lookups from reservation to table
+
 export const Table: Model<TableDocument> = mongoose.models.Table || mongoose.model<TableDocument>('Table', tableSchema);
 
 

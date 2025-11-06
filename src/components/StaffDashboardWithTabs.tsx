@@ -68,6 +68,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
   const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
   const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number }[]>([]);
+  const [kpiData, setKpiData] = useState<any>(null);
+  const [capacityData, setCapacityData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -90,67 +94,16 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   // Replace hardcoded waitlist/seated with live data
   useEffect(() => {
     let timer: any;
-    const loadReservations = async () => {
-      try {
-        if (!staffAuth?.restaurantId) return;
-        const params = new URLSearchParams({ restaurantId: staffAuth.restaurantId });
-        const res = await fetch(`${API_URL}/reservations?${params.toString()}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const items: any[] = data.items || [];
-        const wl = items
-          .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
-          .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
-          .map((r, idx) => ({
-            id: idx + 1,
-            name: r.name || 'Queue Customer',
-            partySize: r.partySize || 2,
-            waitTime: '—',
-            phone: r.phone || '',
-            joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            contactMethod: (r.contactMethod || 'phone') as any,
-            holdTimeExpires: Date.now() + 10 * 60000,
-          }));
-        setWaitlist(wl);
-        // Optionally: expose pending reservations separately in future
-        const seated = items
-          .filter(r => r.status === 'seated')
-          .map((r, idx) => ({
-            id: idx + 1,
-            table: r.tableId ? `Table ${String(r.tableId).slice(-2)}` : 'Table',
-            guests: 'Seated Party',
-            partySize: r.partySize || 2,
-            capacity: r.partySize || 4,
-            seatedTime: r.seatedAt ? new Date(r.seatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
-            duration: '—',
-          }));
-        setSeatedTables(seated);
-      } catch {}
-    };
-    loadReservations();
-    timer = setInterval(loadReservations, 30000);
+    loadReservationsFromDB();
+    timer = setInterval(loadReservationsFromDB, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
   // Load tables list for totals and availability
   useEffect(() => {
     let timer: any;
-    const loadTables = async () => {
-      try {
-        if (!staffAuth?.restaurantId) return;
-        const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const items: any[] = data.items || [];
-        setTablesCount(items.length);
-        const avail = items
-          .filter(t => t.status === 'available')
-          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
-        setAvailableTables(avail);
-      } catch {}
-    };
-    loadTables();
-    timer = setInterval(loadTables, 30000);
+    loadTablesFromDB();
+    timer = setInterval(loadTablesFromDB, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -160,13 +113,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     const loadAnalytics = async () => {
       try {
         const rid = staffAuth?.restaurantId;
-        if (!rid) return;
+        if (!rid) {
+          setAnalyticsLoading(false);
+          return;
+        }
+        
+        setAnalyticsLoading(true);
+        setAnalyticsError(null);
+        
         const q = new URLSearchParams({ restaurantId: rid, range: 'day' });
-        const [ovrRes, peakRes, dailyRes] = await Promise.all([
+        const [ovrRes, peakRes, dailyRes, kpiRes, capacityRes] = await Promise.all([
           fetch(`${API_URL}/analytics/overview?${q.toString()}`),
           fetch(`${API_URL}/analytics/peak-hours?${q.toString()}`),
-          fetch(`${API_URL}/analytics/daily?restaurantId=${rid}&range=week`)
+          fetch(`${API_URL}/analytics/daily?restaurantId=${rid}&range=week`),
+          fetch(`${API_URL}/analytics/kpis?restaurantId=${rid}`),
+          fetch(`${API_URL}/analytics/capacity-realtime?restaurantId=${rid}`)
         ]);
+        
         if (ovrRes.ok) {
           const { totals } = await ovrRes.json();
           setOverview({ total: totals?.total || 0, confirmed: totals?.confirmed || 0, seated: totals?.seated || 0, cancelled: totals?.cancelled || 0 });
@@ -180,7 +143,21 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           const { items } = await dailyRes.json();
           setDailyData(items || []);
         }
-      } catch {}
+        if (kpiRes.ok) {
+          const data = await kpiRes.json();
+          setKpiData(data);
+        }
+        if (capacityRes.ok) {
+          const data = await capacityRes.json();
+          setCapacityData(data);
+        }
+        
+        setAnalyticsLoading(false);
+      } catch (error) {
+        console.error('Failed to load analytics:', error);
+        setAnalyticsError('Failed to load analytics data. Please try again.');
+        setAnalyticsLoading(false);
+      }
     };
     loadAnalytics();
     timer = setInterval(loadAnalytics, 60000);
@@ -203,23 +180,291 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
   const seatCustomer = async (id: number) => {
     const customer = waitlist.find(item => item.id === id);
-    if (customer) {
+    if (!customer) return;
+    
+    const reservationId = (customer as any).reservationId;
+    if (!reservationId) {
+      toast.error('Invalid reservation data');
+      return;
+    }
+    
+    try {
+      // Use the new assign-table endpoint for atomic database updates
+      const response = await fetch(`${API_URL}/reservations/${reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+      
+      const data = await response.json();
+      
       // Notify customer
-      await notifyTableReady(
-        customer.phone,
-        customer.contactMethod,
-        'Spice Route'
-      );
-      removeFromWaitlist(id);
-      toast.success(`${customer.name} has been notified and seated`);
+      try {
+        await notifyTableReady(
+          customer.phone,
+          customer.contactMethod,
+          'Spice Route'
+        );
+      } catch (notifyError) {
+        console.log('Notification failed but table assigned:', notifyError);
+      }
+      
+      // Success! Refresh data from database
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+      
+      toast.success(`${customer.name} seated at ${data.table.name}`);
+    } catch (error: any) {
+      console.error('Error seating customer:', error);
+      toast.error(error.message || 'Failed to seat customer');
+      
+      // Refresh data to ensure UI matches database state
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    }
+  };
+  
+  // Helper function to reload reservations from database
+  const loadReservationsFromDB = async () => {
+    try {
+      if (!staffAuth?.restaurantId) return;
+      
+      // Fetch both reservations and tables to properly map table names
+      const [resRes, tablesRes] = await Promise.all([
+        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId }).toString()}`),
+        fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`)
+      ]);
+      
+      if (!resRes.ok) return;
+      const resData = await resRes.json();
+      const items: any[] = resData.items || [];
+      
+      console.log('Raw reservation data from API:', JSON.stringify(items.filter(r => r.status === 'seated'), null, 2));
+      
+      // Detect and auto-fix corrupted seated reservations (seated but no tableId)
+      const corruptedSeated = items.filter(r => r.status === 'seated' && !r.leftAt && !r.tableId);
+      if (corruptedSeated.length > 0) {
+        console.warn('Found corrupted seated reservations (seated status but no tableId):', corruptedSeated);
+        console.warn('Auto-fixing corrupted reservations by resetting status to "confirmed"...');
+        
+        // Auto-fix: reset status to confirmed so they appear in waitlist
+        for (const corrupt of corruptedSeated) {
+          try {
+            await fetch(`${API_URL}/reservations/${corrupt._id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'confirmed' })
+            });
+            console.log(`Fixed reservation ${corrupt._id}`);
+          } catch (err) {
+            console.error(`Failed to fix reservation ${corrupt._id}:`, err);
+          }
+        }
+        
+        // Reload data after fixes
+        if (corruptedSeated.length > 0) {
+          const retryRes = await fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId }).toString()}`);
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            items.length = 0;
+            items.push(...(retryData.items || []));
+          }
+        }
+      }
+      
+      // Create a map of tableId -> table name
+      const tableMap = new Map<string, string>();
+      if (tablesRes.ok) {
+        const tablesData = await tablesRes.json();
+        const tables: any[] = tablesData.items || [];
+        console.log('Tables from API:', JSON.stringify(tables, null, 2));
+        tables.forEach((t: any) => {
+          tableMap.set(t._id, t.name);
+        });
+      }
+      
+      // Derive waitlist from database state
+      const wl = items
+        .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
+        .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
+        .map((r, idx) => ({
+          id: idx + 1,
+          reservationId: r._id,
+          name: r.name || 'Queue Customer',
+          partySize: r.partySize || 2,
+          waitTime: '—',
+          phone: r.phone || '',
+          joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          contactMethod: (r.contactMethod || 'phone') as any,
+          holdTimeExpires: Date.now() + 10 * 60000,
+        }));
+      setWaitlist(wl);
+      
+      // Derive seated tables from database state (reservations with leftAt === null)
+      // IMPORTANT: Only include reservations that have a valid tableId
+      const seated = items
+        .filter(r => r.status === 'seated' && !r.leftAt && r.tableId)
+        .map((r, idx) => {
+          const tableName = r.tableId && tableMap.has(r.tableId) 
+            ? tableMap.get(r.tableId)! 
+            : 'Table';
+          
+          console.log('Processing seated reservation:', {
+            _id: r._id,
+            tableId: r.tableId,
+            tableName: tableName,
+            name: r.name,
+            status: r.status
+          });
+          
+          return {
+            id: idx + 1,
+            reservationId: r._id,
+            tableId: r.tableId,
+            table: tableName,
+            guests: r.name || 'Seated Party',
+            partySize: r.partySize || 2,
+            capacity: r.partySize || 4,
+            seatedTime: r.seatedAt ? new Date(r.seatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            duration: '—',
+          };
+        });
+      console.log('Seated tables array:', seated);
+      setSeatedTables(seated);
+    } catch (error) {
+      console.error('Failed to reload reservations:', error);
+    }
+  };
+  
+  // Helper function to reload tables from database
+  const loadTablesFromDB = async () => {
+    try {
+      if (!staffAuth?.restaurantId) return;
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const items: any[] = data.items || [];
+      
+      // Count tables by status for debugging
+      const statusCounts = {
+        available: items.filter(t => t.status === 'available').length,
+        occupied: items.filter(t => t.status === 'occupied').length,
+        cleaning: items.filter(t => t.status === 'cleaning').length,
+        total: items.length
+      };
+      console.log('Tables by status:', statusCounts);
+      
+      setTablesCount(items.length); // Total count of ALL tables
+      
+      // Derive available tables from database state
+      const avail = items
+        .filter(t => t.status === 'available')
+        .map((t: any) => ({ 
+          id: t._id, 
+          tableName: t.name, 
+          capacity: t.capacity, 
+          isOccupied: false 
+        }));
+      setAvailableTables(avail);
+    } catch (error) {
+      console.error('Failed to reload tables:', error);
     }
   };
 
-  const checkOutTable = (id: number) => {
+  const checkOutTable = async (id: number) => {
     const table = seatedTables.find(item => item.id === id);
-    if (table) {
-      setSeatedTables(prev => prev.filter(t => t.id !== id));
-      toast.success(`${table.table} checked out successfully`);
+    if (!table) return;
+    
+    console.log('Checking out table:', table);
+    
+    let tableId = (table as any).tableId;
+    
+    // If tableId is missing, try to find it from the tables list using reservationId
+    if (!tableId && (table as any).reservationId) {
+      console.log('TableId missing, attempting fallback lookup by reservationId:', (table as any).reservationId);
+      
+      // Try to find the table by matching currentReservationId with our reservationId
+      const allCurrentTables = [...availableTables, ...seatedTables];
+      const matchingTableFromState = allCurrentTables.find(t => 
+        (t as any).currentReservationId === (table as any).reservationId
+      );
+      
+      if (matchingTableFromState) {
+        tableId = (matchingTableFromState as any).id || (matchingTableFromState as any).tableId;
+        console.log('Found tableId via fallback:', tableId);
+      }
+      
+      // If still not found, fetch from backend
+      if (!tableId) {
+        try {
+          const params = new URLSearchParams({ restaurantId: staffAuth?.restaurantId || '' });
+          const res = await fetch(`${API_URL}/tables?${params.toString()}`);
+          if (res.ok) {
+            const data = await res.json();
+            const matchingTable = (data.items || []).find((t: any) => 
+              t.currentReservationId === (table as any).reservationId
+            );
+            if (matchingTable) {
+              tableId = matchingTable._id;
+              console.log('Found tableId from backend:', tableId);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to lookup tableId from backend:', error);
+        }
+      }
+    }
+    
+    if (!tableId) {
+      console.error('Missing tableId in table object:', table);
+      toast.error(`Invalid table data: missing tableId. Reservation: ${(table as any).reservationId || 'unknown'}`);
+      
+      // Try to refresh data in case it's stale
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+      return;
+    }
+    
+    try {
+      // Use the enhanced checkout endpoint for atomic database updates
+      const response = await fetch(`${API_URL}/tables/${tableId}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to checkout table');
+      }
+      
+      const data = await response.json();
+      
+      // Success! Refresh data from database
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+      
+      toast.success(`${table.table} checked out successfully (${data.dwellTimeMinutes} min)`);
+    } catch (error: any) {
+      console.error('Error checking out table:', error);
+      toast.error(error.message || 'Failed to check out table');
+      
+      // Refresh data to ensure UI matches database state
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
     }
   };
 
@@ -282,36 +527,73 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const seatWalkIn = (tableId: number) => {
+  const seatWalkIn = async (tableId: number) => {
     const availableTable = availableTables.find(table => table.id === tableId);
-    if (availableTable) {
-      // Get party size from user
-      const partySizeInput = prompt(`Seating walk-in at ${availableTable.tableName}.\nEnter party size (1-${availableTable.capacity}):`);
-      const partySize = parseInt(partySizeInput || '1');
+    if (!availableTable) return;
+    
+    // Get party size from user
+    const partySizeInput = prompt(`Seating walk-in at ${availableTable.tableName}.\nEnter party size (1-${availableTable.capacity}):`);
+    const partySize = parseInt(partySizeInput || '1');
+    
+    if (isNaN(partySize) || partySize < 1 || partySize > availableTable.capacity) {
+      toast.error(`Invalid party size. Please enter a number between 1 and ${availableTable.capacity}.`);
+      return;
+    }
+
+    // Get customer name
+    const customerName = prompt('Enter customer name (optional):') || 'Walk-in Customer';
+
+    try {
+      // 1. Create reservation record for walk-in (proper data recording)
+      const createResponse = await fetch(`${API_URL}/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId: staffAuth.restaurantId,
+          mode: 'waitlist', // Walk-ins use waitlist mode
+          name: customerName,
+          partySize: partySize,
+          contactMethod: 'phone',
+          phone: '0000000000' // Placeholder for walk-ins
+        })
+      });
       
-      if (isNaN(partySize) || partySize < 1 || partySize > availableTable.capacity) {
-        toast.error(`Invalid party size. Please enter a number between 1 and ${availableTable.capacity}.`);
-        return;
+      if (!createResponse.ok) {
+        throw new Error('Failed to create reservation record');
       }
-
-      // Get customer name
-      const customerName = prompt('Enter customer name (optional):') || 'Walk-in Customer';
-
-      // Remove from available tables and add to seated tables
-      setAvailableTables(prev => prev.filter(table => table.id !== tableId));
       
-      const newSeatedTable = {
-        id: tableId,
-        table: availableTable.tableName,
-        guests: customerName,
-        partySize: partySize,
-        capacity: availableTable.capacity,
-        seatedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        duration: '0m'
-      };
+      const reservationData = await createResponse.json();
+      const reservationId = reservationData.reservation._id;
       
-      setSeatedTables(prev => [...prev, newSeatedTable]);
-      toast.success(`${customerName} (party of ${partySize}) seated at ${availableTable.tableName}`);
+      // 2. Immediately assign table using our atomic endpoint
+      const assignResponse = await fetch(`${API_URL}/reservations/${reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!assignResponse.ok) {
+        const errorData = await assignResponse.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+      
+      const assignData = await assignResponse.json();
+      
+      // 3. Refresh all data from database
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+      
+      toast.success(`${customerName} (party of ${partySize}) seated at ${assignData.table.name}`);
+    } catch (error: any) {
+      console.error('Error seating walk-in:', error);
+      toast.error(error.message || 'Failed to seat walk-in customer');
+      
+      // Refresh data to ensure UI matches database state
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
     }
   };
 
@@ -736,6 +1018,24 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-8">
+            {/* Error Message */}
+            {analyticsError && (
+              <Card className="border-2 border-red-500 bg-red-50">
+                <CardContent className="p-4 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <p className="text-red-800">{analyticsError}</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Loading State */}
+            {analyticsLoading && !kpiData && (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderColor: '#5A5E3E'}}></div>
+                <span className="ml-4" style={{color: '#2D2D2B'}}>Loading analytics...</span>
+              </div>
+            )}
+            
             {/* Key Metrics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <Card className="card-shadow border-0 rounded-2xl">
@@ -743,10 +1043,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Today's Customers</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>{overview.total}</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>
+                        {kpiData?.todaysCustomers?.value ?? 0}
+                      </p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>vs yesterday (weekly)</span>
+                        {kpiData?.todaysCustomers?.change >= 0 ? (
+                          <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 mr-1" style={{color: '#EF4444'}} />
+                        )}
+                        <span className="text-sm" style={{color: kpiData?.todaysCustomers?.change >= 0 ? '#5A5E3E' : '#EF4444'}}>
+                          {kpiData?.todaysCustomers?.change >= 0 ? '+' : ''}{kpiData?.todaysCustomers?.change || 0} vs yesterday
+                        </span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -761,10 +1069,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Avg Wait Time</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>18m</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>
+                        {kpiData?.avgWaitTime?.value ?? 0}m
+                      </p>
                       <div className="flex items-center mt-2">
-                        <TrendingDown className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>-5m vs yesterday</span>
+                        {kpiData?.avgWaitTime?.change <= 0 ? (
+                          <TrendingDown className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        ) : (
+                          <TrendingUp className="h-4 w-4 mr-1" style={{color: '#EF4444'}} />
+                        )}
+                        <span className="text-sm" style={{color: kpiData?.avgWaitTime?.change <= 0 ? '#5A5E3E' : '#EF4444'}}>
+                          {kpiData?.avgWaitTime?.change >= 0 ? '+' : ''}{kpiData?.avgWaitTime?.change || 0}m vs yesterday
+                        </span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -779,10 +1095,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Table Turnover</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>3.2x</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>
+                        {kpiData?.tableTurnover?.value ?? 0}x
+                      </p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>+0.3x vs yesterday</span>
+                        {kpiData?.tableTurnover?.change >= 0 ? (
+                          <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 mr-1" style={{color: '#EF4444'}} />
+                        )}
+                        <span className="text-sm" style={{color: kpiData?.tableTurnover?.change >= 0 ? '#5A5E3E' : '#EF4444'}}>
+                          {kpiData?.tableTurnover?.change >= 0 ? '+' : ''}{kpiData?.tableTurnover?.change || 0}x vs yesterday
+                        </span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -797,10 +1121,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm mb-1" style={{color: '#2D2D2B'}}>Peak Capacity</p>
-                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>85%</p>
+                      <p className="text-3xl font-bold" style={{color: '#2D2D2B'}}>
+                        {kpiData?.peakCapacity?.value ?? 0}%
+                      </p>
                       <div className="flex items-center mt-2">
-                        <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
-                        <span className="text-sm" style={{color: '#5A5E3E'}}>+8% vs yesterday</span>
+                        {kpiData?.peakCapacity?.change >= 0 ? (
+                          <TrendingUp className="h-4 w-4 mr-1" style={{color: '#5A5E3E'}} />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 mr-1" style={{color: '#EF4444'}} />
+                        )}
+                        <span className="text-sm" style={{color: kpiData?.peakCapacity?.change >= 0 ? '#5A5E3E' : '#EF4444'}}>
+                          {kpiData?.peakCapacity?.change >= 0 ? '+' : ''}{kpiData?.peakCapacity?.change || 0}% vs yesterday
+                        </span>
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
@@ -816,13 +1148,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               {/* Seated vs Waiting Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting (Last 7 Days)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={
-                      (dailyData.length ? dailyData : [{ day: new Date().toISOString().slice(0,10), total: overview.total, seated: overview.seated }])
-                        .map(d => ({ name: d.day.slice(5), seated: d.seated, waiting: Math.max(d.total - d.seated, 0) }))
+                      dailyData.length 
+                        ? dailyData.map(d => ({ 
+                            name: new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
+                            seated: d.seated || 0, 
+                            waiting: (d.waiting || 0)
+                          }))
+                        : [{ name: 'Today', seated: 0, waiting: 0 }]
                     }>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
@@ -835,8 +1172,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                         }}
                       />
-                      <Bar dataKey="seated" fill="#5A5E3E" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="seated" fill="#5A5E3E" radius={[4, 4, 0, 0]} name="Seated" />
+                      <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} name="Waiting" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -852,19 +1189,21 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Occupied', value: Math.max(tablesCount - availableTables.length, 0), color: '#5A5E3E' },
-                          { name: 'Available', value: availableTables.length, color: '#B889A6' }
-                        ]}
+                          { name: 'Occupied', value: capacityData?.occupied || 0, color: '#5A5E3E' },
+                          { name: 'Available', value: capacityData?.available || 0, color: '#B889A6' },
+                          { name: 'Cleaning', value: capacityData?.cleaning || 0, color: '#F3C084' }
+                        ].filter(entry => entry.value > 0)}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
                         dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}%`}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
                         {[
                           { name: 'Occupied', color: '#5A5E3E' },
-                          { name: 'Available', color: '#B889A6' }
+                          { name: 'Available', color: '#B889A6' },
+                          { name: 'Cleaning', color: '#F3C084' }
                         ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
@@ -890,9 +1229,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={peakHoursData}>
+                  <LineChart data={
+                    peakHoursData.length 
+                      ? peakHoursData.map(item => ({ time: item.time, customers: item.all }))
+                      : Array.from({ length: 24 }, (_, i) => ({ time: `${String(i).padStart(2, '0')}:00`, customers: 0 }))
+                  }>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
-                    <XAxis dataKey="time" stroke="#2D2D2B" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#2D2D2B"
+                      interval={2}
+                    />
                     <YAxis stroke="#2D2D2B" />
                     <Tooltip 
                       contentStyle={{ 
@@ -904,12 +1251,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="all" 
-                      stroke="#000000" 
+                      dataKey="customers" 
+                      stroke="#5A5E3E" 
                       strokeWidth={3}
-                      name="All"
-                      dot={{ fill: '#000000', strokeWidth: 2, r: 5 }}
-                      activeDot={{ r: 7, fill: '#ffffff', stroke: '#000000', strokeWidth: 3 }}
+                      name="Customers"
+                      dot={{ fill: '#5A5E3E', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 7, fill: '#ffffff', stroke: '#5A5E3E', strokeWidth: 3 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>

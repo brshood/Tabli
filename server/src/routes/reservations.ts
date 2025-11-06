@@ -103,7 +103,16 @@ reservationsRouter.get('/', async (req, res, next) => {
       filter.requestedAt = { $gte: start, $lt: end };
     }
     const items = await Reservation.find(filter).sort({ requestedAt: 1 }).lean();
-    res.json({ items });
+    
+    // Ensure ObjectIds are converted to strings for easier frontend handling
+    const formatted = items.map(item => ({
+      ...item,
+      _id: item._id.toString(),
+      restaurantId: item.restaurantId.toString(),
+      tableId: item.tableId ? item.tableId.toString() : undefined
+    }));
+    
+    res.json({ items: formatted });
   } catch (err) { next(err); }
 });
 
@@ -111,6 +120,7 @@ const patchSchema = z.object({
   status: z.enum(['pending','confirmed','seated','cancelled','no_show']).optional(),
   queuePosition: z.number().optional(),
   tableId: z.string().optional(),
+  leftAt: z.string().optional(), // Allow explicit setting of leftAt for checkout
 });
 
 reservationsRouter.patch('/:id', async (req, res, next) => {
@@ -119,14 +129,25 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     const r = await Reservation.findById(req.params.id);
     if (!r) return res.status(404).json({ error: 'Not found' });
     const prevStatus = r.status;
+    
+    // Validate status transitions
     if (data.status && data.status !== prevStatus) {
+      // Prevent direct status change to 'seated' without a table assignment
+      // Use POST /reservations/:id/assign-table instead
+      if (data.status === 'seated') {
+        return res.status(400).json({ 
+          error: 'Cannot directly set status to seated. Use POST /reservations/:id/assign-table endpoint to properly assign a table.' 
+        });
+      }
+      
       if (data.status === 'confirmed') r.confirmedAt = new Date();
-      if (data.status === 'seated') r.seatedAt = new Date();
       if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
       r.status = data.status;
     }
     if (typeof data.queuePosition === 'number') r.queuePosition = data.queuePosition;
     if (data.tableId) (r as any).tableId = data.tableId;
+    // Allow explicit setting of leftAt (for checkout without status change)
+    if (data.leftAt) r.leftAt = new Date(data.leftAt);
     await r.save();
     const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
@@ -158,6 +179,140 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     
     res.json({ success: true });
   } catch (err) { next(err); }
+});
+
+// POST /reservations/:id/assign-table
+// Automatically assigns the best available table to a reservation
+// Updates both reservation and table atomically for data integrity
+reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
+  try {
+    const reservationId = req.params.id;
+    
+    // 1. Load and validate reservation
+    const reservation = await Reservation.findById(reservationId);
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+    
+    // Validate reservation state
+    if (reservation.status !== 'pending' && reservation.status !== 'confirmed') {
+      return res.status(400).json({ 
+        error: 'Reservation must be pending or confirmed',
+        currentStatus: reservation.status 
+      });
+    }
+    
+    if (reservation.tableId) {
+      return res.status(400).json({ error: 'Reservation already has a table assigned' });
+    }
+    
+    // 2. Find best available table
+    const availableTables = await Table.find({
+      restaurantId: reservation.restaurantId,
+      status: 'available',
+      capacity: { $gte: reservation.partySize }
+    }).sort({ capacity: 1 }).lean(); // Sort by capacity (smallest fit first)
+    
+    if (availableTables.length === 0) {
+      // Check if any tables exist that could fit the party
+      const allTables = await Table.find({
+        restaurantId: reservation.restaurantId
+      }).sort({ capacity: -1 }).lean();
+      
+      if (allTables.length === 0) {
+        return res.status(404).json({ error: 'No tables configured for this restaurant' });
+      }
+      
+      const largestCapacity = allTables[0].capacity;
+      if (reservation.partySize > largestCapacity) {
+        return res.status(400).json({ 
+          error: `Party size (${reservation.partySize}) exceeds largest table capacity (${largestCapacity})`
+        });
+      }
+      
+      return res.status(404).json({ 
+        error: `No available tables for party of ${reservation.partySize}. All tables are currently occupied.`
+      });
+    }
+    
+    const selectedTable = availableTables[0]; // Best fit (smallest available)
+    
+    // 3. Atomic update - both reservation and table
+    const now = new Date();
+    
+    const [updatedReservation, updatedTable] = await Promise.all([
+      Reservation.findByIdAndUpdate(
+        reservationId,
+        {
+          $set: {
+            status: 'seated',
+            tableId: selectedTable._id,
+            seatedAt: now,
+            queuePosition: null // Remove from queue
+          }
+        },
+        { new: true }
+      ),
+      Table.findByIdAndUpdate(
+        selectedTable._id,
+        {
+          $set: {
+            status: 'occupied',
+            currentReservationId: reservationId
+          }
+        },
+        { new: true }
+      )
+    ]);
+    
+    // 4. Verify both updates succeeded
+    if (!updatedReservation || !updatedTable) {
+      // Rollback if one failed
+      if (updatedReservation) {
+        await Reservation.findByIdAndUpdate(reservationId, {
+          $set: {
+            status: reservation.status,
+            tableId: null,
+            seatedAt: null,
+            queuePosition: reservation.queuePosition
+          }
+        });
+      }
+      if (updatedTable) {
+        await Table.findByIdAndUpdate(selectedTable._id, {
+          $set: {
+            status: 'available',
+            currentReservationId: null
+          }
+        });
+      }
+      return res.status(500).json({ error: 'Failed to assign table. Please try again.' });
+    }
+    
+    // 5. Log the action for audit trail
+    console.log({
+      action: 'ASSIGN_TABLE',
+      reservationId: reservationId,
+      tableId: selectedTable._id,
+      tableName: selectedTable.name,
+      partySize: reservation.partySize,
+      tableCapacity: selectedTable.capacity,
+      timestamp: now.toISOString(),
+      restaurantId: reservation.restaurantId.toString()
+    });
+    
+    // 6. Return success with complete data
+    res.json({
+      success: true,
+      reservation: updatedReservation,
+      table: updatedTable,
+      message: `Assigned to ${selectedTable.name}`
+    });
+    
+  } catch (err) {
+    console.error('Error in assign-table:', err);
+    next(err);
+  }
 });
 
 
