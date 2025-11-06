@@ -22,6 +22,7 @@ const config: Config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.ts$': '$1',
   },
+  setupFiles: ['<rootDir>/tests/setup-env.ts'],
 };
 
 export default config;
