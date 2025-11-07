@@ -29,10 +29,40 @@ interface RestaurantProfilePageProps {
 
 export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProfilePageProps) {
   const { t, isRTL } = useLanguage();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingMode, setBookingMode] = useState<'reserve' | 'waitlist'>('reserve');
   const [menuModalOpen, setMenuModalOpen] = useState(false);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [menuItems, setMenuItems] = useState<Array<{name: string; category: string; description?: string; price: string}>>([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+
+  // Load menu when component mounts
+  useEffect(() => {
+    if (restaurant.id) {
+      loadMenu();
+    }
+  }, [restaurant.id]);
+
+  const loadMenu = async () => {
+    if (!restaurant.id) return;
+    
+    try {
+      setMenuLoading(true);
+      const res = await fetch(`${API_URL}/menus/${restaurant.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMenuItems(data.menu?.items || []);
+      } else {
+        setMenuItems([]);
+      }
+    } catch (error) {
+      console.error('Error loading menu:', error);
+      setMenuItems([]);
+    } finally {
+      setMenuLoading(false);
+    }
+  };
   const [isScrolled, setIsScrolled] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingValue, setRatingValue] = useState<number>(0);
@@ -375,7 +405,10 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
           <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
             <h2 className="text-2xl font-bold mb-4" style={{color: '#1F2937'}}>Menu Highlights</h2>
             <div className="grid gap-4">
-              {restaurant.menu.slice(0, 5).map((item, index) => (
+              {menuLoading ? (
+                <p className="text-sm text-gray-500">Loading menu...</p>
+              ) : menuItems.length > 0 ? (
+                menuItems.slice(0, 5).map((item, index) => (
                 <div key={index} className="flex items-start justify-between p-4 rounded-xl hover:shadow-md transition-shadow" style={{backgroundColor: '#F9FAFB'}}>
                   <div className="flex-1">
                     <h4 className="font-semibold mb-1" style={{color: '#1F2937'}}>{item.name}</h4>
@@ -388,7 +421,10 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                     <span className="font-bold text-lg" style={{color: '#1F2937'}}>AED {item.price}</span>
                   </div>
                 </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 py-4">No menu items available</p>
+              )}
             </div>
             <Button 
               variant="outline" 
@@ -417,6 +453,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         onClose={() => setMenuModalOpen(false)}
         restaurantName={restaurant.name}
         restaurantRating={restaurant.rating}
+        restaurantId={restaurant.id}
       />
 
       {/* Post-Booking Survey */}

@@ -250,7 +250,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
           waitingInLine: 0,
           weeklyAverageCustomers: 0,
           coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
-          menu: [],
+          menu: r.menu || [],
           priceRange: r.priceRange || '$$',
           openingHours: r.openingHours || '09:00',
           closingHours: r.closingHours || '22:00',

@@ -78,6 +78,13 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+const menuItemSchema = z.object({
+  name: z.string().min(1),
+  category: z.string().min(1),
+  description: z.string().optional(),
+  price: z.string().min(1),
+});
+
 const updateSchema = z.object({
   name: z.string().min(2).trim().optional(),
   city: z.enum(['Al Ain','Abu Dhabi','Dubai']).optional(),
@@ -89,6 +96,7 @@ const updateSchema = z.object({
   openingHours: z.string().optional(),
   closingHours: z.string().optional(),
   priceRange: z.string().optional(),
+  menu: z.array(menuItemSchema).optional(),
 });
 
 restaurantsRouter.put('/:id', requireAuth, requireOwnRestaurant, async (req, res, next) => {

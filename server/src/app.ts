@@ -19,6 +19,7 @@ import { documentsRouter } from './routes/documents';
 import { maintenanceRouter } from './routes/maintenance';
 import { notificationsRouter } from './routes/notifications';
 import { dashboardRouter } from './routes/dashboard';
+import { menusRouter } from './routes/menus';
 
 // Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -66,6 +67,7 @@ export function createApp(): Application {
   app.use('/documents', documentsRouter);
   app.use('/maintenance', maintenanceRouter);
   app.use('/notifications', notificationsRouter);
+  app.use('/menus', menusRouter);
   app.use('/', tablesRouter);
 
   // 404 handler

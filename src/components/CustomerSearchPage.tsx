@@ -327,6 +327,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
           }}
           restaurantName={selectedRestaurant.name}
           restaurantRating={selectedRestaurant.rating}
+          restaurantId={selectedRestaurant.id}
         />
       )}
     </div>

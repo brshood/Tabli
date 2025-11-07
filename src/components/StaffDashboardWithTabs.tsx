@@ -7,9 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
-import { RestaurantSettingsModal } from './RestaurantSettingsModal';
+import { MenuManagementModal } from './MenuManagementModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
 import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner@2.0.3';
@@ -64,7 +64,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [tablesCount, setTablesCount] = useState<number>(mockAvailableTables.length + mockSeatedTables.length);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [menuManagementModalOpen, setMenuManagementModalOpen] = useState(false);
   const [seatWalkInModalOpen, setSeatWalkInModalOpen] = useState(false);
   const [selectedTableForSeating, setSelectedTableForSeating] = useState<{ id: number; tableName: string; capacity: number } | null>(null);
   const [walkInPartySize, setWalkInPartySize] = useState(2);
@@ -1030,6 +1030,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <BarChart3 className="h-4 w-4 mr-2" />
                     View Analytics
                   </Button>
+                  <Button 
+                    className="pill-button text-white"
+                    onClick={() => setMenuManagementModalOpen(true)}
+                    style={{backgroundColor: '#5A5E3E'}}
+                  >
+                    <Menu className="h-4 w-4 mr-2" />
+                    Edit Menu Items
+                  </Button>
                     <Button 
                       className="pill-button text-white"
                       style={{backgroundColor: '#B7410E'}}
@@ -1375,10 +1383,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         existingTables={getAllTables()}
       />
 
-      {/* Restaurant Settings Modal */}
-      <RestaurantSettingsModal
-        isOpen={settingsModalOpen}
-        onClose={() => setSettingsModalOpen(false)}
+      {/* Menu Management Modal */}
+      <MenuManagementModal
+        isOpen={menuManagementModalOpen}
+        onClose={() => setMenuManagementModalOpen(false)}
+        restaurantId={staffAuth.restaurantId}
       />
 
       {/* Seat Walk-In Modal */}
