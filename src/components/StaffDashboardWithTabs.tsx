@@ -172,18 +172,74 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
-  const markAsNoShow = (id: number) => {
+  const markAsNoShow = async (id: number) => {
     const customer = waitlist.find(item => item.id === id);
-    if (customer) {
-      setWaitlist(prev => prev.filter(item => item.id !== id));
+    if (!customer) return;
+    
+    const reservationId = (customer as any).reservationId;
+    if (!reservationId) {
+      toast.error('Invalid reservation data');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'no_show' })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to mark as no-show');
+      }
+      
+      // Success! Refresh data from database
+      await loadReservationsFromDB();
+      
       toast.error(`${customer.name} marked as no-show`);
-      console.log('No-show recorded:', customer);
+    } catch (error: any) {
+      console.error('Error marking as no-show:', error);
+      toast.error(error.message || 'Failed to mark as no-show');
+      
+      // Refresh data to ensure UI matches database state
+      await loadReservationsFromDB();
     }
   };
 
-  const removeFromWaitlist = (id: number) => {
-    setWaitlist(prev => prev.filter(item => item.id !== id));
-    toast.success('Customer removed from waitlist');
+  const removeFromWaitlist = async (id: number) => {
+    const customer = waitlist.find(item => item.id === id);
+    if (!customer) return;
+    
+    const reservationId = (customer as any).reservationId;
+    if (!reservationId) {
+      toast.error('Invalid reservation data');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove from waitlist');
+      }
+      
+      // Success! Refresh data from database
+      await loadReservationsFromDB();
+      
+      toast.success('Customer removed from waitlist');
+    } catch (error: any) {
+      console.error('Error removing from waitlist:', error);
+      toast.error(error.message || 'Failed to remove from waitlist');
+      
+      // Refresh data to ensure UI matches database state
+      await loadReservationsFromDB();
+    }
   };
 
   const seatCustomer = async (id: number) => {
