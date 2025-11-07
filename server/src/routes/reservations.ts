@@ -30,15 +30,20 @@ reservationsRouter.post('/', async (req, res, next) => {
       Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
     ]);
     
-    const queuePosition = data.mode === 'waitlist' ? count + 1 : undefined;
-    
     // Seating logic
     const capacities = availableTables.map(t => t.capacity);
     const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
     const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
     let status: any = 'pending';
     let tableToSeat: any = null;
-    if (data.partySize <= maxCapacity) {
+    
+    // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
+    const isWalkIn = data.phone === '0000000000';
+    
+    // For 'reserve' mode, check if we can auto-seat (but NOT for walk-ins)
+    // For walk-ins, staff will manually assign the specific table via assign-table endpoint
+    // For 'waitlist' mode, keep as pending/confirmed (don't auto-seat)
+    if (data.mode === 'reserve' && !isWalkIn && data.partySize <= maxCapacity) {
       // find first fitting table
       tableToSeat = availableTables.find(t => t.capacity >= data.partySize) || null;
       if (tableToSeat) status = 'seated';
@@ -48,6 +53,9 @@ reservationsRouter.post('/', async (req, res, next) => {
     } else {
       status = 'pending';
     }
+    
+    // Only assign queue position for waitlist mode AND when not already seated
+    const queuePosition = (data.mode === 'waitlist' && status !== 'seated') ? count + 1 : undefined;
 
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
@@ -182,11 +190,12 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
 });
 
 // POST /reservations/:id/assign-table
-// Automatically assigns the best available table to a reservation
+// Assigns a table to a reservation (auto-select or specific table)
 // Updates both reservation and table atomically for data integrity
 reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
   try {
     const reservationId = req.params.id;
+    const { tableId } = req.body; // Optional: specific table ID chosen by staff
     
     // 1. Load and validate reservation
     const reservation = await Reservation.findById(reservationId);
@@ -206,36 +215,69 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
       return res.status(400).json({ error: 'Reservation already has a table assigned' });
     }
     
-    // 2. Find best available table
-    const availableTables = await Table.find({
-      restaurantId: reservation.restaurantId,
-      status: 'available',
-      capacity: { $gte: reservation.partySize }
-    }).sort({ capacity: 1 }).lean(); // Sort by capacity (smallest fit first)
+    let selectedTable: any;
     
-    if (availableTables.length === 0) {
-      // Check if any tables exist that could fit the party
-      const allTables = await Table.find({
-        restaurantId: reservation.restaurantId
-      }).sort({ capacity: -1 }).lean();
+    // 2. Select table based on whether tableId was provided
+    if (tableId) {
+      // Staff specified a particular table - validate and use it
+      const requestedTable = await Table.findById(tableId).lean();
       
-      if (allTables.length === 0) {
-        return res.status(404).json({ error: 'No tables configured for this restaurant' });
+      if (!requestedTable) {
+        return res.status(404).json({ error: 'Requested table not found' });
       }
       
-      const largestCapacity = allTables[0].capacity;
-      if (reservation.partySize > largestCapacity) {
+      // Validate table belongs to same restaurant
+      if (requestedTable.restaurantId.toString() !== reservation.restaurantId.toString()) {
+        return res.status(400).json({ error: 'Table does not belong to this restaurant' });
+      }
+      
+      // Validate table is available
+      if (requestedTable.status !== 'available') {
         return res.status(400).json({ 
-          error: `Party size (${reservation.partySize}) exceeds largest table capacity (${largestCapacity})`
+          error: `Table ${requestedTable.name} is not available (current status: ${requestedTable.status})`
         });
       }
       
-      return res.status(404).json({ 
-        error: `No available tables for party of ${reservation.partySize}. All tables are currently occupied.`
-      });
+      // Validate table has sufficient capacity
+      if (requestedTable.capacity < reservation.partySize) {
+        return res.status(400).json({ 
+          error: `Table ${requestedTable.name} has capacity ${requestedTable.capacity}, but party size is ${reservation.partySize}`
+        });
+      }
+      
+      selectedTable = requestedTable;
+    } else {
+      // Auto-select best available table
+      const availableTables = await Table.find({
+        restaurantId: reservation.restaurantId,
+        status: 'available',
+        capacity: { $gte: reservation.partySize }
+      }).sort({ capacity: 1 }).lean(); // Sort by capacity (smallest fit first)
+      
+      if (availableTables.length === 0) {
+        // Check if any tables exist that could fit the party
+        const allTables = await Table.find({
+          restaurantId: reservation.restaurantId
+        }).sort({ capacity: -1 }).lean();
+        
+        if (allTables.length === 0) {
+          return res.status(404).json({ error: 'No tables configured for this restaurant' });
+        }
+        
+        const largestCapacity = allTables[0].capacity;
+        if (reservation.partySize > largestCapacity) {
+          return res.status(400).json({ 
+            error: `Party size (${reservation.partySize}) exceeds largest table capacity (${largestCapacity})`
+          });
+        }
+        
+        return res.status(404).json({ 
+          error: `No available tables for party of ${reservation.partySize}. All tables are currently occupied.`
+        });
+      }
+      
+      selectedTable = availableTables[0]; // Best fit (smallest available)
     }
-    
-    const selectedTable = availableTables[0]; // Best fit (smallest available)
     
     // 3. Atomic update - both reservation and table
     const now = new Date();

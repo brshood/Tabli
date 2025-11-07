@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Trash2, UserPlus, Settings, AlertCircle } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { RestaurantSettingsModal } from './RestaurantSettingsModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -62,6 +65,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [seatWalkInModalOpen, setSeatWalkInModalOpen] = useState(false);
+  const [selectedTableForSeating, setSelectedTableForSeating] = useState<{ id: number; tableName: string; capacity: number } | null>(null);
+  const [walkInPartySize, setWalkInPartySize] = useState(2);
+  const [walkInCustomerName, setWalkInCustomerName] = useState('');
+  const [walkInFormErrors, setWalkInFormErrors] = useState<Record<string, string>>({});
   const [waitingCount, setWaitingCount] = useState<number>(0);
   const [seatedToday, setSeatedToday] = useState<number>(0);
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
@@ -527,21 +535,38 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const seatWalkIn = async (tableId: number) => {
+  const openSeatWalkInModal = (tableId: number) => {
     const availableTable = availableTables.find(table => table.id === tableId);
     if (!availableTable) return;
     
-    // Get party size from user
-    const partySizeInput = prompt(`Seating walk-in at ${availableTable.tableName}.\nEnter party size (1-${availableTable.capacity}):`);
-    const partySize = parseInt(partySizeInput || '1');
-    
-    if (isNaN(partySize) || partySize < 1 || partySize > availableTable.capacity) {
-      toast.error(`Invalid party size. Please enter a number between 1 and ${availableTable.capacity}.`);
-      return;
-    }
+    setSelectedTableForSeating(availableTable);
+    setWalkInPartySize(2);
+    setWalkInCustomerName('');
+    setWalkInFormErrors({});
+    setSeatWalkInModalOpen(true);
+  };
 
-    // Get customer name
-    const customerName = prompt('Enter customer name (optional):') || 'Walk-in Customer';
+  const validateWalkInForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!selectedTableForSeating) {
+      errors.table = 'No table selected';
+      return false;
+    }
+    
+    if (walkInPartySize < 1 || walkInPartySize > selectedTableForSeating.capacity) {
+      errors.partySize = `Party size must be between 1 and ${selectedTableForSeating.capacity}`;
+    }
+    
+    setWalkInFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSeatWalkIn = async () => {
+    if (!validateWalkInForm() || !selectedTableForSeating) return;
+
+    const partySize = walkInPartySize;
+    const customerName = walkInCustomerName.trim() || 'Walk-in Customer';
 
     try {
       // 1. Create reservation record for walk-in (proper data recording)
@@ -550,7 +575,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           restaurantId: staffAuth.restaurantId,
-          mode: 'waitlist', // Walk-ins use waitlist mode
+          mode: 'reserve', // Walk-ins are treated as regular reservations
           name: customerName,
           partySize: partySize,
           contactMethod: 'phone',
@@ -565,10 +590,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       const reservationData = await createResponse.json();
       const reservationId = reservationData.reservation._id;
       
-      // 2. Immediately assign table using our atomic endpoint
+      // 2. Immediately assign to the specific table selected by staff
       const assignResponse = await fetch(`${API_URL}/reservations/${reservationId}/assign-table`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId: selectedTableForSeating.id // Pass the specific table ID selected by staff
+        })
       });
       
       if (!assignResponse.ok) {
@@ -585,6 +613,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       ]);
       
       toast.success(`${customerName} (party of ${partySize}) seated at ${assignData.table.name}`);
+      
+      // Close modal and reset form
+      setSeatWalkInModalOpen(false);
+      setSelectedTableForSeating(null);
+      setWalkInPartySize(2);
+      setWalkInCustomerName('');
     } catch (error: any) {
       console.error('Error seating walk-in:', error);
       toast.error(error.message || 'Failed to seat walk-in customer');
@@ -930,7 +964,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                             <div className="flex gap-2">
                               <Button 
                                 size="sm" 
-                                onClick={() => seatWalkIn(table.id)}
+                                onClick={() => openSeatWalkInModal(table.id)}
                                 className="pill-button text-xs h-7 px-2 text-white"
                                 style={{backgroundColor: '#3F4427'}}
                                 title="Seat walk-in customer"
@@ -1346,6 +1380,122 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         isOpen={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
       />
+
+      {/* Seat Walk-In Modal */}
+      <Dialog open={seatWalkInModalOpen} onOpenChange={setSeatWalkInModalOpen}>
+        <DialogContent className="sm:max-w-md mx-4" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center" style={{color: '#2D2D2B'}}>
+              <UserPlus className="h-5 w-5 mr-2" />
+              Seat Walk-In Guest
+            </DialogTitle>
+            <DialogDescription style={{color: '#2D2D2B'}}>
+              {selectedTableForSeating && (
+                <>Seating guest at <strong>{selectedTableForSeating.tableName}</strong> (capacity: {selectedTableForSeating.capacity})</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Party Size */}
+            <div className="space-y-2">
+              <Label htmlFor="partySize" style={{color: '#2D2D2B'}}>
+                Party Size <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWalkInPartySize(Math.max(1, walkInPartySize - 1))}
+                  className="h-9 w-9 p-0"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="partySize"
+                  type="number"
+                  min="1"
+                  max={selectedTableForSeating?.capacity || 20}
+                  value={walkInPartySize}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1;
+                    const max = selectedTableForSeating?.capacity || 20;
+                    setWalkInPartySize(Math.max(1, Math.min(max, value)));
+                  }}
+                  className="bg-input-background text-center"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const max = selectedTableForSeating?.capacity || 20;
+                    setWalkInPartySize(Math.min(max, walkInPartySize + 1));
+                  }}
+                  className="h-9 w-9 p-0"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+                  disabled={walkInPartySize >= (selectedTableForSeating?.capacity || 20)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {walkInFormErrors.partySize && (
+                <p className="text-sm text-red-600">{walkInFormErrors.partySize}</p>
+              )}
+              {selectedTableForSeating && (
+                <p className="text-xs" style={{color: '#2D2D2B', opacity: 0.7}}>
+                  Maximum capacity: {selectedTableForSeating.capacity} guests
+                </p>
+              )}
+            </div>
+
+            {/* Customer Name */}
+            <div className="space-y-2">
+              <Label htmlFor="customerName" style={{color: '#2D2D2B'}}>
+                Customer Name (Optional)
+              </Label>
+              <Input
+                id="customerName"
+                type="text"
+                placeholder="Enter customer name or leave blank"
+                value={walkInCustomerName}
+                onChange={(e) => setWalkInCustomerName(e.target.value)}
+                className="bg-input-background"
+                style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+              />
+              <p className="text-xs" style={{color: '#2D2D2B', opacity: 0.7}}>
+                If left blank, will default to "Walk-in Customer"
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSeatWalkInModalOpen(false);
+                setSelectedTableForSeating(null);
+                setWalkInPartySize(2);
+                setWalkInCustomerName('');
+                setWalkInFormErrors({});
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSeatWalkIn}
+              className="text-white"
+              style={{backgroundColor: '#3F4427'}}
+            >
+              Seat Guest
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
