@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { QrCode, Download, Printer } from 'lucide-react';
-import { generateQRCodeDataUrl, downloadQRCode, generateRestaurantCheckInUrl } from '../utils/qrCodeGenerator';
+import { generateQRCodeDataUrl, downloadQRCode, generateRestaurantProfileUrl } from '../utils/qrCodeGenerator';
 import { toast } from 'sonner@2.0.3';
 
 interface QRCodeDisplayProps {
-  restaurantId: number;
+  restaurantId: string;
   restaurantName: string;
   qrCodeUrl?: string;
 }
@@ -100,7 +100,7 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
     }
   };
 
-  const checkInUrl = generateRestaurantCheckInUrl(restaurantId);
+  const profileUrl = generateRestaurantProfileUrl(restaurantId);
 
   return (
     <Card className="border-0 card-shadow">
@@ -132,10 +132,10 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
 
         <div className="space-y-2 text-center">
           <p className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>
-            Scan this code to check in at {restaurantName}
+            Scan this code to view {restaurantName}'s profile
           </p>
           <p className="text-xs" style={{color: 'var(--where2go-text)', opacity: 0.6}}>
-            {checkInUrl}
+            {profileUrl}
           </p>
         </div>
 

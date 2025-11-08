@@ -17,7 +17,7 @@ import { WaveBackground } from './components/WaveBackground';
 import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
 import { LanguageToggle } from './components/LanguageToggle';
-import { parseQRCodeFromUrl, generateQRCodeDataUrl } from './utils/qrCodeGenerator';
+import { parseQRCodeFromUrl, generateQRCodeDataUrl, parseRestaurantProfileFromUrl } from './utils/qrCodeGenerator';
 
 type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile';
 
@@ -43,9 +43,13 @@ function AppContent() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [lastProcessedHash, setLastProcessedHash] = useState<string | null>(null);
 
-  // Initialize page from URL on mount
+  // Initialize page from URL on mount (only once)
   useEffect(() => {
+    if (hasInitialized) return;
+    
     const path = window.location.pathname;
     const hash = window.location.hash;
     const params = new URLSearchParams(window.location.search);
@@ -55,11 +59,49 @@ function AppContent() {
       setResetOpen(true);
     }
     
-    // Check for QR code scan
-    const { isQRScan, restaurantId } = parseQRCodeFromUrl();
+    // Check for QR code scan (backward compatibility with old check-in URLs)
+    const { isQRScan, restaurantId: qrRestaurantId } = parseQRCodeFromUrl();
     
-    if (isQRScan && restaurantId) {
-      const restaurant = allRestaurants.find(r => r.id === restaurantId);
+    if (isQRScan && qrRestaurantId) {
+      // Will be handled by the restaurants-loaded effect
+      setHasInitialized(true);
+      return;
+    }
+    
+    if (hash) {
+      // Parse hash to determine initial page
+      const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile'].includes(pageFromHash)) {
+        setCurrentPage(pageFromHash);
+        
+        // If restaurant-profile, will be handled by restaurants-loaded effect
+        if (pageFromHash !== 'restaurant-profile') {
+          window.history.replaceState({ page: pageFromHash }, '', hash);
+        }
+      }
+    } else {
+      // No hash, set initial state for landing page
+      setCurrentPage('landing');
+      window.history.replaceState({ page: 'landing' }, '', '#landing');
+    }
+    
+    setHasInitialized(true);
+  }, [hasInitialized]);
+
+  // Handle restaurant profile URLs once restaurants are loaded
+  useEffect(() => {
+    if (!hasInitialized || allRestaurants.length === 0) return;
+    
+    const hash = window.location.hash;
+    
+    // Skip if we've already processed this exact hash
+    if (lastProcessedHash === hash) return;
+    
+    // Check for QR code scan (backward compatibility with old check-in URLs)
+    const { isQRScan, restaurantId: qrRestaurantId } = parseQRCodeFromUrl();
+    
+    if (isQRScan && qrRestaurantId) {
+      const restaurant = allRestaurants.find(r => r.id === qrRestaurantId || r.id.toString() === qrRestaurantId);
       if (restaurant) {
         // Generate QR code URL if not exists
         if (!restaurant.qrCodeUrl) {
@@ -72,24 +114,55 @@ function AppContent() {
         setCurrentPage('restaurant-profile');
         toast.success(`Welcome to ${restaurant.name}!`);
         
-        // Clean up URL but keep hash for history
-        window.history.replaceState({ page: 'restaurant-profile', restaurantId }, '', '#restaurant-profile');
+        // Clean up URL but keep hash for history with restaurant ID
+        const newHash = `#restaurant-profile?id=${restaurant.id}`;
+        window.history.replaceState({ page: 'restaurant-profile', restaurantId: restaurant.id }, '', newHash);
+        setLastProcessedHash(newHash);
       } else {
+        console.error('Restaurant not found for QR ID:', qrRestaurantId, 'Available IDs:', allRestaurants.map(r => r.id));
         toast.error('Restaurant not found');
+        setCurrentPage('search');
+        window.history.replaceState({ page: 'search' }, '', '#search');
+        setLastProcessedHash('#search');
       }
-    } else if (hash) {
-      // Parse hash to determine initial page
-      const pageFromHash = hash.replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile'].includes(pageFromHash)) {
-        setCurrentPage(pageFromHash);
-        // Set initial history state
-        window.history.replaceState({ page: pageFromHash }, '', hash);
+      return;
+    }
+    
+    // Check for restaurant profile in hash
+    if (hash && hash.startsWith('#restaurant-profile')) {
+      const { restaurantId } = parseRestaurantProfileFromUrl();
+      if (restaurantId) {
+        // Try both exact match and string comparison
+        const restaurant = allRestaurants.find(r => r.id === restaurantId || r.id.toString() === restaurantId);
+        if (restaurant) {
+          setSelectedRestaurant(restaurant);
+          setCurrentPage('restaurant-profile');
+          window.history.replaceState({ page: 'restaurant-profile', restaurantId }, '', hash);
+          setLastProcessedHash(hash);
+        } else {
+          console.error('Restaurant not found for ID:', restaurantId, 'Available IDs:', allRestaurants.map(r => r.id));
+          // Restaurant not found after restaurants loaded, redirect to search
+          setCurrentPage('search');
+          setSelectedRestaurant(null);
+          window.history.replaceState({ page: 'search' }, '', '#search');
+          setLastProcessedHash('#search');
+        }
+      } else {
+        // No restaurant ID in URL, but on restaurant-profile page
+        // Only redirect if we don't have a selected restaurant
+        if (!selectedRestaurant) {
+          setCurrentPage('search');
+          window.history.replaceState({ page: 'search' }, '', '#search');
+          setLastProcessedHash('#search');
+        } else {
+          setLastProcessedHash(hash);
+        }
       }
     } else {
-      // No hash, set initial state for landing page
-      window.history.replaceState({ page: 'landing' }, '', '#landing');
+      // Not a restaurant profile URL, mark as processed
+      setLastProcessedHash(hash || '');
     }
-  }, [allRestaurants, updateRestaurantInList]);
+  }, [allRestaurants, hasInitialized, updateRestaurantInList, lastProcessedHash]);
 
   // Load auth state from session storage on mount
   useEffect(() => {
@@ -118,16 +191,43 @@ function AppContent() {
         setPreviousPage(currentPage);
         setCurrentPage(state.page);
         
-        if (state.page === 'restaurant-profile' && state.restaurantId) {
-          const restaurant = allRestaurants.find(r => r.id === state.restaurantId);
-          if (restaurant) {
-            setSelectedRestaurant(restaurant);
+        if (state.page === 'restaurant-profile') {
+          // Try to get restaurant ID from state first, then from URL hash
+          const restaurantId = state.restaurantId || parseRestaurantProfileFromUrl().restaurantId;
+          if (restaurantId) {
+            const restaurant = allRestaurants.find(r => r.id === restaurantId);
+            if (restaurant) {
+              setSelectedRestaurant(restaurant);
+            } else {
+              // Restaurant not found, redirect to search
+              setCurrentPage('search');
+              setSelectedRestaurant(null);
+            }
+          } else {
+            setSelectedRestaurant(null);
           }
-        } else if (state.page !== 'restaurant-profile') {
+        } else {
           setSelectedRestaurant(null);
         }
       } else {
-        // If no state, default to landing page
+        // If no state, check URL hash
+        const hash = window.location.hash;
+        if (hash) {
+          const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
+          if (pageFromHash === 'restaurant-profile') {
+            const { restaurantId } = parseRestaurantProfileFromUrl();
+            if (restaurantId) {
+              const restaurant = allRestaurants.find(r => r.id === restaurantId);
+              if (restaurant) {
+                setPreviousPage(currentPage);
+                setCurrentPage('restaurant-profile');
+                setSelectedRestaurant(restaurant);
+                return;
+              }
+            }
+          }
+        }
+        // Default to landing page
         setPreviousPage(currentPage);
         setCurrentPage('landing');
         setSelectedRestaurant(null);
@@ -152,11 +252,13 @@ function AppContent() {
     if (newPage === 'restaurant-profile' && restaurant) {
       setSelectedRestaurant(restaurant);
       state.restaurantId = restaurant.id;
-      window.history.pushState(state, '', `#${newPage}`);
+      window.history.pushState(state, '', `#${newPage}?id=${restaurant.id}`);
     } else if (newPage !== 'restaurant-profile') {
       setSelectedRestaurant(null);
       window.history.pushState(state, '', `#${newPage}`);
     } else {
+      // Navigating to restaurant-profile without restaurant (shouldn't happen, but handle gracefully)
+      setSelectedRestaurant(null);
       window.history.pushState(state, '', `#${newPage}`);
     }
   };
@@ -295,7 +397,71 @@ function AppContent() {
         );
       case 'restaurant-profile':
         if (!selectedRestaurant) {
-          // If no restaurant selected, redirect to search
+          const hash = window.location.hash;
+          const { restaurantId } = parseRestaurantProfileFromUrl();
+          
+          // If restaurants haven't loaded yet, show loading
+          if (allRestaurants.length === 0) {
+            return (
+              <motion.div
+                key="restaurant-profile-loading"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={pageTransition}
+                className="absolute inset-0 w-full page-transition overflow-x-hidden flex items-center justify-center"
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading restaurant...</p>
+                </div>
+              </motion.div>
+            );
+          }
+          
+          // If we have a restaurant ID in URL, check if it exists in the list
+          if (restaurantId) {
+            const restaurantExists = allRestaurants.some(r => r.id === restaurantId || r.id.toString() === restaurantId);
+            // If restaurant exists but not selected yet, show loading (effect is processing it)
+            if (restaurantExists) {
+              return (
+                <motion.div
+                  key="restaurant-profile-loading"
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={pageTransition}
+                  className="absolute inset-0 w-full page-transition overflow-x-hidden flex items-center justify-center"
+                >
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading restaurant...</p>
+                  </div>
+                </motion.div>
+              );
+            }
+            // Restaurant doesn't exist, effect will redirect - but show loading briefly
+            return (
+              <motion.div
+                key="restaurant-profile-loading"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={pageTransition}
+                className="absolute inset-0 w-full page-transition overflow-x-hidden flex items-center justify-center"
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading restaurant...</p>
+                </div>
+              </motion.div>
+            );
+          }
+          
+          // If restaurants have loaded but no restaurant selected and no ID in URL, redirect to search
           navigateToPage('search');
           return null;
         }

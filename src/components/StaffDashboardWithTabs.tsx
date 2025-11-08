@@ -17,6 +17,7 @@ import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 import { Calendar } from './ui/calendar';
 import { openDailySummaryPdf, generateDailySummary } from '../services/analyticsApi';
+import { useRestaurant } from './RestaurantContext';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -35,6 +36,7 @@ type Overview = { total: number; confirmed: number; seated: number; cancelled: n
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const { allRestaurants } = useRestaurant();
   const [waitlist, setWaitlist] = useState<any[]>([]);
   const [seatedTables, setSeatedTables] = useState<any[]>([]);
   const [availableTables, setAvailableTables] = useState<any[]>([]);
@@ -1426,10 +1428,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 {/* Placeholder for spacing */}
               </div>
               <div>
-                <QRCodeDisplay 
-                  restaurantId={1} 
-                  restaurantName="Spice Route" 
-                />
+                {staffAuth.restaurantId && (() => {
+                  const restaurant = allRestaurants.find(r => r.id === staffAuth.restaurantId);
+                  if (restaurant) {
+                    return (
+                      <QRCodeDisplay 
+                        restaurantId={restaurant.id} 
+                        restaurantName={restaurant.name} 
+                      />
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </TabsContent>
