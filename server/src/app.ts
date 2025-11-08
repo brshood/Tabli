@@ -33,7 +33,8 @@ const globalLimiter = rateLimit({
 // Strict rate limiter for auth routes: 5 requests per 15 minutes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
+  skipSuccessfulRequests: true,
   message: { error: 'Too many authentication attempts, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -48,7 +49,11 @@ const authLimiter = rateLimit({
 export function createApp(): Application {
   const app = express();
 
-  app.use(helmet());
+  app.set('trust proxy', 1);
+
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
   app.use(compression());
   app.use(cors({ 
     origin: env.CORS_ORIGIN, 

@@ -123,6 +123,19 @@ const upload = multer({
   },
 });
 
+const profilePictureMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    if (!profilePictureMimeTypes.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
+    }
+    file.originalname = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 100);
+    cb(null, true);
+  },
+});
+
 restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
@@ -152,6 +165,111 @@ restaurantsRouter.post('/:id/media', requireAuth, requireOwnRestaurant, upload.s
     });
     stream.on('error', (err) => next(err));
   } catch (err) { next(err); }
+});
+
+restaurantsRouter.post('/:id/profile-picture', requireAuth, requireOwnRestaurant, profilePictureUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Image file is required' });
+
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+    restaurant.mediaRefs = restaurant.mediaRefs || [];
+
+    const previousProfilePictures = restaurant.mediaRefs.filter(doc => doc.category === 'profile-picture');
+    const nextVersion = previousProfilePictures.length
+      ? Math.max(...previousProfilePictures.map(doc => doc.version || 1)) + 1
+      : 1;
+
+    previousProfilePictures.forEach(doc => { doc.isActive = false; });
+
+    const bucket = getGridFsBucket();
+    const stream = bucket.openUploadStream(req.file.originalname, {
+      contentType: req.file.mimetype,
+      metadata: {
+        restaurantId: (restaurant._id as any).toString(),
+        type: 'profile-picture',
+        category: 'profile-picture',
+        version: nextVersion,
+      },
+    });
+
+    stream.end(req.file.buffer);
+
+    stream.on('finish', async (file: any) => {
+      if (restaurant.profilePictureId) {
+        try {
+          await bucket.delete(new ObjectId(restaurant.profilePictureId as any));
+        } catch (err) {
+          console.warn('Unable to delete previous profile picture:', err);
+        }
+      }
+
+      restaurant.profilePictureId = file._id as any;
+      restaurant.featuredImageFileId = file._id as any;
+
+      restaurant.mediaRefs!.push({
+        fileId: file._id as ObjectId,
+        type: 'image' as any,
+        filename: file.filename,
+        contentType: file.contentType || req.file!.mimetype,
+        category: 'profile-picture' as any,
+        version: nextVersion,
+        uploadedAt: new Date(),
+        isActive: true,
+      });
+
+      await restaurant.save();
+
+      res.json({
+        success: true,
+        message: 'Profile picture uploaded successfully',
+        profilePictureId: file._id.toString(),
+      });
+    });
+
+    stream.on('error', (err) => next(err));
+  } catch (err) {
+    next(err);
+  }
+});
+
+restaurantsRouter.delete('/:id/profile-picture', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+    const currentProfilePictureId = restaurant.profilePictureId?.toString();
+    if (!currentProfilePictureId) {
+      return res.status(400).json({ error: 'No profile picture to delete' });
+    }
+
+    const bucket = getGridFsBucket();
+    try {
+      await bucket.delete(new ObjectId(currentProfilePictureId));
+    } catch (err) {
+      console.warn('Unable to delete profile picture from GridFS:', err);
+    }
+
+    restaurant.mediaRefs = (restaurant.mediaRefs || []).filter(doc => doc.fileId.toString() !== currentProfilePictureId);
+
+    const remainingProfilePictures = restaurant.mediaRefs.filter(doc => doc.category === 'profile-picture');
+    if (remainingProfilePictures.length) {
+      const latest = remainingProfilePictures.reduce((prev, curr) => (curr.version > prev.version ? curr : prev));
+      latest.isActive = true;
+      restaurant.profilePictureId = latest.fileId as any;
+      restaurant.featuredImageFileId = latest.fileId as any;
+    } else {
+      restaurant.profilePictureId = undefined;
+      restaurant.featuredImageFileId = undefined;
+    }
+
+    await restaurant.save();
+
+    res.json({ success: true, message: 'Profile picture deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
 });
 
 
