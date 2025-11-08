@@ -10,13 +10,23 @@ const restaurantSchema = new Schema({
     openingHours: String,
     closingHours: String,
     priceRange: String,
+    menu: [
+        {
+            name: { type: String, required: true },
+            category: { type: String, required: true },
+            description: { type: String, required: false },
+            price: { type: String, required: true },
+        },
+    ],
+    profilePictureId: { type: Schema.Types.ObjectId, required: false },
+    featuredImageFileId: { type: Schema.Types.ObjectId, required: false },
     mediaRefs: [
         {
             fileId: { type: Schema.Types.ObjectId, required: true },
             type: { type: String, enum: ['image', 'pdf'], required: true },
             filename: { type: String, required: true },
             contentType: { type: String, required: true },
-            category: { type: String, enum: ['license', 'menu', 'other'], required: true, default: 'other' },
+            category: { type: String, enum: ['license', 'menu', 'profile-picture', 'other'], required: true, default: 'other' },
             menuType: { type: String, required: false },
             version: { type: Number, required: true, default: 1 },
             uploadedAt: { type: Date, required: true, default: Date.now },

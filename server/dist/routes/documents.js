@@ -1,10 +1,10 @@
 import express from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { Restaurant } from '../models/Restaurant.ts';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { Restaurant } from '../models/Restaurant';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
-import { requireAuth, requireOwnRestaurant } from '../middleware/auth.ts';
+import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 export const documentsRouter = express.Router();
 // File validation for documents
 const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
@@ -121,13 +121,13 @@ documentsRouter.post('/:restaurantId/upload', requireAuth, requireOwnRestaurant,
             },
         });
         stream.end(req.file.buffer);
-        stream.on('finish', async (file) => {
+        stream.on('finish', async () => {
             // Add new document reference
             restaurant.mediaRefs.push({
-                fileId: file._id,
+                fileId: stream.id,
                 type: type,
-                filename: file.filename,
-                contentType: file.contentType || 'application/octet-stream',
+                filename: stream.filename || req.file.originalname,
+                contentType: req.file.mimetype,
                 category: category,
                 menuType: menuType || undefined,
                 version,
@@ -138,9 +138,9 @@ documentsRouter.post('/:restaurantId/upload', requireAuth, requireOwnRestaurant,
             res.json({
                 success: true,
                 document: {
-                    id: file._id,
-                    filename: file.filename,
-                    contentType: file.contentType,
+                    id: stream.id,
+                    filename: stream.filename || req.file.originalname,
+                    contentType: req.file.mimetype,
                     type,
                     category,
                     menuType,
@@ -173,6 +173,9 @@ documentsRouter.delete('/:restaurantId/:fileId', requireAuth, requireOwnRestaura
             return res.status(404).json({ error: 'Document not found' });
         }
         const document = restaurant.mediaRefs[docIndex];
+        const wasActive = document.isActive;
+        const documentCategory = document.category;
+        const documentMenuType = document.menuType;
         // Delete from GridFS
         const bucket = getGridFsBucket();
         try {
@@ -184,6 +187,24 @@ documentsRouter.delete('/:restaurantId/:fileId', requireAuth, requireOwnRestaura
         }
         // Remove from restaurant's mediaRefs
         restaurant.mediaRefs.splice(docIndex, 1);
+        // If this was the active document, promote the next most recent version
+        if (wasActive && restaurant.mediaRefs) {
+            // Find documents of the same category/menuType
+            const sameTypeDocuments = restaurant.mediaRefs.filter(doc => {
+                if (documentCategory === 'license') {
+                    return doc.category === 'license';
+                }
+                else if (documentCategory === 'menu' && documentMenuType) {
+                    return doc.category === 'menu' && doc.menuType === documentMenuType;
+                }
+                return false;
+            });
+            // If there are remaining documents, activate the one with the highest version
+            if (sameTypeDocuments.length > 0) {
+                const latestDoc = sameTypeDocuments.reduce((prev, current) => current.version > prev.version ? current : prev);
+                latestDoc.isActive = true;
+            }
+        }
         await restaurant.save();
         res.json({
             success: true,
@@ -192,6 +213,44 @@ documentsRouter.delete('/:restaurantId/:fileId', requireAuth, requireOwnRestaura
                 fileId,
                 filename: document.filename,
                 category: document.category,
+            },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+// PUT /documents/:restaurantId/menu/:fileId/type - Update menu type for a specific menu
+documentsRouter.put('/:restaurantId/menu/:fileId/type', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const { restaurantId, fileId } = req.params;
+        const { menuType } = req.body;
+        if (!menuType || !menuType.trim()) {
+            return res.status(400).json({ error: 'Menu type is required' });
+        }
+        const restaurant = await Restaurant.findById(restaurantId);
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        // Find the document
+        const document = restaurant.mediaRefs?.find(doc => doc.fileId.toString() === fileId);
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        // Verify it's a menu document
+        if (document.category !== 'menu') {
+            return res.status(400).json({ error: 'Can only update menu type for menu documents' });
+        }
+        // Update the menu type
+        document.menuType = menuType.trim().toLowerCase();
+        await restaurant.save();
+        res.json({
+            success: true,
+            message: 'Menu type updated successfully',
+            document: {
+                fileId: document.fileId.toString(),
+                filename: document.filename,
+                menuType: document.menuType,
             },
         });
     }

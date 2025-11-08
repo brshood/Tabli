@@ -31,7 +31,8 @@ export async function requireAuth(req, res, next) {
  * Middleware to verify user owns the restaurant they're trying to modify
  */
 export function requireOwnRestaurant(req, res, next) {
-    const restaurantId = req.params.id;
+    // Support both :id and :restaurantId parameter names
+    const restaurantId = req.params.id || req.params.restaurantId;
     if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
     }
@@ -41,6 +42,7 @@ export function requireOwnRestaurant(req, res, next) {
     }
     // Staff can only modify their own restaurant
     if (req.user.restaurantId !== restaurantId) {
+        console.log('Access denied - User restaurant:', req.user.restaurantId, 'Requested restaurant:', restaurantId);
         return res.status(403).json({ error: 'Access denied: not your restaurant' });
     }
     next();

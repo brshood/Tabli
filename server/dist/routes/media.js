@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 export const mediaRouter = express.Router();
