@@ -36,15 +36,15 @@ menusRouter.get('/:restaurantId', async (req, res, next) => {
         items: [],
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as typeof menu;
+        __v: 0,
+      } as NonNullable<typeof menu>;
     }
 
     // TypeScript now knows menu is not null
-    const menuData = menu;
     res.json({ 
       menu: {
-        restaurantId: menuData.restaurantId.toString(),
-        items: menuData.items || [],
+        restaurantId: menu.restaurantId.toString(),
+        items: menu.items || [],
       }
     });
   } catch (err) {

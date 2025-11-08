@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 
@@ -81,7 +82,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
     }
     
     // TypeScript now knows reservation is not null
-    const reservationId = reservation._id.toString();
+    const reservationId = (reservation._id as mongoose.Types.ObjectId).toString();
     
     // 3. Calculate metrics for logging
     const now = new Date();
