@@ -8,6 +8,7 @@ export interface RatingDocument extends Document {
   name?: string;
   email?: string;
   phone?: string;
+  showName?: boolean; // User consent to display name publicly
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ const ratingSchema = new Schema<RatingDocument>(
     name: { type: String },
     email: { type: String, index: true },
     phone: { type: String, index: true },
+    showName: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -71,8 +71,38 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [ratingName, setRatingName] = useState('');
   const [ratingEmail, setRatingEmail] = useState('');
   const [ratingPhone, setRatingPhone] = useState('');
+  const [postAnonymously, setPostAnonymously] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
+
+  // Prevent body scroll when modal is open and maintain scroll position
+  useEffect(() => {
+    if (showComments) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+    } else {
+      // Restore scroll position
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    return () => {
+      // Cleanup
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+  }, [showComments]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -268,6 +298,26 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   Call
                 </Button>
               </div>
+              <div className="mt-3">
+                <Button 
+                  variant="outline" 
+                  className="pill-button w-full"
+                  onClick={async () => {
+                    try {
+                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        setComments(data.items || []);
+                        setShowComments(true);
+                      }
+                    } catch {}
+                  }}
+                  style={{borderColor: '#6B7280', color: '#4B5563'}}
+                >
+                  Read Reviews
+                </Button>
+              </div>
             </div>
 
             {/* Rating Widget */}
@@ -309,6 +359,17 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
                 />
               </div>
+              <div className="mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={postAnonymously}
+                    onChange={(e) => setPostAnonymously(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm" style={{color: '#4B5563'}}>Post Review Anonymously</span>
+                </label>
+              </div>
               <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                 <input
                   value={ratingComment}
@@ -327,13 +388,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                         const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ 
-                            value: ratingValue, 
-                            comment: ratingComment || undefined,
-                            name: ratingName,
-                            email: ratingEmail,
-                            phone: ratingPhone,
-                          })
+                        body: JSON.stringify({ 
+                          value: ratingValue, 
+                          comment: ratingComment || undefined,
+                          name: ratingName,
+                          email: ratingEmail,
+                          phone: ratingPhone,
+                          showName: !postAnonymously,
+                        })
                         });
                         
                         if (!res.ok) {
@@ -350,6 +412,8 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                           
                           if (res.status === 403) {
                             toast.error('We only accept reviews from previous visitors. Please use the email or phone number you used when making your reservation.');
+                          } else if (res.status === 409) {
+                            toast.error('You have already submitted a review for this restaurant.');
                           } else if (res.status === 400) {
                             toast.error(errorMessage || 'Please provide a valid email address or phone number.');
                           } else {
@@ -364,6 +428,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                         setRatingName('');
                         setRatingEmail('');
                         setRatingPhone('');
+                        setPostAnonymously(false);
                       } catch (error) {
                         toast.error('Failed to submit review. Please try again.');
                       } finally {
@@ -373,24 +438,6 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                     className="pill-button w-full sm:w-auto"
                   >
                     Submit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      try {
-                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-                        const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
-                        if (res.ok) {
-                          const data = await res.json();
-                          setComments(data.items || []);
-                          setShowComments(true);
-                        }
-                      } catch {}
-                    }}
-                    className="pill-button w-full sm:w-auto"
-                    style={{borderColor: '#6B7280', color: '#4B5563'}}
-                  >
-                    View Comments
                   </Button>
                 </div>
               </div>
@@ -491,26 +538,45 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
       {/* Ratings Comments Modal (simple) */}
       {showComments && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowComments(false)}>
-          <div className="bg-white rounded-xl max-w-lg w-full p-4 m-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" 
+          onClick={() => setShowComments(false)}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl w-full max-w-md shadow-lg max-h-[90vh] flex flex-col" 
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: '90vh' }}
+          >
+            <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{borderColor: '#E5E7EB'}}>
               <h3 className="text-lg font-semibold" style={{color: '#1F2937'}}>Ratings & Comments</h3>
               <Button variant="outline" className="pill-button" onClick={() => setShowComments(false)}>Close</Button>
             </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {comments.length ? comments.map((c, idx) => (
-                <div key={idx} className="border rounded-lg p-3" style={{borderColor: '#E5E7EB'}}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {[1,2,3,4,5].map(v => (
-                      <Star key={v} className={`h-4 w-4 ${v <= (c.value || 0) ? 'text-yellow-400' : 'text-gray-300'}`} />
-                    ))}
+            <div className="p-5 flex-1 overflow-y-auto">
+              <div className="space-y-3">
+                {comments.length ? comments.map((c, idx) => (
+                  <div key={idx} className="border rounded-lg p-4" style={{borderColor: '#E5E7EB', backgroundColor: '#FAFAFA'}}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {[1,2,3,4,5].map(v => (
+                        <Star key={v} className={`h-4 w-4 ${v <= (c.value || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                      ))}
+                    </div>
+                    <div className="text-sm mb-2" style={{color: '#374151'}}>{c.comment || 'No comment'}</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>{c.name || 'Guest'} • {new Date(c.createdAt).toLocaleString()}</div>
                   </div>
-                  <div className="text-sm" style={{color: '#374151'}}>{c.comment || 'No comment'}</div>
-                  <div className="text-xs mt-1" style={{color: '#6B7280'}}>{c.name || 'Anonymous'} • {new Date(c.createdAt).toLocaleString()}</div>
-                </div>
-              )) : (
-                <div className="text-sm" style={{color: '#6B7280'}}>No comments yet.</div>
-              )}
+                )) : (
+                  <div className="text-sm text-center py-8" style={{color: '#6B7280'}}>No comments yet.</div>
+                )}
+              </div>
             </div>
           </div>
         </div>

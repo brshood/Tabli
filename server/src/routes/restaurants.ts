@@ -362,6 +362,7 @@ const ratingSchema = z.object({
   name: z.string().optional(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
+  showName: z.boolean().optional(),
 }).refine((data) => data.email || data.phone, {
   message: 'At least one of email or phone must be provided',
   path: ['email', 'phone'],
@@ -387,12 +388,21 @@ restaurantsRouter.get('/:id/ratings', async (req, res, next) => {
         .skip(skip)
         .limit(limit)
         .lean()
-        .select('value comment name createdAt'),
+        .select('value comment name showName createdAt'),
       Rating.countDocuments({ restaurantId: new ObjectId(restaurantId) }),
     ]);
 
+    // Handle anonymous names - show "Guest" if showName is false or name is missing
+    const processedRatings = ratings.map((rating: any) => {
+      const shouldShowName = rating.showName === true && rating.name;
+      return {
+        ...rating,
+        name: shouldShowName ? rating.name : 'Guest',
+      };
+    });
+
     res.json({
-      items: ratings,
+      items: processedRatings,
       pagination: {
         page,
         limit,
@@ -468,6 +478,41 @@ restaurantsRouter.post('/:id/ratings', async (req, res, next) => {
       });
     }
 
+    // Check for duplicate review (email OR phone already has a review for this restaurant)
+    if (normalizedPhone) {
+      // For phone matching, we need to check normalized phones
+      // We'll fetch existing ratings and compare normalized phones
+      const existingRatings = await Rating.find({
+        restaurantId: new ObjectId(restaurantId),
+        phone: { $exists: true, $ne: null },
+      }).lean();
+      
+      const hasDuplicatePhone = existingRatings.some((r: any) => {
+        if (!r.phone) return false;
+        const existingNormalizedPhone = normalizePhoneNumber(r.phone);
+        return existingNormalizedPhone === normalizedPhone;
+      });
+      
+      if (hasDuplicatePhone) {
+        return res.status(409).json({
+          error: 'You have already submitted a review for this restaurant.',
+        });
+      }
+    }
+    
+    if (data.email) {
+      const existingRating = await Rating.findOne({
+        restaurantId: new ObjectId(restaurantId),
+        email: data.email,
+      });
+      
+      if (existingRating) {
+        return res.status(409).json({
+          error: 'You have already submitted a review for this restaurant.',
+        });
+      }
+    }
+
     // Create the rating
     const rating = await Rating.create({
       restaurantId: new ObjectId(restaurantId),
@@ -476,6 +521,7 @@ restaurantsRouter.post('/:id/ratings', async (req, res, next) => {
       name: data.name,
       email: data.email,
       phone: data.phone,
+      showName: data.showName ?? false,
     });
 
     res.status(201).json({ rating });
