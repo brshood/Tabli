@@ -41,20 +41,13 @@ function AppContent() {
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [resetEmail, setResetEmail] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
 
   // Initialize page from URL on mount
   useEffect(() => {
     const path = window.location.pathname;
     const hash = window.location.hash;
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      setResetToken(token);
-      setResetOpen(true);
-    }
-    
     // Check for QR code scan
     const { isQRScan, restaurantId } = parseQRCodeFromUrl();
     
@@ -188,6 +181,20 @@ function AppContent() {
     }
     
     navigateToPage('staff');
+  };
+
+  const handleResetRequested = (email: string) => {
+    setResetEmail(email);
+    setResetOpen(true);
+  };
+
+  const handlePasswordResetAuthenticated = (user: any) => {
+    handleStaffAuthSuccess(user);
+  };
+
+  const handleResetModalClose = () => {
+    setResetOpen(false);
+    setResetEmail(null);
   };
 
   const handleStaffLogout = () => {
@@ -433,13 +440,19 @@ function AppContent() {
         isOpen={staffAuthModalOpen}
         onClose={() => setStaffAuthModalOpen(false)}
         onAuthSuccess={handleStaffAuthSuccess}
+        onResetRequested={handleResetRequested}
       />
 
       {/* Toast notifications */}
       <Toaster position="top-right" />
 
       {/* Reset Password Modal */}
-      <ResetPasswordModal isOpen={resetOpen} token={resetToken} onClose={() => setResetOpen(false)} />
+      <ResetPasswordModal
+        isOpen={resetOpen}
+        email={resetEmail}
+        onAuthenticated={handlePasswordResetAuthenticated}
+        onClose={handleResetModalClose}
+      />
     </div>
   );
 }

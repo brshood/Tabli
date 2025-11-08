@@ -15,15 +15,22 @@ async function getTransporter() {
                     user: env.EMAIL_USERNAME,
                     pass: env.EMAIL_PASSWORD,
                 },
+                tls: env.EMAIL_SMTP_ALLOW_SELF_SIGNED ? { rejectUnauthorized: false } : undefined,
             });
             // Verify connection once during initialization
             await transporter.verify();
         }
         catch (error) {
-            transporter = null;
-            // eslint-disable-next-line no-console
-            console.error('[EMAIL:TRANSPORT_INIT_ERROR]', error?.message || error);
-            return null;
+            if (env.EMAIL_SMTP_ALLOW_SELF_SIGNED) {
+                // eslint-disable-next-line no-console
+                console.warn('[EMAIL:TRANSPORT_VERIFY_WARNING]', error?.message || error);
+            }
+            else {
+                transporter = null;
+                // eslint-disable-next-line no-console
+                console.error('[EMAIL:TRANSPORT_INIT_ERROR]', error?.message || error);
+                return null;
+            }
         }
     }
     return transporter;
@@ -48,6 +55,7 @@ export async function sendEmail(opts) {
             subject: opts.subject,
             text: opts.text || '',
             html: opts.html || opts.text || '',
+            attachments: opts.attachments,
         });
         // eslint-disable-next-line no-console
         console.log('[EMAIL:SENT]', { to: opts.to, subject: opts.subject });

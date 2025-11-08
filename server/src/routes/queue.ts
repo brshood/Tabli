@@ -4,6 +4,7 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail } from '../services/email';
 import { sendSMS } from '../services/sms';
+import { buildReservationConfirmationTemplate } from '../services/emailTemplates';
 
 export const queueRouter = express.Router();
 
@@ -38,7 +39,17 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
     try {
       if (data.contactMethod === 'phone' && data.phone) await sendSMS({ to: data.phone, message });
-      if (data.contactMethod === 'email' && data.email) await sendEmail({ to: data.email, subject: `Queue at ${restaurant.name}`, text: message });
+      if (data.contactMethod === 'email' && data.email) {
+        const { subject, text, html } = buildReservationConfirmationTemplate({
+          restaurantName: restaurant.name,
+          restaurantAddress: restaurant.address,
+          partySize: data.partySize,
+          mode: 'waitlist',
+          queuePosition,
+          requestedAt: doc.requestedAt,
+        });
+        await sendEmail({ to: data.email, subject, text, html });
+      }
     } catch (err) {
       console.error('Queue join notify failed:', (err as any)?.message);
     }

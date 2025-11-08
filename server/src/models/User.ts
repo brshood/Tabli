@@ -10,6 +10,8 @@ export interface UserDocument extends Document {
   updatedAt: Date;
   resetToken?: string | null;
   resetTokenExpiresAt?: Date | null;
+  resetOtp?: string | null;
+  resetOtpExpiresAt?: Date | null;
 }
 
 const userSchema = new Schema<UserDocument>(
@@ -21,6 +23,8 @@ const userSchema = new Schema<UserDocument>(
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
     resetToken: { type: String, index: true, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
+    resetOtp: { type: String, default: null },
+    resetOtpExpiresAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

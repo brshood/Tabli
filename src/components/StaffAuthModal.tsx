@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Eye, EyeOff, Check, Upload, FileText } from 'lucide-react';
+import { Eye, EyeOff, Upload, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 
@@ -14,6 +14,7 @@ interface StaffAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: (user: { name: string; email: string }, restaurantData?: any) => void;
+  onResetRequested?: (email: string) => void;
 }
 
 const cuisineOptions = [
@@ -22,7 +23,7 @@ const cuisineOptions = [
 
 const cityOptions: ('Al Ain' | 'Abu Dhabi' | 'Dubai')[] = ['Al Ain', 'Abu Dhabi', 'Dubai'];
 
-export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModalProps) {
+export function StaffAuthModal({ isOpen, onClose, onAuthSuccess, onResetRequested }: StaffAuthModalProps) {
   const [activeTab, setActiveTab] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -46,7 +47,6 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
   
   // Forgot password form
   const [forgotEmail, setForgotEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +68,6 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       setLicenseNumber('');
       setLicenseFile(null);
       setForgotEmail('');
-      setResetSent(false);
       setErrors({});
       setShowPassword(false);
     }
@@ -359,8 +358,10 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
         body: JSON.stringify({ email: forgotEmail })
       });
       if (!res.ok) throw new Error('reset_failed');
-      setResetSent(true);
-      toast.success('Password reset instructions sent to your email!');
+      toast.success('Verification code sent! Check your email for the 6-digit code.');
+      onResetRequested?.(forgotEmail);
+      setActiveTab('login');
+      onClose();
     } catch (_error) {
       toast.error('Failed to send reset email. Please try again.');
     } finally {
@@ -370,7 +371,6 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
   const handleBackToLogin = () => {
     setActiveTab('login');
-    setResetSent(false);
     setForgotEmail('');
     setErrors({});
   };
@@ -701,103 +701,49 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
           </TabsContent>
 
           <TabsContent value="forgot" className="space-y-4">
-            {!resetSent ? (
-              <>
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-medium mb-2" style={{color: '#2D2D2B'}}>
-                    Reset Your Password
-                  </h3>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>
-                    Enter your email address and we'll send you a link to reset your password.
-                  </p>
-                </div>
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-medium mb-2" style={{color: '#2D2D2B'}}>
+                Reset Your Password
+              </h3>
+              <p className="text-sm" style={{color: '#2D2D2B'}}>
+                Enter your email address and we’ll send you a 6-digit verification code to reset your password.
+              </p>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="forgotEmail" style={{color: '#2D2D2B'}}>Email Address</Label>
-                  <Input
-                    id="forgotEmail"
-                    type="email"
-                    placeholder="your.email@restaurant.com"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    className="bg-input-background"
-                    style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
-                  />
-                  {errors.forgotEmail && (
-                    <p className="text-sm text-red-600">{errors.forgotEmail}</p>
-                  )}
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="forgotEmail" style={{color: '#2D2D2B'}}>Email Address</Label>
+              <Input
+                id="forgotEmail"
+                type="email"
+                placeholder="your.email@restaurant.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="bg-input-background"
+                style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
+              />
+              {errors.forgotEmail && (
+                <p className="text-sm text-red-600">{errors.forgotEmail}</p>
+              )}
+            </div>
 
-                <Button
-                  onClick={handleForgotPassword}
-                  disabled={isLoading}
-                  className="w-full pill-button cta-button"
-                >
-                  {isLoading ? 'Sending reset link...' : 'Send Reset Link'}
-                </Button>
+            <Button
+              onClick={handleForgotPassword}
+              disabled={isLoading}
+              className="w-full pill-button cta-button"
+            >
+              {isLoading ? 'Sending code...' : 'Send Verification Code'}
+            </Button>
 
-                <div className="text-center">
-                  <Button
-                    variant="link"
-                    onClick={handleBackToLogin}
-                    className="text-sm px-0"
-                    style={{color: '#5A5E3E'}}
-                  >
-                    ← Back to login
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center space-y-4">
-                <div className="rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4" style={{backgroundColor: '#F8F1C1'}}>
-                  <Check className="w-8 h-8" style={{color: '#5A5E3E'}} />
-                </div>
-                
-                <h3 className="text-lg font-medium" style={{color: '#2D2D2B'}}>
-                  Check Your Email
-                </h3>
-                
-                <p className="text-sm" style={{color: '#2D2D2B'}}>
-                  We've sent password reset instructions to <strong>{forgotEmail}</strong>
-                </p>
-                
-                <div className="p-4 rounded-xl" style={{backgroundColor: '#FAF8F2', border: '1px solid rgba(90, 94, 62, 0.2)'}}>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>
-                    <strong>Next steps:</strong>
-                  </p>
-                  <ul className="text-sm mt-2 space-y-1" style={{color: '#2D2D2B'}}>
-                    <li>1. Check your email inbox</li>
-                    <li>2. Click the reset link in the email</li>
-                    <li>3. Create a new password</li>
-                    <li>4. Log in with your new password</li>
-                  </ul>
-                </div>
-
-                <div className="space-y-2">
-                  <Button
-                    onClick={handleBackToLogin}
-                    className="w-full pill-button"
-                    variant="outline"
-                    style={{borderColor: '#B7410E', color: '#B7410E'}}
-                  >
-                    Back to Login
-                  </Button>
-                  
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      setResetSent(false);
-                      setForgotEmail('');
-                      setErrors({});
-                    }}
-                    className="text-sm w-full"
-                    style={{color: '#9FA0A0'}}
-                  >
-                    Didn't receive the email? Try again
-                  </Button>
-                </div>
-              </div>
-            )}
+            <div className="text-center">
+              <Button
+                variant="link"
+                onClick={handleBackToLogin}
+                className="text-sm px-0"
+                style={{color: '#5A5E3E'}}
+              >
+                ← Back to login
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -7,5 +7,7 @@ const userSchema = new Schema({
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
     resetToken: { type: String, index: true, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
+    resetOtp: { type: String, default: null },
+    resetOtpExpiresAt: { type: Date, default: null },
 }, { timestamps: true });
 export const User = mongoose.models.User || mongoose.model('User', userSchema);

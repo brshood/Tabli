@@ -5,6 +5,7 @@ import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail } from '../services/email';
 import { sendSMS } from '../services/sms';
+import { buildReservationConfirmationTemplate } from '../services/emailTemplates';
 
 export const reservationsRouter = express.Router();
 
@@ -86,7 +87,16 @@ reservationsRouter.post('/', async (req, res, next) => {
         if (data.contactMethod === 'phone' && data.phone) {
           await sendSMS({ to: data.phone, message });
         } else if (data.contactMethod === 'email' && data.email) {
-          await sendEmail({ to: data.email, subject: `Reservation at ${restaurant.name}`, text: message });
+          const { subject, text, html } = buildReservationConfirmationTemplate({
+            name: data.name,
+            restaurantName: restaurant.name,
+            restaurantAddress: restaurant.address,
+            partySize: data.partySize,
+            mode: data.mode,
+            queuePosition,
+            requestedAt: doc.requestedAt,
+          });
+          await sendEmail({ to: data.email, subject, text, html });
         }
       } catch (err) {
         // Log but don't fail reservation if notification fails

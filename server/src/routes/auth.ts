@@ -7,8 +7,7 @@ import { Restaurant } from '../models/Restaurant';
 import { signJwt, verifyJwt } from '../utils/jwt';
 import { sendEmail } from '../services/email';
 import { getGridFsBucket } from '../db/gridfs';
-import crypto from 'crypto';
-import { env } from '../config/env';
+import { buildPasswordResetOtpTemplate } from '../services/emailTemplates';
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -226,30 +225,97 @@ const forgotSchema = z.object({
   email: z.string().email(),
 });
 
+const resetSchema = z.object({
+  email: z.string().email(),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be a 6-digit code'),
+  password: passwordSchema,
+});
+
 authRouter.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = forgotSchema.parse(req.body);
     const user = await User.findOne({ email });
     // Respond 200 always for privacy, but only send email if user exists
     if (user) {
-      // Issue a reset token valid for 1 hour
-      const token = crypto.randomBytes(32).toString('hex');
-      const expires = new Date(Date.now() + 60 * 60 * 1000);
-      user.resetToken = token;
-      user.resetTokenExpiresAt = expires;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      user.resetToken = null;
+      user.resetTokenExpiresAt = null;
+      user.resetOtp = otpHash;
+      user.resetOtpExpiresAt = expires;
       await user.save();
 
-      const resetBase = env.CORS_ORIGIN || 'http://localhost:5173';
-      const link = `${resetBase.replace(/\/$/, '')}/reset-password?token=${token}`;
+      const { subject, text, html } = buildPasswordResetOtpTemplate({
+        name: user.name,
+        otp,
+      });
 
       await sendEmail({
         to: user.email,
-        subject: 'Reset your Tabli password',
-        text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+        subject,
+        text,
+        html,
       });
     }
     res.json({ success: true });
   } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    const { email, otp, password } = resetSchema.parse(req.body);
+    const user = await User.findOne({ email });
+
+    if (!user || !user.resetOtp || !user.resetOtpExpiresAt) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const safeUser = user!;
+
+    const expiresAt = new Date(safeUser.resetOtpExpiresAt!);
+    if (expiresAt.getTime() < Date.now()) {
+      safeUser.resetOtp = null;
+      safeUser.resetOtpExpiresAt = null;
+      await safeUser.save();
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const isValid = await bcrypt.compare(otp, safeUser.resetOtp!);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    safeUser.passwordHash = passwordHash;
+    safeUser.resetToken = null;
+    safeUser.resetTokenExpiresAt = null;
+    safeUser.resetOtp = null;
+    safeUser.resetOtpExpiresAt = null;
+
+    await safeUser.save();
+
+    const token = signJwt({ sub: (safeUser._id as any).toString(), email: safeUser.email, role: safeUser.role });
+    res.json({
+      token,
+      user: {
+        id: (safeUser._id as any).toString(),
+        name: safeUser.name,
+        email: safeUser.email,
+        role: safeUser.role,
+        restaurantId: safeUser.restaurantId?.toString(),
+      },
+    });
+  } catch (err: any) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: err.errors,
+        passwordRequirements: PASSWORD_REQUIREMENTS,
+      });
+    }
     next(err);
   }
 });
