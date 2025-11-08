@@ -39,6 +39,12 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * Creates and configures the Express application with all middleware and routes.
+ * Sets up security, CORS, compression, rate limiting, and error handling.
+ * 
+ * @returns Configured Express Application instance
+ */
 export function createApp(): Application {
   const app = express();
 

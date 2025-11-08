@@ -7,7 +7,14 @@ import { DailySummary, DailySummaryMetrics, TableStat, BusiestTableInfo } from '
 
 export const analyticsRouter = express.Router();
 
-// Helper function to parse date string (YYYY-MM-DD) and create date in local timezone
+/**
+ * Parses a date string and creates a Date object in local timezone.
+ * Supports YYYY-MM-DD format or ISO date strings.
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format or ISO format
+ * @returns Date object set to midnight in local timezone
+ * @throws Error if date format is invalid
+ */
 function parseDateString(dateStr: string): Date {
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     // YYYY-MM-DD format - parse as local date to avoid timezone issues
@@ -24,7 +31,14 @@ function parseDateString(dateStr: string): Date {
   }
 }
 
-// Helper function to check if there's data for a given date
+/**
+ * Checks if there's reservation data available for a given restaurant and date.
+ * Validates that the restaurant existed on the target date and has reservation data.
+ * 
+ * @param restaurantId - The restaurant ID to check
+ * @param targetDate - The date to check for data
+ * @returns Promise resolving to an object with exists flag and optional message
+ */
 async function checkDataExists(restaurantId: string, targetDate: Date): Promise<{ exists: boolean; message?: string }> {
   const restaurant = await Restaurant.findById(restaurantId);
   if (!restaurant) {
@@ -57,6 +71,19 @@ async function checkDataExists(restaurantId: string, targetDate: Date): Promise<
   return { exists: true };
 }
 
+/**
+ * GET /analytics/overview
+ * Returns overview statistics for reservations within a specified time range.
+ * 
+ * @route GET /analytics/overview
+ * @param {string} req.query.restaurantId - Optional restaurant ID filter
+ * @param {string} req.query.range - Time range: 'day', 'week', or 'month' (default: 'day')
+ * @returns {Object} Response with totals object containing:
+ *   - total: Total number of reservations
+ *   - confirmed: Number of confirmed reservations
+ *   - seated: Number of seated reservations
+ *   - cancelled: Number of cancelled reservations
+ */
 analyticsRouter.get('/overview', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -81,8 +108,19 @@ analyticsRouter.get('/overview', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /analytics/kpis?restaurantId=xxx
-// Returns the 4 key KPI metrics with yesterday comparisons
+/**
+ * GET /analytics/kpis
+ * Returns the 4 key KPI metrics with yesterday comparisons.
+ * 
+ * @route GET /analytics/kpis
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @returns {Object} Response with KPI metrics:
+ *   - todaysCustomers: Today's customer count with change from yesterday
+ *   - avgWaitTime: Average wait time in minutes with change from yesterday
+ *   - tableTurnover: Table turnover rate with change from yesterday
+ *   - peakCapacity: Peak capacity percentage with change from yesterday
+ * Each metric includes value, change, and percentChange fields.
+ */
 analyticsRouter.get('/kpis', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -197,7 +235,17 @@ analyticsRouter.get('/kpis', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// Helper function to calculate peak capacity %
+/**
+ * Calculates the peak capacity percentage for a restaurant within a time range.
+ * Finds the hour with the most simultaneous seated customers and calculates
+ * the percentage of total tables occupied at that peak.
+ * 
+ * @param restaurantId - The restaurant ID
+ * @param startDate - Start of the time range
+ * @param endDate - End of the time range
+ * @param totalTables - Total number of tables for the restaurant
+ * @returns Promise resolving to peak capacity percentage (0-100)
+ */
 async function calculatePeakCapacity(
   restaurantId: string, 
   startDate: Date, 
@@ -240,8 +288,17 @@ async function calculatePeakCapacity(
   return Math.min(100, Math.round((maxOccupancy / totalTables) * 100));
 }
 
-// GET /analytics/peak-hours?restaurantId=xxx&range=day|week|month
-// Returns customer count per hour, focusing on seated customers for accurate traffic patterns
+/**
+ * GET /analytics/peak-hours
+ * Returns customer count per hour, focusing on seated customers for accurate traffic patterns.
+ * 
+ * @route GET /analytics/peak-hours
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @param {string} req.query.range - Time range: 'day', 'week', or 'month' (default: 'day')
+ * @returns {Object} Response with items array containing hourly data:
+ *   - _id: Hour of day (0-23)
+ *   - count: Number of customers seated during that hour
+ */
 analyticsRouter.get('/peak-hours', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -261,14 +318,23 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
     }
 
     // Aggregate by hour, counting seated customers (more accurate than request time)
+    // For 'day' range, only count today's seated customers
+    const matchCondition: any = {
+      restaurantId: restaurantId as any,
+      status: 'seated'
+    };
+    
+    if (range === 'day') {
+      // For today, use today's start to now
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      matchCondition.seatedAt = { $gte: todayStart, $lte: now };
+    } else {
+      matchCondition.seatedAt = { $gte: start, $lte: now };
+    }
+    
     const hourlyData = await Reservation.aggregate([
-      { 
-        $match: { 
-          restaurantId: restaurantId as any,
-          seatedAt: { $gte: start, $lte: now },
-          status: 'seated'
-        } 
-      },
+      { $match: matchCondition },
       { 
         $project: { 
           hour: { $hour: '$seatedAt' } 
@@ -302,6 +368,16 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/**
+ * GET /analytics/wait-times
+ * Returns average queue position as a proxy for wait times for recent waitlist reservations.
+ * 
+ * @route GET /analytics/wait-times
+ * @param {string} req.query.restaurantId - Optional restaurant ID filter
+ * @returns {Object} Response with stats object containing:
+ *   - avgQueuePosition: Average queue position for waitlist reservations
+ *   - count: Total number of waitlist reservations
+ */
 analyticsRouter.get('/wait-times', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -315,8 +391,21 @@ analyticsRouter.get('/wait-times', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /analytics/capacity-realtime?restaurantId=xxx
-// Returns current table capacity distribution (occupied vs available)
+/**
+ * GET /analytics/capacity-realtime
+ * Returns current table capacity distribution (occupied vs available).
+ * 
+ * @route GET /analytics/capacity-realtime
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @returns {Object} Response with table status counts and percentages:
+ *   - occupied: Number of occupied tables
+ *   - available: Number of available tables
+ *   - cleaning: Number of tables being cleaned
+ *   - total: Total number of tables
+ *   - occupiedPercent: Percentage of tables occupied
+ *   - availablePercent: Percentage of tables available
+ *   - cleaningPercent: Percentage of tables being cleaned
+ */
 analyticsRouter.get('/capacity-realtime', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -357,8 +446,19 @@ analyticsRouter.get('/capacity-realtime', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /analytics/daily?restaurantId=&range=week|month
-// Returns per-day totals for the selected window with detailed status breakdown
+/**
+ * GET /analytics/daily
+ * Returns per-day totals for the selected window with detailed status breakdown.
+ * 
+ * @route GET /analytics/daily
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @param {string} req.query.range - Time range: 'week' or 'month' (default: 'week')
+ * @returns {Object} Response with items array containing daily data:
+ *   - day: Date string in YYYY-MM-DD format
+ *   - seated: Number of seated customers on that day
+ *   - waiting: Number of waitlist requests on that day
+ *   - total: Total number of customers (seated + waiting)
+ */
 analyticsRouter.get('/daily', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -367,40 +467,108 @@ analyticsRouter.get('/daily', async (req, res, next) => {
     const start = new Date(now);
     if (range === 'month') start.setMonth(now.getMonth() - 1);
     else start.setDate(now.getDate() - 7);
+    start.setHours(0, 0, 0, 0); // Start of day
 
-    const pipeline: any[] = [
-      { $match: { requestedAt: { $gte: start } } },
-      { $addFields: { day: { $dateToString: { format: '%Y-%m-%d', date: '$requestedAt' } } } },
-      { $group: {
-        _id: '$day',
-        total: { $sum: 1 },
-        seated: { $sum: { $cond: [{ $eq: ['$status','seated'] }, 1, 0] } },
-        waiting: { $sum: { $cond: [{ $in: ['$status', ['pending', 'confirmed']] }, 1, 0] } },
-        cancelled: { $sum: { $cond: [{ $eq: ['$status','cancelled'] }, 1, 0] } },
-        noShow: { $sum: { $cond: [{ $eq: ['$status','no_show'] }, 1, 0] } },
-      } },
-      { $sort: { _id: 1 } },
+    // Get seated reservations grouped by seatedAt date
+    const seatedPipeline: any[] = [
+      { 
+        $match: { 
+          restaurantId: restaurantId as any,
+          status: 'seated',
+          seatedAt: { $gte: start, $lte: now }
+        } 
+      },
+      { 
+        $addFields: { 
+          day: { $dateToString: { format: '%Y-%m-%d', date: '$seatedAt' } } 
+        } 
+      },
+      { 
+        $group: {
+          _id: '$day',
+          seated: { $sum: 1 }
+        } 
+      }
     ];
 
-    if (restaurantId) {
-      pipeline.unshift({ $match: { restaurantId: restaurantId as any } });
+    // Get waitlist requests grouped by requestedAt date
+    const waitingPipeline: any[] = [
+      { 
+        $match: { 
+          restaurantId: restaurantId as any,
+          mode: 'waitlist',
+          requestedAt: { $gte: start, $lte: now }
+        } 
+      },
+      { 
+        $addFields: { 
+          day: { $dateToString: { format: '%Y-%m-%d', date: '$requestedAt' } } 
+        } 
+      },
+      { 
+        $group: {
+          _id: '$day',
+          waiting: { $sum: 1 }
+        } 
+      }
+    ];
+
+    const [seatedData, waitingData] = await Promise.all([
+      Reservation.aggregate(seatedPipeline),
+      Reservation.aggregate(waitingPipeline)
+    ]);
+
+    // Create maps for easy lookup
+    const seatedMap = new Map<string, number>();
+    seatedData.forEach((item: any) => {
+      seatedMap.set(item._id, item.seated);
+    });
+
+    const waitingMap = new Map<string, number>();
+    waitingData.forEach((item: any) => {
+      waitingMap.set(item._id, item.waiting);
+    });
+
+    // Generate all days in range (use local date to avoid timezone issues)
+    const items: any[] = [];
+    const currentDate = new Date(start);
+    while (currentDate <= now) {
+      // Format as YYYY-MM-DD using local date components
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const dayStr = `${year}-${month}-${day}`;
+      
+      items.push({
+        day: dayStr,
+        seated: seatedMap.get(dayStr) || 0,
+        waiting: waitingMap.get(dayStr) || 0,
+        total: (seatedMap.get(dayStr) || 0) + (waitingMap.get(dayStr) || 0)
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const items = await Reservation.aggregate(pipeline);
-    res.json({ 
-      items: items.map((i: any) => ({ 
-        day: i._id, 
-        total: i.total || 0, 
-        seated: i.seated || 0,
-        waiting: i.waiting || 0,
-        cancelled: i.cancelled || 0,
-        noShow: i.noShow || 0
-      })) 
-    });
+    res.json({ items });
   } catch (err) { next(err); }
 });
 
-// Helper function to calculate daily summary metrics
+/**
+ * Calculates comprehensive daily summary metrics for a restaurant on a specific date.
+ * Includes booking statistics, table performance metrics, and turnaround times.
+ * 
+ * @param restaurantId - The restaurant ID
+ * @param date - The date to calculate metrics for
+ * @returns Promise resolving to DailySummaryMetrics object containing:
+ *   - totalBookings: Total number of bookings for the day
+ *   - seatedGuests: Number of guests seated
+ *   - noShows: Number of no-shows
+ *   - manuallyAddedCustomers: Number of walk-ins (manually added)
+ *   - avgTurnaroundTime: Average table turnaround time in minutes
+ *   - busiestTable: Information about the busiest table
+ *   - leastBusiestTable: Information about the least busy table
+ *   - avgGuestsPerTable: Average number of guests per table
+ *   - tableStats: Array of statistics for each table
+ */
 async function calculateDailySummaryMetrics(
   restaurantId: string,
   date: Date
@@ -632,8 +800,18 @@ async function calculateDailySummaryMetrics(
   };
 }
 
-// POST /analytics/daily-summary
-// Generate and store a daily summary for a specific date
+/**
+ * POST /analytics/daily-summary
+ * Generate and store a daily summary for a specific date.
+ * 
+ * @route POST /analytics/daily-summary
+ * @param {string} req.body.restaurantId - Required restaurant ID
+ * @param {string} req.body.date - Required date in YYYY-MM-DD or ISO format
+ * @returns {Object} Response with summary object containing the generated daily summary
+ * @throws {400} If restaurantId or date is missing or invalid
+ * @throws {404} If no data exists for the specified date
+ * @throws {500} If calculation or saving fails
+ */
 analyticsRouter.post('/daily-summary', async (req, res, next) => {
   try {
     const { restaurantId, date } = req.body;
@@ -696,8 +874,18 @@ analyticsRouter.post('/daily-summary', async (req, res, next) => {
   }
 });
 
-// GET /analytics/daily-summary/:date
-// Get stored summary for a date, or generate if missing
+/**
+ * GET /analytics/daily-summary/:date
+ * Get stored summary for a date, or generate if missing.
+ * 
+ * @route GET /analytics/daily-summary/:date
+ * @param {string} req.params.date - Date in YYYY-MM-DD format
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @returns {Object} Response with summary object containing the daily summary
+ * @throws {400} If restaurantId is missing or date format is invalid
+ * @throws {404} If no data exists for the specified date
+ * @throws {500} If summary generation fails
+ */
 analyticsRouter.get('/daily-summary/:date', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -754,8 +942,18 @@ analyticsRouter.get('/daily-summary/:date', async (req, res, next) => {
   }
 });
 
-// GET /analytics/daily-summary/pdf/:date
-// Generate PDF report for a specific date
+/**
+ * GET /analytics/daily-summary/pdf/:date
+ * Generate PDF report for a specific date.
+ * 
+ * @route GET /analytics/daily-summary/pdf/:date
+ * @param {string} req.params.date - Date in YYYY-MM-DD format
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @returns {Buffer} PDF document as binary data with Content-Type: application/pdf
+ * @throws {400} If restaurantId is missing or date format is invalid
+ * @throws {404} If no data exists for the specified date
+ * @throws {500} If PDF generation fails
+ */
 analyticsRouter.get('/daily-summary/pdf/:date', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;
@@ -950,8 +1148,17 @@ ${metrics.tableStats && metrics.tableStats.length > 0 ? metrics.tableStats
   }
 });
 
-// GET /analytics/daily-summaries
-// List all summaries for a date range
+/**
+ * GET /analytics/daily-summaries
+ * List all summaries for a date range.
+ * 
+ * @route GET /analytics/daily-summaries
+ * @param {string} req.query.restaurantId - Required restaurant ID
+ * @param {string} req.query.startDate - Optional start date in YYYY-MM-DD format
+ * @param {string} req.query.endDate - Optional end date in YYYY-MM-DD format
+ * @returns {Object} Response with summaries array containing daily summary documents
+ * @throws {400} If restaurantId is missing
+ */
 analyticsRouter.get('/daily-summaries', async (req, res, next) => {
   try {
     const restaurantId = req.query.restaurantId as string;

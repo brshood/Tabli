@@ -1,5 +1,8 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+/**
+ * Statistics for a single table's performance on a given day.
+ */
 export interface TableStat {
   tableId: mongoose.Types.ObjectId;
   tableName: string;
@@ -9,6 +12,9 @@ export interface TableStat {
   avgTurnaroundTime: number; // in minutes
 }
 
+/**
+ * Information about the busiest or least busy table for a given day.
+ */
 export interface BusiestTableInfo {
   tableId: mongoose.Types.ObjectId | null;
   tableName: string;
@@ -17,6 +23,9 @@ export interface BusiestTableInfo {
   totalGuests: number;
 }
 
+/**
+ * Comprehensive metrics for a restaurant's daily performance summary.
+ */
 export interface DailySummaryMetrics {
   totalBookings: number;
   seatedGuests: number;
@@ -29,6 +38,10 @@ export interface DailySummaryMetrics {
   tableStats: TableStat[];
 }
 
+/**
+ * MongoDB document representing a daily summary for a restaurant.
+ * Contains comprehensive metrics for a specific date.
+ */
 export interface DailySummaryDocument extends Document {
   restaurantId: mongoose.Types.ObjectId;
   date: Date;

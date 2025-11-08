@@ -740,16 +740,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => setSettingsModalOpen(true)}
-              className="pill-button"
-              style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
-              title="Restaurant Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
               onClick={onLogout}
               className="pill-button"
               style={{borderColor: 'var(--where2go-accent)', color: 'var(--where2go-accent)'}}
@@ -1247,7 +1237,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                       </div>
                     </div>
                     <div className="rounded-full w-12 h-12 flex items-center justify-center" style={{backgroundColor: '#FAF8F2'}}>
-                      <Calendar className="h-6 w-6" style={{color: '#5A5E3E'}} />
+                      <CalendarIcon className="h-6 w-6" style={{color: '#5A5E3E'}} />
                     </div>
                   </div>
                 </CardContent>
@@ -1262,16 +1252,28 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting (Last 7 Days)</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {dailyData.length === 0 ? (
+                    <div className="flex items-center justify-center h-[300px] text-gray-500">
+                      <p>No data available for the last 7 days</p>
+                    </div>
+                  ) : (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={
-                      dailyData.length 
-                        ? dailyData.map(d => ({ 
-                            name: new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
-                            seated: d.seated || 0, 
-                            waiting: (d.waiting || 0)
-                          }))
-                        : [{ name: 'Today', seated: 0, waiting: 0 }]
-                    }>
+                    <BarChart data={dailyData.map(d => {
+                      try {
+                        const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
+                        return {
+                          name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
+                          seated: d.seated || 0, 
+                          waiting: d.waiting || 0
+                        };
+                      } catch (e) {
+                        return {
+                          name: d.day, 
+                          seated: d.seated || 0, 
+                          waiting: d.waiting || 0
+                        };
+                      }
+                    })}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
                       <YAxis stroke="#2D2D2B" />
@@ -1287,6 +1289,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                       <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} name="Waiting" />
                     </BarChart>
                   </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1352,11 +1355,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Today's Peak Hours</CardTitle>
               </CardHeader>
               <CardContent>
+                {peakHoursData.length === 0 ? (
+                  <div className="flex items-center justify-center h-[300px] text-gray-500">
+                    <p>No data available for today</p>
+                  </div>
+                ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={
-                    peakHoursData.length 
+                    peakHoursData.length === 24
                       ? peakHoursData.map(item => ({ time: item.time, customers: item.all }))
-                      : Array.from({ length: 24 }, (_, i) => ({ time: `${String(i).padStart(2, '0')}:00`, customers: 0 }))
+                      : Array.from({ length: 24 }, (_, i) => {
+                          const existing = peakHoursData.find(p => {
+                            const [hours] = p.time.split(':');
+                            return parseInt(hours, 10) === i;
+                          });
+                          return { 
+                            time: `${String(i).padStart(2, '0')}:00`, 
+                            customers: existing ? existing.all : 0 
+                          };
+                        })
                   }>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                     <XAxis 
@@ -1384,6 +1401,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     />
                   </LineChart>
                 </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -1634,8 +1652,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              disabled={(date) => date > new Date()}
+              onSelect={(date: Date | undefined) => date && setSelectedDate(date)}
+              disabled={(date: Date) => date > new Date()}
               className="rounded-md border"
             />
           </div>
