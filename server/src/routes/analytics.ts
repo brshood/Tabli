@@ -12,11 +12,11 @@ analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
     const [reservationsTotal, restaurantsTotal, rawPhones, rawEmails, bothContactCount] = await Promise.all([
       Reservation.countDocuments({ status: { $ne: 'cancelled' } }),
       Restaurant.countDocuments({}),
-      Reservation.distinct('phone', { phone: { $exists: true, $ne: null } }),
-      Reservation.distinct('email', { email: { $exists: true, $ne: null } }),
+      Reservation.distinct('phone', { phone: { $exists: true, $nin: [null, ''] } }),
+      Reservation.distinct('email', { email: { $exists: true, $nin: [null, ''] } }),
       Reservation.countDocuments({
-        phone: { $exists: true, $ne: null, $ne: '' },
-        email: { $exists: true, $ne: null, $ne: '' },
+        phone: { $exists: true, $nin: [null, ''] },
+        email: { $exists: true, $nin: [null, ''] },
       }),
     ]);
 
