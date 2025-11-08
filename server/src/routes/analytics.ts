@@ -7,6 +7,43 @@ import { DailySummary, DailySummaryMetrics, TableStat, BusiestTableInfo } from '
 
 export const analyticsRouter = express.Router();
 
+analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
+  try {
+    const [reservationsTotal, restaurantsTotal, rawPhones, rawEmails, bothContactCount] = await Promise.all([
+      Reservation.countDocuments({ status: { $ne: 'cancelled' } }),
+      Restaurant.countDocuments({}),
+      Reservation.distinct('phone', { phone: { $exists: true, $ne: null } }),
+      Reservation.distinct('email', { email: { $exists: true, $ne: null } }),
+      Reservation.countDocuments({
+        phone: { $exists: true, $ne: null, $ne: '' },
+        email: { $exists: true, $ne: null, $ne: '' },
+      }),
+    ]);
+
+    const normalizeSetSize = (values: unknown[]) => {
+      const set = new Set<string>();
+      for (const value of values) {
+        if (typeof value !== 'string') continue;
+        const trimmed = value.trim();
+        if (trimmed) set.add(trimmed);
+      }
+      return set.size;
+    };
+
+    const uniquePhoneCount = normalizeSetSize(rawPhones);
+    const uniqueEmailCount = normalizeSetSize(rawEmails);
+    const totalUsers = Math.max(0, uniquePhoneCount + uniqueEmailCount - bothContactCount);
+
+    res.json({
+      reservations: reservationsTotal,
+      restaurants: restaurantsTotal,
+      users: totalUsers,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * Parses a date string and creates a Date object in local timezone.
  * Supports YYYY-MM-DD format or ISO date strings.

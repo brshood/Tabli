@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Clock, CheckCircle, MessageSquare, Zap, TrendingUp, Users, Calendar, Star, Smartphone } from 'lucide-react';
@@ -12,6 +13,74 @@ interface LandingPageProps {
 
 export function LandingPage({ onNavigate }: LandingPageProps) {
   const { t, isRTL } = useLanguage();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const statsSectionRef = useRef<HTMLDivElement | null>(null);
+  const [stats, setStats] = useState({ reservations: 0, restaurants: 0, users: 0 });
+  const [displayStats, setDisplayStats] = useState({ reservations: 0, restaurants: 0, users: 0 });
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${API_URL}/analytics/platform-metrics`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) {
+          setStats({
+            reservations: Number(data.reservations) || 0,
+            restaurants: Number(data.restaurants) || 0,
+            users: Number(data.users) || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load platform metrics', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [API_URL]);
+
+  useEffect(() => {
+    if (!statsSectionRef.current || hasAnimated) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setHasAnimated(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(statsSectionRef.current);
+    return () => observer.disconnect();
+  }, [hasAnimated]);
+
+  useEffect(() => {
+    if (!hasAnimated) return;
+    setDisplayStats({ reservations: 0, restaurants: 0, users: 0 });
+
+    const duration = 1200;
+    const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
+    const start = performance.now();
+    let frameId = requestAnimationFrame(function animate(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = easeOutQuad(progress);
+      setDisplayStats({
+        reservations: Math.round(stats.reservations * eased),
+        restaurants: Math.round(stats.restaurants * eased),
+        users: Math.round(stats.users * eased),
+      });
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      }
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [hasAnimated, stats]);
+
+  const formatNumber = (value: number) => value.toLocaleString();
 
   return (
     <div className="min-h-screen">
@@ -91,6 +160,49 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
                 </p>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Platform Metrics Section */}
+      <section ref={statsSectionRef} className="py-12 sm:py-20" style={{backgroundColor: '#FDF7ED'}}>
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12 max-w-3xl mx-auto">
+            <h2 className={`text-3xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
+              Tabli by the Numbers
+            </h2>
+            <p className={`text-base sm:text-xl ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
+              A quick look at how restaurants and guests are connecting on Tabli.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 max-w-5xl mx-auto">
+            <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
+              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Reservations</p>
+              <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
+                {formatNumber(displayStats.reservations)}
+              </div>
+              <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
+                Guests who booked a table through Tabli.
+              </p>
+            </div>
+            <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
+              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Restaurants</p>
+              <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
+                {formatNumber(displayStats.restaurants)}
+              </div>
+              <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
+                Partners currently welcoming diners on Tabli.
+              </p>
+            </div>
+            <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
+              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Unique Guests</p>
+              <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
+                {formatNumber(displayStats.users)}
+              </div>
+              <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
+                Individual phone numbers or emails that have booked with Tabli.
+              </p>
+            </div>
           </div>
         </div>
       </section>
