@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant';
 import { Rating } from '../models/Rating';
+import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
 import multer from 'multer';
 import { getGridFsBucket } from '../db/gridfs';
@@ -329,6 +330,205 @@ restaurantsRouter.delete('/:id/profile-picture', requireAuth, requireOwnRestaura
 
     res.json({ success: true, message: 'Profile picture deleted successfully' });
   } catch (err) {
+    next(err);
+  }
+});
+
+// Helper function to normalize phone numbers for comparison
+function normalizePhoneNumber(phone: string | undefined): string | null {
+  if (!phone) return null;
+  // Remove all non-digit characters (spaces, dashes, parentheses, plus signs, etc.)
+  const digitsOnly = phone.replace(/\D/g, '');
+  // Remove common country codes if present (UAE: 971, US/Canada: 1)
+  // Keep the last 10-15 digits (typical phone number length)
+  if (digitsOnly.length > 10) {
+    // Remove leading country codes
+    if (digitsOnly.startsWith('971') && digitsOnly.length > 10) {
+      return digitsOnly.substring(3);
+    }
+    if (digitsOnly.startsWith('1') && digitsOnly.length > 10) {
+      return digitsOnly.substring(1);
+    }
+    // If still too long, take the last 15 digits
+    return digitsOnly.slice(-15);
+  }
+  return digitsOnly || null;
+}
+
+// Validation schema for rating submission
+const ratingSchema = z.object({
+  value: z.number().min(1).max(5),
+  comment: z.string().optional(),
+  name: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  showName: z.boolean().optional(),
+}).refine((data) => data.email || data.phone, {
+  message: 'At least one of email or phone must be provided',
+  path: ['email', 'phone'],
+});
+
+// GET /restaurants/:id/ratings - Retrieve all ratings for a restaurant
+restaurantsRouter.get('/:id/ratings', async (req, res, next) => {
+  try {
+    const restaurantId = req.params.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    // Validate restaurant exists
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    const [ratings, total] = await Promise.all([
+      Rating.find({ restaurantId: new ObjectId(restaurantId) })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .select('value comment name showName createdAt'),
+      Rating.countDocuments({ restaurantId: new ObjectId(restaurantId) }),
+    ]);
+
+    // Handle anonymous names - show "Guest" if showName is false or name is missing
+    const processedRatings = ratings.map((rating: any) => {
+      const shouldShowName = rating.showName === true && rating.name;
+      return {
+        ...rating,
+        name: shouldShowName ? rating.name : 'Guest',
+      };
+    });
+
+    res.json({
+      items: processedRatings,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /restaurants/:id/ratings - Submit a new rating with verification
+restaurantsRouter.post('/:id/ratings', async (req, res, next) => {
+  try {
+    const restaurantId = req.params.id;
+
+    // Validate restaurant exists
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // Validate request body
+    const data = ratingSchema.parse(req.body);
+
+    // Normalize phone number if provided
+    const normalizedPhone = normalizePhoneNumber(data.phone);
+
+    // Build query to check for matching reservations
+    const queryConditions: any[] = [];
+    
+    if (data.email) {
+      queryConditions.push({ email: data.email });
+    }
+    
+    if (normalizedPhone) {
+      // We need to normalize phone numbers in reservations too for comparison
+      // Since we can't easily do this in a single query, we'll fetch reservations and check
+      queryConditions.push({ phone: { $exists: true, $ne: null } });
+    }
+
+    if (queryConditions.length === 0) {
+      return res.status(400).json({ error: 'Please provide a valid email address or phone number.' });
+    }
+
+    // Find reservations with completed visits (seated or confirmed) for this restaurant
+    const reservations = await Reservation.find({
+      restaurantId: new ObjectId(restaurantId),
+      status: { $in: ['seated', 'confirmed'] },
+      $or: queryConditions,
+    }).lean();
+
+    // Check if any reservation matches the provided email or normalized phone
+    let hasMatch = false;
+    
+    if (data.email) {
+      hasMatch = reservations.some(r => r.email && r.email.toLowerCase() === data.email!.toLowerCase());
+    }
+    
+    if (!hasMatch && normalizedPhone) {
+      // Check normalized phone numbers
+      hasMatch = reservations.some(r => {
+        if (!r.phone) return false;
+        const normalizedReservationPhone = normalizePhoneNumber(r.phone);
+        return normalizedReservationPhone === normalizedPhone;
+      });
+    }
+
+    if (!hasMatch) {
+      return res.status(403).json({
+        error: 'We only accept reviews from previous visitors. Please use the email or phone number you used when making your reservation.',
+      });
+    }
+
+    // Check for duplicate review (email OR phone already has a review for this restaurant)
+    if (normalizedPhone) {
+      // For phone matching, we need to check normalized phones
+      // We'll fetch existing ratings and compare normalized phones
+      const existingRatings = await Rating.find({
+        restaurantId: new ObjectId(restaurantId),
+        phone: { $exists: true, $ne: null },
+      }).lean();
+      
+      const hasDuplicatePhone = existingRatings.some((r: any) => {
+        if (!r.phone) return false;
+        const existingNormalizedPhone = normalizePhoneNumber(r.phone);
+        return existingNormalizedPhone === normalizedPhone;
+      });
+      
+      if (hasDuplicatePhone) {
+        return res.status(409).json({
+          error: 'You have already submitted a review for this restaurant.',
+        });
+      }
+    }
+    
+    if (data.email) {
+      const existingRating = await Rating.findOne({
+        restaurantId: new ObjectId(restaurantId),
+        email: data.email,
+      });
+      
+      if (existingRating) {
+        return res.status(409).json({
+          error: 'You have already submitted a review for this restaurant.',
+        });
+      }
+    }
+
+    // Create the rating
+    const rating = await Rating.create({
+      restaurantId: new ObjectId(restaurantId),
+      value: data.value,
+      comment: data.comment,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      showName: data.showName ?? false,
+    });
+
+    res.status(201).json({ rating });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
     next(err);
   }
 });
