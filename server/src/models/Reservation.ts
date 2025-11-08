@@ -22,7 +22,7 @@ export interface ReservationDocument extends Document {
 
 const reservationSchema = new Schema<ReservationDocument>(
   {
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     name: { type: String },
     mode: { type: String, enum: ['reserve', 'waitlist'], required: true },
     partySize: { type: Number, required: true },

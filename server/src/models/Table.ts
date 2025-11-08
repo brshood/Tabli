@@ -14,7 +14,7 @@ export interface TableDocument extends Document {
 
 const tableSchema = new Schema<TableDocument>(
   {
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     name: { type: String, required: true },
     capacity: { type: Number, required: true },
     status: { type: String, enum: ['available','occupied','cleaning'], default: 'available', index: true },

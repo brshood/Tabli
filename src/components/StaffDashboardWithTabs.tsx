@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -15,6 +15,8 @@ import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
+import { Calendar } from './ui/calendar';
+import { openDailySummaryPdf, generateDailySummary } from '../services/analyticsApi';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -61,7 +63,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [waitlist, setWaitlist] = useState(mockWaitlist);
   const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
   const [availableTables, setAvailableTables] = useState(mockAvailableTables);
-  const [tablesCount, setTablesCount] = useState<number>(mockAvailableTables.length + mockSeatedTables.length);
+  const [tablesCount, setTablesCount] = useState<number>(0); // Initialize to 0, will be set from DB
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);
   const [menuManagementModalOpen, setMenuManagementModalOpen] = useState(false);
@@ -75,11 +77,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
   const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
   const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
-  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number }[]>([]);
+  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number; waiting: number; cancelled: number; noShow: number }[]>([]);
   const [kpiData, setKpiData] = useState<any>(null);
   const [capacityData, setCapacityData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [dailySummaryDialogOpen, setDailySummaryDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     let timer: any;
@@ -109,8 +114,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
   // Load tables list for totals and availability
   useEffect(() => {
+    if (!staffAuth?.restaurantId) return;
     let timer: any;
-    loadTablesFromDB();
+    const load = async () => {
+      await loadTablesFromDB();
+    };
+    load(); // Load immediately
     timer = setInterval(loadTablesFromDB, 30000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
@@ -1074,7 +1083,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <Table className="h-4 w-4 mr-2" />
                     View Table Layout
                   </Button>
-                  <Button className="pill-button text-white" style={{backgroundColor: '#B889A6'}}>
+                  <Button 
+                    className="pill-button text-white" 
+                    style={{backgroundColor: '#B889A6'}}
+                    onClick={() => setDailySummaryDialogOpen(true)}
+                  >
                     <FileText className="h-4 w-4 mr-2" />
                     Daily Summary
                   </Button>
@@ -1286,11 +1299,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={[
-                          { name: 'Occupied', value: capacityData?.occupied || 0, color: '#5A5E3E' },
-                          { name: 'Available', value: capacityData?.available || 0, color: '#B889A6' },
-                          { name: 'Cleaning', value: capacityData?.cleaning || 0, color: '#F3C084' }
-                        ].filter(entry => entry.value > 0)}
+                        data={(() => {
+                          const total = (capacityData?.total || 0);
+                          if (total === 0) {
+                            return [{ name: 'No Tables', value: 100, color: '#E7D7C5' }];
+                          }
+                          return [
+                            { name: 'Occupied', value: capacityData?.occupiedPercent || 0, color: '#5A5E3E' },
+                            { name: 'Available', value: capacityData?.availablePercent || 0, color: '#B889A6' },
+                            { name: 'Cleaning', value: capacityData?.cleaningPercent || 0, color: '#F3C084' }
+                          ].filter(entry => entry.value > 0);
+                        })()}
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
@@ -1298,13 +1317,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
-                        {[
-                          { name: 'Occupied', color: '#5A5E3E' },
-                          { name: 'Available', color: '#B889A6' },
-                          { name: 'Cleaning', color: '#F3C084' }
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
+                        {(() => {
+                          const total = (capacityData?.total || 0);
+                          if (total === 0) {
+                            return [<Cell key="no-tables" fill="#E7D7C5" />];
+                          }
+                          const colors = ['#5A5E3E', '#B889A6', '#F3C084'];
+                          return [
+                            { name: 'Occupied', color: '#5A5E3E' },
+                            { name: 'Available', color: '#B889A6' },
+                            { name: 'Cleaning', color: '#F3C084' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ));
+                        })()}
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
@@ -1366,12 +1392,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Peak Hour</h3>
-                  {peakHoursData.length ? (
-                    <>
-                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).time}</p>
-                      <p className="text-sm" style={{color: '#2D2D2B'}}>{peakHoursData.reduce((a,b)=> (b.all > a.all? b : a)).all} customers</p>
-                    </>
-                  ) : (
+                  {peakHoursData.length > 0 && peakHoursData.some(d => d.all > 0) ? (() => {
+                    const peak = peakHoursData.reduce((a, b) => (b.all > a.all ? b : a));
+                    const [hours, minutes] = peak.time.split(':');
+                    const hour24 = parseInt(hours, 10);
+                    const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                    const ampm = hour24 >= 12 ? 'PM' : 'AM';
+                    return (
+                      <>
+                        <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{hour12}:{minutes} {ampm}</p>
+                        <p className="text-sm" style={{color: '#2D2D2B'}}>{peak.all} customers</p>
+                      </>
+                    );
+                  })() : (
                     <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
                   )}
                 </CardContent>
@@ -1380,12 +1413,26 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Busiest Day</h3>
-                  {dailyData.length ? (
-                    <>
-                      <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{new Date(dailyData.reduce((a,b)=> (b.total > a.total? b : a)).day).toLocaleDateString()}</p>
-                      <p className="text-sm" style={{color: '#2D2D2B'}}>{dailyData.reduce((a,b)=> (b.total > a.total? b : a)).total} customers</p>
-                    </>
-                  ) : (
+                  {dailyData.length > 0 && dailyData.some(d => d.total > 0) ? (() => {
+                    const busiest = dailyData.reduce((a, b) => (b.total > a.total ? b : a));
+                    try {
+                      const date = new Date(busiest.day);
+                      const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      return (
+                        <>
+                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{formatted}</p>
+                          <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
+                        </>
+                      );
+                    } catch (e) {
+                      return (
+                        <>
+                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day}</p>
+                          <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
+                        </>
+                      );
+                    }
+                  })() : (
                     <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
                   )}
                 </CardContent>
@@ -1394,8 +1441,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Efficiency Score</h3>
-                  <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{Math.max(0, Math.min(100, Math.round((100 - avgWaitMinutes) * 0.6 + (tablesCount ? (seatedToday / tablesCount) * 40 : 0))))}%</p>
-                  <p className="text-sm" style={{color: '#2D2D2B'}}>Based on wait time and turnover</p>
+                  {(() => {
+                    // Calculate efficiency score based on:
+                    // 1. Wait time (lower is better, max 60 min = 0% wait penalty, 0 min = 100% wait score)
+                    // 2. Table utilization (seatedToday / tablesCount, higher is better)
+                    const waitTimeScore = Math.max(0, Math.min(100, (60 - Math.min(avgWaitMinutes, 60)) / 60 * 100));
+                    const utilizationScore = tablesCount > 0 ? Math.min(100, (seatedToday / tablesCount) * 100) : 0;
+                    const efficiency = Math.round(waitTimeScore * 0.4 + utilizationScore * 0.6);
+                    return (
+                      <>
+                        <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{efficiency}%</p>
+                        <p className="text-sm" style={{color: '#2D2D2B'}}>Based on wait time and utilization</p>
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>
@@ -1557,6 +1616,80 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               style={{backgroundColor: '#3F4427'}}
             >
               Seat Guest
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Daily Summary Dialog */}
+      <Dialog open={dailySummaryDialogOpen} onOpenChange={setDailySummaryDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Generate Daily Summary</DialogTitle>
+            <DialogDescription>
+              Select a date to generate a daily summary report. The report will open as a PDF in a new tab.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              disabled={(date) => date > new Date()}
+              className="rounded-md border"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDailySummaryDialogOpen(false);
+                setSelectedDate(new Date());
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!staffAuth.restaurantId) {
+                  toast.error('Restaurant ID not found');
+                  return;
+                }
+
+                setGeneratingPdf(true);
+                try {
+                  // Format date as YYYY-MM-DD using local date (not UTC to avoid timezone offset)
+                  const year = selectedDate.getFullYear();
+                  const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                  const day = String(selectedDate.getDate()).padStart(2, '0');
+                  const dateStr = `${year}-${month}-${day}`;
+                  
+                  // Generate summary first (this ensures data is calculated and stored)
+                  await generateDailySummary(staffAuth.restaurantId, dateStr);
+                  
+                  // Open PDF in new tab
+                  openDailySummaryPdf(staffAuth.restaurantId, dateStr);
+                  
+                  toast.success('Daily summary PDF generated successfully');
+                  setDailySummaryDialogOpen(false);
+                } catch (error: any) {
+                  // Handle "no data" errors specifically
+                  const errorData = error.message || 'Failed to generate daily summary';
+                  if (errorData.includes('No data available') || errorData.includes('No reservations found') || errorData.includes('did not exist')) {
+                    toast.error(errorData);
+                  } else {
+                    toast.error(errorData || 'Failed to generate daily summary');
+                  }
+                } finally {
+                  setGeneratingPdf(false);
+                }
+              }}
+              disabled={generatingPdf}
+              className="text-white"
+              style={{backgroundColor: '#3F4427'}}
+            >
+              {generatingPdf ? 'Generating...' : 'Generate PDF'}
             </Button>
           </DialogFooter>
         </DialogContent>

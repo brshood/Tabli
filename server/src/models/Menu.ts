@@ -30,16 +30,15 @@ const menuSchema = new Schema<MenuDocument>(
       type: Schema.Types.ObjectId, 
       ref: 'Restaurant', 
       required: true, 
-      unique: true,
-      index: true 
+      unique: true
     },
     items: [menuItemSchema],
   },
   { timestamps: true }
 );
 
-// Compound index for faster queries
-menuSchema.index({ restaurantId: 1 });
+// Index for faster queries (unique constraint already creates an index, but we keep this for clarity)
+menuSchema.index({ restaurantId: 1 }, { unique: true });
 
 export const Menu: Model<MenuDocument> =
   mongoose.models.Menu || mongoose.model<MenuDocument>('Menu', menuSchema);

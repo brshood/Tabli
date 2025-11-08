@@ -1,9 +1,12 @@
 import { env } from '../config/env';
 import sgMail from '@sendgrid/mail';
 
-// Initialize SendGrid
-if (env.EMAIL_API_KEY) {
+// Initialize SendGrid - only set API key if it's valid (starts with "SG.")
+if (env.EMAIL_API_KEY && env.EMAIL_API_KEY.startsWith('SG.')) {
   sgMail.setApiKey(env.EMAIL_API_KEY);
+} else if (env.EMAIL_API_KEY) {
+  // API key exists but is invalid format - log warning but don't set it
+  console.warn('[EMAIL] SendGrid API key is invalid (must start with "SG."). Email sending will be disabled.');
 }
 
 export interface SendEmailOptions {
