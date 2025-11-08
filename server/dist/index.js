@@ -1,7 +1,7 @@
 import { createServer } from 'http';
-import { connectMongo } from './db/mongo.ts';
-import { createApp } from './app.ts';
-import { env } from './config/env.ts';
+import { connectMongo } from './db/mongo';
+import { createApp } from './app';
+import { env } from './config/env';
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -13,12 +13,16 @@ process.on('uncaughtException', (error) => {
 });
 async function main() {
     await connectMongo();
+    console.log('Environment variables loaded:');
+    console.log('- CORS_ORIGIN:', env.CORS_ORIGIN);
+    console.log('- NODE_ENV:', env.NODE_ENV);
+    console.log('- PORT:', env.PORT);
     const app = createApp();
     const server = createServer(app);
     const port = env.PORT;
-    server.listen(port, () => {
+    server.listen(port, '0.0.0.0', () => {
         // eslint-disable-next-line no-console
-        console.log(`API listening on :${port}`);
+        console.log(`API listening on 0.0.0.0:${port}`);
     });
 }
 main().catch((err) => {

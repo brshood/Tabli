@@ -5,20 +5,25 @@ import compression from 'compression';
 import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
-import { env } from './config/env.ts';
-import { healthRouter } from './routes/health.ts';
-import { authRouter } from './routes/auth.ts';
-import { restaurantsRouter } from './routes/restaurants.ts';
-import { mediaRouter } from './routes/media.ts';
-import { reservationsRouter } from './routes/reservations.ts';
-import { qrRouter } from './routes/qr.ts';
-import { analyticsRouter } from './routes/analytics.ts';
-import { tablesRouter } from './routes/tables.ts';
-import { documentsRouter } from './routes/documents.ts';
-// Global rate limiter: 100 requests per 15 minutes
+import { env } from './config/env';
+import { healthRouter } from './routes/health';
+import { authRouter } from './routes/auth';
+import { restaurantsRouter } from './routes/restaurants';
+import { mediaRouter } from './routes/media';
+import { reservationsRouter } from './routes/reservations';
+import { qrRouter } from './routes/qr';
+import { queueRouter } from './routes/queue';
+import { analyticsRouter } from './routes/analytics';
+import { tablesRouter } from './routes/tables';
+import { documentsRouter } from './routes/documents';
+import { maintenanceRouter } from './routes/maintenance';
+import { notificationsRouter } from './routes/notifications';
+import { dashboardRouter } from './routes/dashboard';
+import { menusRouter } from './routes/menus';
+// Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 500,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -26,16 +31,31 @@ const globalLimiter = rateLimit({
 // Strict rate limiter for auth routes: 5 requests per 15 minutes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: 10,
+    skipSuccessfulRequests: true,
     message: { error: 'Too many authentication attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
 });
+/**
+ * Creates and configures the Express application with all middleware and routes.
+ * Sets up security, CORS, compression, rate limiting, and error handling.
+ *
+ * @returns Configured Express Application instance
+ */
 export function createApp() {
     const app = express();
-    app.use(helmet());
+    app.set('trust proxy', 1);
+    app.use(helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }));
     app.use(compression());
-    app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+    app.use(cors({
+        origin: env.CORS_ORIGIN,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    }));
     app.use(express.json());
     app.use(mongoSanitize());
     app.use(pinoHttp());
@@ -45,9 +65,14 @@ export function createApp() {
     app.use('/restaurants', restaurantsRouter);
     app.use('/media', mediaRouter);
     app.use('/reservations', reservationsRouter);
+    app.use('/queue', queueRouter);
     app.use('/qr', qrRouter);
     app.use('/analytics', analyticsRouter);
+    app.use('/dashboard', dashboardRouter);
     app.use('/documents', documentsRouter);
+    app.use('/maintenance', maintenanceRouter);
+    app.use('/notifications', notificationsRouter);
+    app.use('/menus', menusRouter);
     app.use('/', tablesRouter);
     // 404 handler
     app.use((req, res) => {

@@ -66,10 +66,19 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     const r = await Reservation.findById(req.params.reservationId);
     if (!r) return res.status(404).json({ error: 'Not found' });
     if (r.status === 'cancelled') return res.json({ success: true });
+    const restaurant = await Restaurant.findById(r.restaurantId).lean();
     const oldPos = r.queuePosition;
     r.status = 'cancelled';
     r.leftAt = new Date();
     await r.save();
+    try {
+      if (r.contactMethod === 'phone' && r.phone) {
+        const message = `We weren't able to hold your spot at ${restaurant?.name || 'the restaurant'} any longer. Reply if you still plan to join us.`;
+        await sendSMS({ to: r.phone, message });
+      }
+    } catch (notificationError) {
+      console.error('Failed to send queue removal SMS:', notificationError);
+    }
     if (typeof oldPos === 'number') {
       await Reservation.updateMany(
         { restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending','confirmed'] }, queuePosition: { $gt: oldPos } },

@@ -1,4 +1,4 @@
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 import twilio from 'twilio';
 let twilioClient = null;
 function getTwilioClient() {
@@ -12,17 +12,23 @@ function getTwilioClient() {
  */
 export async function sendSMS(opts) {
     const client = getTwilioClient();
-    if (!client || !env.TWILIO_PHONE_NUMBER) {
+    if (!client || (!env.TWILIO_PHONE_NUMBER && !env.TWILIO_MESSAGING_SERVICE_SID)) {
         // eslint-disable-next-line no-console
         console.log('[SMS:DEV]', { to: opts.to, message: opts.message });
         return;
     }
     try {
-        await client.messages.create({
+        const payload = {
             body: opts.message,
-            from: env.TWILIO_PHONE_NUMBER,
             to: opts.to,
-        });
+        };
+        if (env.TWILIO_MESSAGING_SERVICE_SID) {
+            payload.messagingServiceSid = env.TWILIO_MESSAGING_SERVICE_SID;
+        }
+        else if (env.TWILIO_PHONE_NUMBER) {
+            payload.from = env.TWILIO_PHONE_NUMBER;
+        }
+        await client.messages.create(payload);
         // eslint-disable-next-line no-console
         console.log('[SMS:SENT]', { to: opts.to });
     }

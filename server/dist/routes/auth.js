@@ -2,11 +2,13 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import multer from 'multer';
-import { User } from '../models/User.ts';
-import { Restaurant } from '../models/Restaurant.ts';
-import { signJwt, verifyJwt } from '../utils/jwt.ts';
-import { sendEmail } from '../services/email.ts';
-import { getGridFsBucket } from '../db/gridfs.ts';
+import { User } from '../models/User';
+import { Restaurant } from '../models/Restaurant';
+import { signJwt, verifyJwt } from '../utils/jwt';
+import { sendEmail } from '../services/email';
+import { getGridFsBucket } from '../db/gridfs';
+import crypto from 'crypto';
+import { env } from '../config/env';
 // Configure multer for file uploads
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -216,15 +218,18 @@ authRouter.post('/forgot-password', async (req, res, next) => {
         const user = await User.findOne({ email });
         // Respond 200 always for privacy, but only send email if user exists
         if (user) {
-            // Generate a temporary password and set it
-            const temp = Math.random().toString(36).slice(-10);
-            const passwordHash = await bcrypt.hash(temp, 10);
-            user.passwordHash = passwordHash;
+            // Issue a reset token valid for 1 hour
+            const token = crypto.randomBytes(32).toString('hex');
+            const expires = new Date(Date.now() + 60 * 60 * 1000);
+            user.resetToken = token;
+            user.resetTokenExpiresAt = expires;
             await user.save();
+            const resetBase = env.CORS_ORIGIN || 'http://localhost:5173';
+            const link = `${resetBase.replace(/\/$/, '')}/reset-password?token=${token}`;
             await sendEmail({
                 to: user.email,
-                subject: 'Your temporary password',
-                text: `Hello ${user.name},\n\nYour temporary password is: ${temp}\nPlease log in and change it immediately.`,
+                subject: 'Reset your Tabli password',
+                text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
             });
         }
         res.json({ success: true });
