@@ -12,6 +12,13 @@ export interface DocumentRef {
   isActive: boolean;
 }
 
+export interface MenuItem {
+  name: string;
+  category: string;
+  description?: string;
+  price: string;
+}
+
 export interface RestaurantDocument extends Document {
   name: string;
   city: 'Al Ain' | 'Abu Dhabi' | 'Dubai';
@@ -23,6 +30,7 @@ export interface RestaurantDocument extends Document {
   openingHours?: string;
   closingHours?: string;
   priceRange?: string;
+  menu?: MenuItem[];
   profilePictureId?: mongoose.Types.ObjectId;
   featuredImageFileId?: mongoose.Types.ObjectId;
   mediaRefs?: DocumentRef[]; 
@@ -42,6 +50,14 @@ const restaurantSchema = new Schema<RestaurantDocument>(
     openingHours: String,
     closingHours: String,
     priceRange: String,
+    menu: [
+      {
+        name: { type: String, required: true },
+        category: { type: String, required: true },
+        description: { type: String, required: false },
+        price: { type: String, required: true },
+      },
+    ],
     profilePictureId: { type: Schema.Types.ObjectId, required: false },
     featuredImageFileId: { type: Schema.Types.ObjectId, required: false },
     mediaRefs: [

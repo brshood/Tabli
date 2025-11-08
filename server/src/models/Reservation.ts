@@ -22,7 +22,7 @@ export interface ReservationDocument extends Document {
 
 const reservationSchema = new Schema<ReservationDocument>(
   {
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     name: { type: String },
     mode: { type: String, enum: ['reserve', 'waitlist'], required: true },
     partySize: { type: Number, required: true },
@@ -39,6 +39,13 @@ const reservationSchema = new Schema<ReservationDocument>(
   },
   { timestamps: true }
 );
+
+// Compound indexes for better query performance
+reservationSchema.index({ restaurantId: 1, status: 1 }); // For filtering by restaurant and status
+reservationSchema.index({ tableId: 1 }); // For lookups by table
+reservationSchema.index({ seatedAt: 1 }); // For analytics queries on seated time
+reservationSchema.index({ requestedAt: 1 }); // For analytics queries on request time
+reservationSchema.index({ restaurantId: 1, mode: 1, status: 1 }); // For waitlist queries
 
 export const Reservation: Model<ReservationDocument> =
   mongoose.models.Reservation || mongoose.model<ReservationDocument>('Reservation', reservationSchema);

@@ -3,7 +3,17 @@ import { Reservation } from '../models/Reservation';
 
 export const dashboardRouter = express.Router();
 
-// GET /dashboard/:restaurantId/summary
+/**
+ * GET /dashboard/:restaurantId/summary
+ * Returns summary statistics for the dashboard including waiting customers, seated today, and average wait time.
+ * 
+ * @route GET /dashboard/:restaurantId/summary
+ * @param {string} req.params.restaurantId - Restaurant ID
+ * @returns {Object} Response with summary data:
+ *   - waiting: Number of customers currently waiting (pending or confirmed waitlist)
+ *   - seatedToday: Number of customers seated today
+ *   - avgWaitMinutes: Average wait time in minutes for customers seated today
+ */
 dashboardRouter.get('/:restaurantId/summary', async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;

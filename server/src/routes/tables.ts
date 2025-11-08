@@ -1,6 +1,8 @@
 import express from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { Table } from '../models/Table';
+import { Reservation } from '../models/Reservation';
 
 export const tablesRouter = express.Router();
 
@@ -41,12 +43,112 @@ tablesRouter.post('/tables/:id/seat', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /tables/:id/checkout
+// Checks out a table and updates the linked reservation
+// Calculates and logs dwell time for analytics
 tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
   try {
-    const table = await Table.findByIdAndUpdate(req.params.id, { $set: { status: 'available', currentReservationId: undefined } }, { new: true });
-    if (!table) return res.status(404).json({ error: 'Not found' });
-    res.json({ table });
-  } catch (err) { next(err); }
+    const tableId = req.params.id;
+    
+    // 1. Load and validate table
+    const table = await Table.findById(tableId);
+    if (!table) {
+      return res.status(404).json({ error: 'Table not found' });
+    }
+    
+    if (table.status !== 'occupied') {
+      return res.status(400).json({ 
+        error: 'Table is not currently occupied',
+        currentStatus: table.status 
+      });
+    }
+    
+    if (!table.currentReservationId) {
+      return res.status(500).json({ 
+        error: 'Data inconsistency: Table is occupied but has no linked reservation' 
+      });
+    }
+    
+    // 2. Load linked reservation
+    const reservation = await Reservation.findById(table.currentReservationId);
+    if (!reservation) {
+      // Table is occupied but reservation doesn't exist - fix the inconsistency
+      await Table.findByIdAndUpdate(tableId, {
+        $set: { status: 'available', currentReservationId: null }
+      });
+      return res.status(500).json({ 
+        error: 'Data inconsistency: Linked reservation not found. Table has been freed.' 
+      });
+    }
+    
+    // TypeScript now knows reservation is not null
+    const reservationId = (reservation._id as mongoose.Types.ObjectId).toString();
+    
+    // 3. Calculate metrics for logging
+    const now = new Date();
+    let dwellTimeMinutes = 0;
+    if (reservation.seatedAt) {
+      const dwellMs = now.getTime() - new Date(reservation.seatedAt).getTime();
+      dwellTimeMinutes = Math.round(dwellMs / 60000);
+    }
+    
+    // 4. Atomic update - both table and reservation
+    const [updatedTable, updatedReservation] = await Promise.all([
+      Table.findByIdAndUpdate(
+        tableId,
+        {
+          $set: {
+            status: 'available',
+            currentReservationId: null
+          }
+        },
+        { new: true }
+      ),
+      Reservation.findByIdAndUpdate(
+        table.currentReservationId,
+        {
+          $set: {
+            leftAt: now
+            // Keep status as 'seated' for analytics
+          }
+        },
+        { new: true }
+      )
+    ]);
+    
+    // 5. Verify both updates succeeded
+    if (!updatedTable || !updatedReservation) {
+      return res.status(500).json({ error: 'Failed to checkout table. Please try again.' });
+    }
+    
+    // 6. Log the action for audit trail and monitoring
+    console.log({
+      action: 'CHECKOUT_TABLE',
+      tableId: tableId,
+      tableName: table.name,
+      reservationId: reservationId,
+      customerName: reservation.name,
+      partySize: reservation.partySize,
+      dwellTimeMinutes: dwellTimeMinutes,
+      seatedAt: reservation.seatedAt?.toISOString(),
+      leftAt: now.toISOString(),
+      timestamp: now.toISOString(),
+      restaurantId: table.restaurantId.toString()
+    });
+    
+    // 7. Return success with complete data
+    res.json({
+      success: true,
+      table: updatedTable,
+      reservation: updatedReservation,
+      dwellTimeMinutes: dwellTimeMinutes,
+      message: `${table.name} is now available`
+    });
+    
+  } catch (err) {
+    console.error('Error in checkout:', err);
+    next(err);
+  }
 });
 
 tablesRouter.delete('/tables/:id', async (req, res, next) => {

@@ -19,6 +19,7 @@ import { documentsRouter } from './routes/documents';
 import { maintenanceRouter } from './routes/maintenance';
 import { notificationsRouter } from './routes/notifications';
 import { dashboardRouter } from './routes/dashboard';
+import { menusRouter } from './routes/menus';
 
 // Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -38,6 +39,12 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * Creates and configures the Express application with all middleware and routes.
+ * Sets up security, CORS, compression, rate limiting, and error handling.
+ * 
+ * @returns Configured Express Application instance
+ */
 export function createApp(): Application {
   const app = express();
 
@@ -66,6 +73,7 @@ export function createApp(): Application {
   app.use('/documents', documentsRouter);
   app.use('/maintenance', maintenanceRouter);
   app.use('/notifications', notificationsRouter);
+  app.use('/menus', menusRouter);
   app.use('/', tablesRouter);
 
   // 404 handler
