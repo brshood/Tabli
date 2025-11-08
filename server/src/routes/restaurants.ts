@@ -34,13 +34,42 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const tableCountById = new Map<string, number>();
     tableCounts.forEach((t: any) => tableCountById.set(String(t._id), t.count));
     
-    // Enrich with imageUrl from featuredImageFileId or first active image (synchronous now)
-    const enriched = items.map((r: any) => {
-      let imageFileId = r.featuredImageFileId?.toString();
-      if (!imageFileId && Array.isArray(r.mediaRefs)) {
-        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
-        if (activeImg) imageFileId = activeImg.fileId.toString();
+    // Helper function to get image file ID prioritizing profile pictures
+    const getImageFileId = (r: any): string | null => {
+      // 1. First priority: profilePictureId (dedicated field for profile pictures)
+      if (r.profilePictureId) {
+        return r.profilePictureId.toString();
       }
+      
+      // 2. Second priority: featuredImageFileId (should be set to profile picture on upload)
+      if (r.featuredImageFileId) {
+        return r.featuredImageFileId.toString();
+      }
+      
+      // 3. Third priority: Look for active profile pictures in mediaRefs
+      if (Array.isArray(r.mediaRefs)) {
+        const profilePic = r.mediaRefs.find((m: any) => 
+          m.isActive && 
+          m.type === 'image' && 
+          m.category === 'profile-picture'
+        );
+        if (profilePic) {
+          return profilePic.fileId.toString();
+        }
+        
+        // 4. Last resort: fall back to any active image
+        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
+        if (activeImg) {
+          return activeImg.fileId.toString();
+        }
+      }
+      
+      return null;
+    };
+    
+    // Enrich with imageUrl prioritizing profile pictures
+    const enriched = items.map((r: any) => {
+      const imageFileId = getImageFileId(r);
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
       const s = summaryById.get(String(r._id));
       const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
@@ -56,11 +85,41 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
   try {
     const item = await Restaurant.findById(req.params.id).lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
-    let imageFileId = (item as any).featuredImageFileId?.toString();
-    if (!imageFileId && Array.isArray((item as any).mediaRefs)) {
-      const activeImg = (item as any).mediaRefs.find((m: any) => m.isActive && m.type === 'image');
-      if (activeImg) imageFileId = activeImg.fileId.toString();
-    }
+    
+    // Helper function to get image file ID prioritizing profile pictures
+    const getImageFileId = (r: any): string | null => {
+      // 1. First priority: profilePictureId (dedicated field for profile pictures)
+      if (r.profilePictureId) {
+        return r.profilePictureId.toString();
+      }
+      
+      // 2. Second priority: featuredImageFileId (should be set to profile picture on upload)
+      if (r.featuredImageFileId) {
+        return r.featuredImageFileId.toString();
+      }
+      
+      // 3. Third priority: Look for active profile pictures in mediaRefs
+      if (Array.isArray(r.mediaRefs)) {
+        const profilePic = r.mediaRefs.find((m: any) => 
+          m.isActive && 
+          m.type === 'image' && 
+          m.category === 'profile-picture'
+        );
+        if (profilePic) {
+          return profilePic.fileId.toString();
+        }
+        
+        // 4. Last resort: fall back to any active image
+        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
+        if (activeImg) {
+          return activeImg.fileId.toString();
+        }
+      }
+      
+      return null;
+    };
+    
+    const imageFileId = getImageFileId(item);
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
     
     // Parallelize independent queries for better performance
@@ -196,7 +255,9 @@ restaurantsRouter.post('/:id/profile-picture', requireAuth, requireOwnRestaurant
 
     stream.end(req.file.buffer);
 
-    stream.on('finish', async (file: any) => {
+    stream.on('finish', async () => {
+      const fileId = stream.id as ObjectId;
+      
       if (restaurant.profilePictureId) {
         try {
           await bucket.delete(new ObjectId(restaurant.profilePictureId as any));
@@ -205,14 +266,14 @@ restaurantsRouter.post('/:id/profile-picture', requireAuth, requireOwnRestaurant
         }
       }
 
-      restaurant.profilePictureId = file._id as any;
-      restaurant.featuredImageFileId = file._id as any;
+      restaurant.profilePictureId = fileId as any;
+      restaurant.featuredImageFileId = fileId as any;
 
       restaurant.mediaRefs!.push({
-        fileId: file._id as ObjectId,
+        fileId: fileId,
         type: 'image' as any,
-        filename: file.filename,
-        contentType: file.contentType || req.file!.mimetype,
+        filename: stream.filename || req.file!.originalname,
+        contentType: req.file!.mimetype,
         category: 'profile-picture' as any,
         version: nextVersion,
         uploadedAt: new Date(),
@@ -224,7 +285,7 @@ restaurantsRouter.post('/:id/profile-picture', requireAuth, requireOwnRestaurant
       res.json({
         success: true,
         message: 'Profile picture uploaded successfully',
-        profilePictureId: file._id.toString(),
+        profilePictureId: fileId.toString(),
       });
     });
 
