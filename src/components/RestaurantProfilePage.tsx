@@ -7,6 +7,7 @@ import { MenuModal } from './MenuModal';
 import { PostBookingSurveyModal } from './PostBookingSurveyModal';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
+import { toast } from 'sonner@2.0.3';
 import { 
   Star, 
   MapPin, 
@@ -334,14 +335,37 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                             phone: ratingPhone,
                           })
                         });
-                        if (!res.ok) throw new Error('failed');
+                        
+                        if (!res.ok) {
+                          // Try to parse error message from response
+                          let errorMessage = 'Failed to submit review. Please try again.';
+                          try {
+                            const errorData = await res.json();
+                            if (errorData.error) {
+                              errorMessage = errorData.error;
+                            }
+                          } catch {
+                            // If parsing fails, use default message
+                          }
+                          
+                          if (res.status === 403) {
+                            toast.error('We only accept reviews from previous visitors. Please use the email or phone number you used when making your reservation.');
+                          } else if (res.status === 400) {
+                            toast.error(errorMessage || 'Please provide a valid email address or phone number.');
+                          } else {
+                            toast.error(errorMessage);
+                          }
+                          return;
+                        }
+                        
+                        toast.success('Thank you for your review!');
                         setRatingValue(0);
                         setRatingComment('');
                         setRatingName('');
                         setRatingEmail('');
                         setRatingPhone('');
-                      } catch {
-                        // ignore failures silently for now
+                      } catch (error) {
+                        toast.error('Failed to submit review. Please try again.');
                       } finally {
                         setRatingSubmitting(false);
                       }
