@@ -350,6 +350,24 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
       table: updatedTable,
       message: `Assigned to ${selectedTable.name}`
     });
+
+    // 7. Notify guest if applicable (queue to table promotion)
+    const needsNotification = (reservation.contactMethod === 'phone' && reservation.phone) ||
+      (reservation.contactMethod === 'email' && reservation.email);
+    if (needsNotification) {
+      try {
+        const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
+        const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
+
+        if (reservation.contactMethod === 'phone' && reservation.phone) {
+          await sendSMS({ to: reservation.phone, message: notificationMessage });
+        } else if (reservation.contactMethod === 'email' && reservation.email) {
+          await sendEmail({ to: reservation.email, subject: 'Your table is ready', text: notificationMessage });
+        }
+      } catch (notificationError) {
+        console.error('Failed to send queue promotion notification:', notificationError);
+      }
+    }
     
   } catch (err) {
     console.error('Error in assign-table:', err);

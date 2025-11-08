@@ -3,6 +3,9 @@ import { z } from 'zod';
 import mongoose from 'mongoose';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
+import { Restaurant } from '../models/Restaurant';
+import { sendSMS } from '../services/sms';
+import { env } from '../config/env';
 
 export const tablesRouter = express.Router();
 
@@ -136,7 +139,20 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       restaurantId: table.restaurantId.toString()
     });
     
-    // 7. Return success with complete data
+    // 7. Send thank-you SMS with rating link if applicable
+    if (reservation.contactMethod === 'phone' && reservation.phone) {
+      try {
+        const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+        const ratingLink = `${base}/restaurant/${reservation.restaurantId.toString()}?qr=true`;
+        const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
+        await sendSMS({ to: reservation.phone, message: thankYouMessage });
+      } catch (notificationError) {
+        console.error('Failed to send thank-you SMS:', notificationError);
+      }
+    }
+
+    // 8. Return success with complete data
     res.json({
       success: true,
       table: updatedTable,
