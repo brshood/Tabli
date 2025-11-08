@@ -308,65 +308,67 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                 <input
                   value={ratingComment}
                   onChange={(e) => setRatingComment(e.target.value)}
                   placeholder="Optional comment"
-                  className="flex-1 border rounded px-3 py-2 bg-input-background"
+                  className="w-full sm:flex-1 border rounded px-3 py-2 bg-input-background"
                   style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
                 />
-                <Button
-                  disabled={!ratingValue || ratingSubmitting}
-                  onClick={async () => {
-                    try {
-                      setRatingSubmitting(true);
-                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                          value: ratingValue, 
-                          comment: ratingComment || undefined,
-                          name: ratingName,
-                          email: ratingEmail,
-                          phone: ratingPhone,
-                        })
-                      });
-                      if (!res.ok) throw new Error('failed');
-                      setRatingValue(0);
-                      setRatingComment('');
-                      setRatingName('');
-                      setRatingEmail('');
-                      setRatingPhone('');
-                    } catch {
-                      // ignore failures silently for now
-                    } finally {
-                      setRatingSubmitting(false);
-                    }
-                  }}
-                  className="pill-button"
-                >
-                  Submit
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-                      const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
-                      if (res.ok) {
-                        const data = await res.json();
-                        setComments(data.items || []);
-                        setShowComments(true);
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <Button
+                    disabled={!ratingValue || ratingSubmitting}
+                    onClick={async () => {
+                      try {
+                        setRatingSubmitting(true);
+                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                        const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ 
+                            value: ratingValue, 
+                            comment: ratingComment || undefined,
+                            name: ratingName,
+                            email: ratingEmail,
+                            phone: ratingPhone,
+                          })
+                        });
+                        if (!res.ok) throw new Error('failed');
+                        setRatingValue(0);
+                        setRatingComment('');
+                        setRatingName('');
+                        setRatingEmail('');
+                        setRatingPhone('');
+                      } catch {
+                        // ignore failures silently for now
+                      } finally {
+                        setRatingSubmitting(false);
                       }
-                    } catch {}
-                  }}
-                  className="pill-button"
-                  style={{borderColor: '#6B7280', color: '#4B5563'}}
-                >
-                  View Comments
-                </Button>
+                    }}
+                    className="pill-button w-full sm:w-auto"
+                  >
+                    Submit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+                        const res = await fetch(`${apiBase}/restaurants/${restaurant.id}/ratings`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          setComments(data.items || []);
+                          setShowComments(true);
+                        }
+                      } catch {}
+                    }}
+                    className="pill-button w-full sm:w-auto"
+                    style={{borderColor: '#6B7280', color: '#4B5563'}}
+                  >
+                    View Comments
+                  </Button>
+                </div>
               </div>
             </div>
 
