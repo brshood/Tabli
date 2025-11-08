@@ -29,6 +29,7 @@
     "mongoose": "^8.8.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^7.0.10",
+    "follow-redirects": "^1.15.6",
     "pdfkit": "^0.15.0",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
