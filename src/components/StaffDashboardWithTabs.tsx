@@ -30,39 +30,14 @@ interface StaffDashboardProps {
   onUserUpdate: (user: any) => void;
 }
 
-const mockWaitlist = [
-  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 600000 },
-  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1200000 },
-  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 1800000 },
-  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 2400000 },
-  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM", contactMethod: 'phone' as const, holdTimeExpires: Date.now() + 3000000 }
-];
-
-const mockSeatedTables = [
-  { id: 1, table: "Table 5", guests: "John & Maria Martinez", partySize: 2, seatedTime: "7:15 PM", duration: "45 min", capacity: 4 },
-  { id: 2, table: "Table 12", guests: "The Wilson Family", partySize: 4, seatedTime: "6:30 PM", duration: "1h 30m", capacity: 6 },
-  { id: 3, table: "Table 8", guests: "Alex Thompson", partySize: 1, seatedTime: "7:45 PM", duration: "15 min", capacity: 2 },
-  { id: 4, table: "Table 3", guests: "Jennifer & Tom Davis", partySize: 2, seatedTime: "7:00 PM", duration: "1h", capacity: 4 },
-  { id: 5, table: "Table 15", guests: "Corporate Party", partySize: 8, seatedTime: "6:00 PM", duration: "2h", capacity: 10 }
-];
-
-// Mock available tables (not currently seated)
-const mockAvailableTables = [
-  { id: 6, tableName: "Table 1", capacity: 4, isOccupied: false },
-  { id: 7, tableName: "Table 2", capacity: 2, isOccupied: false },
-  { id: 8, tableName: "Corner Booth", capacity: 6, isOccupied: false },
-  { id: 9, tableName: "Patio A", capacity: 4, isOccupied: false },
-  { id: 10, tableName: "Bar Counter", capacity: 8, isOccupied: false }
-];
-
 // Analytics state (live)
 type Overview = { total: number; confirmed: number; seated: number; cancelled: number };
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-  const [waitlist, setWaitlist] = useState(mockWaitlist);
-  const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
-  const [availableTables, setAvailableTables] = useState(mockAvailableTables);
+  const [waitlist, setWaitlist] = useState<any[]>([]);
+  const [seatedTables, setSeatedTables] = useState<any[]>([]);
+  const [availableTables, setAvailableTables] = useState<any[]>([]);
   const [tablesCount, setTablesCount] = useState<number>(0); // Initialize to 0, will be set from DB
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tableManagementModalOpen, setTableManagementModalOpen] = useState(false);

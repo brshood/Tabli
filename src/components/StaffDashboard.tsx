@@ -8,25 +8,9 @@ interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'search' | 'staff' | 'analytics') => void;
 }
 
-const mockWaitlist = [
-  { id: 1, name: "Sarah Johnson", partySize: 4, waitTime: "15 min", phone: "(555) 123-4567", joined: "7:30 PM" },
-  { id: 2, name: "Mike Chen", partySize: 2, waitTime: "25 min", phone: "(555) 234-5678", joined: "7:45 PM" },
-  { id: 3, name: "Emily Rodriguez", partySize: 6, waitTime: "35 min", phone: "(555) 345-6789", joined: "8:00 PM" },
-  { id: 4, name: "David Kim", partySize: 3, waitTime: "40 min", phone: "(555) 456-7890", joined: "8:15 PM" },
-  { id: 5, name: "Lisa Park", partySize: 2, waitTime: "45 min", phone: "(555) 567-8901", joined: "8:30 PM" }
-];
-
-const mockSeatedTables = [
-  { id: 1, table: "Table 5", guests: "John & Maria Martinez", partySize: 2, seatedTime: "7:15 PM", duration: "45 min" },
-  { id: 2, table: "Table 12", guests: "The Wilson Family", partySize: 4, seatedTime: "6:30 PM", duration: "1h 30m" },
-  { id: 3, table: "Table 8", guests: "Alex Thompson", partySize: 1, seatedTime: "7:45 PM", duration: "15 min" },
-  { id: 4, table: "Table 3", guests: "Jennifer & Tom Davis", partySize: 2, seatedTime: "7:00 PM", duration: "1h" },
-  { id: 5, table: "Table 15", guests: "Corporate Party", partySize: 8, seatedTime: "6:00 PM", duration: "2h" }
-];
-
 export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
-  const [waitlist, setWaitlist] = useState(mockWaitlist);
-  const [seatedTables, setSeatedTables] = useState(mockSeatedTables);
+  const [waitlist, setWaitlist] = useState<any[]>([]);
+  const [seatedTables, setSeatedTables] = useState<any[]>([]);
 
   const removeFromWaitlist = (id: number) => {
     setWaitlist(prev => prev.filter(item => item.id !== id));
