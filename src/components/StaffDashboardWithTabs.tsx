@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, BarChart3, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -734,6 +734,57 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
+            {/* Quick Actions */}
+            <Card className="card-shadow border-0 rounded-3xl">
+              <CardHeader>
+                <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="flex flex-wrap gap-4">
+                  <Button 
+                    className="pill-button text-white"
+                    onClick={callNext}
+                    style={{backgroundColor: '#3F4427'}}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Call Next in Waitlist
+                  </Button>
+                  <Button 
+                    className="pill-button text-white" 
+                    style={{backgroundColor: '#B889A6'}}
+                    onClick={() => setDailySummaryDialogOpen(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Daily Summary
+                  </Button>
+                  <Button 
+                    className="pill-button text-white"
+                    onClick={() => setMenuManagementModalOpen(true)}
+                    style={{backgroundColor: '#5A5E3E'}}
+                  >
+                    <Menu className="h-4 w-4 mr-2" />
+                    Edit Menu Items
+                  </Button>
+                    <Button 
+                      className="pill-button text-white"
+                      style={{backgroundColor: '#B7410E'}}
+                      onClick={async () => {
+                        try {
+                          if (!staffAuth.restaurantId) return;
+                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
+                          // Refresh KPIs next tick
+                          alert('Queue cleared for this restaurant.');
+                        } catch {
+                          alert('Failed to clear queue.');
+                        }
+                      }}
+                    >
+                      Clear Queue
+                    </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* KPI Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="relative">
@@ -1028,69 +1079,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 </CardContent>
               </Card>
             </div>
-
-            {/* Quick Actions */}
-            <Card className="card-shadow border-0 rounded-3xl">
-              <CardHeader>
-                <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <div className="flex flex-wrap gap-4">
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={callNext}
-                    style={{backgroundColor: '#3F4427'}}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Call Next in Waitlist
-                  </Button>
-                  <Button className="pill-button text-white" style={{backgroundColor: '#B6683B'}}>
-                    <Table className="h-4 w-4 mr-2" />
-                    View Table Layout
-                  </Button>
-                  <Button 
-                    className="pill-button text-white" 
-                    style={{backgroundColor: '#B889A6'}}
-                    onClick={() => setDailySummaryDialogOpen(true)}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Daily Summary
-                  </Button>
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={() => setActiveTab('analytics')}
-                    style={{backgroundColor: '#F3C084'}}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    View Analytics
-                  </Button>
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={() => setMenuManagementModalOpen(true)}
-                    style={{backgroundColor: '#5A5E3E'}}
-                  >
-                    <Menu className="h-4 w-4 mr-2" />
-                    Edit Menu Items
-                  </Button>
-                    <Button 
-                      className="pill-button text-white"
-                      style={{backgroundColor: '#B7410E'}}
-                      onClick={async () => {
-                        try {
-                          if (!staffAuth.restaurantId) return;
-                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
-                          // Refresh KPIs next tick
-                          alert('Queue cleared for this restaurant.');
-                        } catch {
-                          alert('Failed to clear queue.');
-                        }
-                      }}
-                    >
-                      Clear Queue
-                    </Button>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-8">
@@ -1381,7 +1369,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </Card>
 
             {/* Summary Cards */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Peak Hour</h3>
@@ -1428,26 +1416,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   })() : (
                     <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
                   )}
-                </CardContent>
-              </Card>
-
-              <Card className="card-shadow border-0 rounded-2xl" style={{background: 'linear-gradient(135deg, #FAF8F2 0%, #E7D7C5 100%)'}}>
-                <CardContent className="p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Efficiency Score</h3>
-                  {(() => {
-                    // Calculate efficiency score based on:
-                    // 1. Wait time (lower is better, max 60 min = 0% wait penalty, 0 min = 100% wait score)
-                    // 2. Table utilization (seatedToday / tablesCount, higher is better)
-                    const waitTimeScore = Math.max(0, Math.min(100, (60 - Math.min(avgWaitMinutes, 60)) / 60 * 100));
-                    const utilizationScore = tablesCount > 0 ? Math.min(100, (seatedToday / tablesCount) * 100) : 0;
-                    const efficiency = Math.round(waitTimeScore * 0.4 + utilizationScore * 0.6);
-                    return (
-                      <>
-                        <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{efficiency}%</p>
-                        <p className="text-sm" style={{color: '#2D2D2B'}}>Based on wait time and utilization</p>
-                      </>
-                    );
-                  })()}
                 </CardContent>
               </Card>
             </div>
