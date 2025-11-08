@@ -297,8 +297,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       const resData = await resRes.json();
       const items: any[] = resData.items || [];
       
-      console.log('Raw reservation data from API:', JSON.stringify(items.filter(r => r.status === 'seated'), null, 2));
-      
       // Detect and auto-fix corrupted seated reservations (seated but no tableId)
       const corruptedSeated = items.filter(r => r.status === 'seated' && !r.leftAt && !r.tableId);
       if (corruptedSeated.length > 0) {
@@ -335,7 +333,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       if (tablesRes.ok) {
         const tablesData = await tablesRes.json();
         const tables: any[] = tablesData.items || [];
-        console.log('Tables from API:', JSON.stringify(tables, null, 2));
         tables.forEach((t: any) => {
           tableMap.set(t._id, t.name);
         });
@@ -367,14 +364,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             ? tableMap.get(r.tableId)! 
             : 'Table';
           
-          console.log('Processing seated reservation:', {
-            _id: r._id,
-            tableId: r.tableId,
-            tableName: tableName,
-            name: r.name,
-            status: r.status
-          });
-          
           return {
             id: idx + 1,
             reservationId: r._id,
@@ -387,7 +376,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             duration: '—',
           };
         });
-      console.log('Seated tables array:', seated);
       setSeatedTables(seated);
     } catch (error) {
       console.error('Failed to reload reservations:', error);
@@ -402,15 +390,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       if (!res.ok) return;
       const data = await res.json();
       const items: any[] = data.items || [];
-      
-      // Count tables by status for debugging
-      const statusCounts = {
-        available: items.filter(t => t.status === 'available').length,
-        occupied: items.filter(t => t.status === 'occupied').length,
-        cleaning: items.filter(t => t.status === 'cleaning').length,
-        total: items.length
-      };
-      console.log('Tables by status:', statusCounts);
       
       setTablesCount(items.length); // Total count of ALL tables
       
