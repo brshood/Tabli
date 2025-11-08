@@ -80,6 +80,9 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       });
     }
     
+    // TypeScript now knows reservation is not null
+    const reservationId = reservation._id.toString();
+    
     // 3. Calculate metrics for logging
     const now = new Date();
     let dwellTimeMinutes = 0;
@@ -122,7 +125,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       action: 'CHECKOUT_TABLE',
       tableId: tableId,
       tableName: table.name,
-      reservationId: reservation._id.toString(),
+      reservationId: reservationId,
       customerName: reservation.name,
       partySize: reservation.partySize,
       dwellTimeMinutes: dwellTimeMinutes,
