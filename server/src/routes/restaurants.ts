@@ -17,8 +17,14 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const items = await Restaurant.find().lean();
     const ids = items.map((r: any) => r._id);
     
+    // Calculate date range for last 7 days
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    
     // Batch all queries in parallel for better performance
-    const [summaries, tableCounts] = await Promise.all([
+    const [summaries, tableCounts, waitTimeStats] = await Promise.all([
       Rating.aggregate([
         { $match: { restaurantId: { $in: ids } } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
@@ -26,6 +32,33 @@ restaurantsRouter.get('/', async (_req, res, next) => {
       Table.aggregate([
         { $match: { restaurantId: { $in: ids }, status: 'available' } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
+      ]),
+      // Calculate average wait time for each restaurant from last 7 days
+      Reservation.aggregate([
+        {
+          $match: {
+            restaurantId: { $in: ids },
+            status: 'seated',
+            seatedAt: { $exists: true, $gte: sevenDaysAgo, $lte: now },
+            requestedAt: { $exists: true }
+          }
+        },
+        {
+          $addFields: {
+            waitMinutes: {
+              $divide: [
+                { $subtract: ['$seatedAt', '$requestedAt'] },
+                60000 // Convert milliseconds to minutes
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$restaurantId',
+            avgWaitTime: { $avg: '$waitMinutes' }
+          }
+        }
       ])
     ]);
     
@@ -34,6 +67,11 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     
     const tableCountById = new Map<string, number>();
     tableCounts.forEach((t: any) => tableCountById.set(String(t._id), t.count));
+    
+    const waitTimeById = new Map<string, number>();
+    waitTimeStats.forEach((w: any) => {
+      waitTimeById.set(String(w._id), Math.round(w.avgWaitTime));
+    });
     
     // Helper function to get image file ID prioritizing profile pictures
     const getImageFileId = (r: any): string | null => {
@@ -75,7 +113,8 @@ restaurantsRouter.get('/', async (_req, res, next) => {
       const s = summaryById.get(String(r._id));
       const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
       const availableTables = tableCountById.get(String(r._id)) || 0;
-      return { ...r, imageUrl, ratingSummary, availableTables };
+      const avgWaitTime = waitTimeById.get(String(r._id)) || null;
+      return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime };
     });
     
     res.json({ items: enriched });

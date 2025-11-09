@@ -30,6 +30,7 @@ export const PASSWORD_REQUIREMENTS = {
 };
 // Strong password: 8+ chars, 1 uppercase, 1 number, 1 special char
 const passwordSchema = z.string()
+    .trim() // Trim whitespace to ensure consistency between FormData and JSON
     .min(PASSWORD_REQUIREMENTS.minLength, `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`)
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number')
@@ -154,7 +155,7 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
 });
 const loginSchema = z.object({
     email: z.string().email().trim().toLowerCase(),
-    password: z.string().min(6),
+    password: z.string().trim().min(6), // Trim whitespace to match signup behavior
 });
 authRouter.post('/login', async (req, res, next) => {
     try {

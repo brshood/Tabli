@@ -327,14 +327,14 @@ async function calculatePeakCapacity(
 
 /**
  * GET /analytics/peak-hours
- * Returns customer count per hour, focusing on seated customers for accurate traffic patterns.
+ * Returns customer count per hour, reflecting the number of customers present at each hour.
  * 
  * @route GET /analytics/peak-hours
  * @param {string} req.query.restaurantId - Required restaurant ID
  * @param {string} req.query.range - Time range: 'day', 'week', or 'month' (default: 'day')
  * @returns {Object} Response with items array containing hourly data:
  *   - _id: Hour of day (0-23)
- *   - count: Number of customers seated during that hour
+ *   - count: Number of customers present during that hour
  */
 analyticsRouter.get('/peak-hours', async (req, res, next) => {
   try {
@@ -354,11 +354,12 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
       start.setHours(0, 0, 0, 0);
     }
 
-    // Aggregate by hour, counting seated customers (more accurate than request time)
-    // For 'day' range, only count today's seated customers
+    // Fetch all reservations that were seated within the date range
+    // We need seatedAt and leftAt to calculate presence at each hour
     const matchCondition: any = {
       restaurantId: restaurantId as any,
-      status: 'seated'
+      status: 'seated',
+      seatedAt: { $exists: true }
     };
     
     if (range === 'day') {
@@ -370,29 +371,38 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
       matchCondition.seatedAt = { $gte: start, $lte: now };
     }
     
-    const hourlyData = await Reservation.aggregate([
-      { $match: matchCondition },
-      { 
-        $project: { 
-          hour: { $hour: '$seatedAt' } 
-        } 
-      },
-      { 
-        $group: { 
-          _id: '$hour', 
-          count: { $sum: 1 } 
-        } 
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    // Fetch reservations with seatedAt and leftAt fields
+    const reservations = await Reservation.find(matchCondition)
+      .select({ seatedAt: 1, leftAt: 1 })
+      .lean();
     
-    // Create a map of hour -> count
+    // Initialize hour map with zeros for all 24 hours
     const hourMap = new Map<number, number>();
-    hourlyData.forEach((item: any) => {
-      hourMap.set(item._id, item.count);
+    for (let hour = 0; hour < 24; hour++) {
+      hourMap.set(hour, 0);
+    }
+    
+    // For each reservation, count it in all hours where it was present
+    reservations.forEach((reservation: any) => {
+      const seatedAt = new Date(reservation.seatedAt);
+      const seatedHour = seatedAt.getHours();
+      const leftAt = reservation.leftAt ? new Date(reservation.leftAt) : null;
+      const leftHour = leftAt ? leftAt.getHours() : null;
+      const currentHour = now.getHours();
+    
+      // Determine the end hour: if not left yet, use current hour; otherwise use left hour
+      const endHour = leftHour !== null ? leftHour : currentHour;
+      
+      // Count this reservation in all hours from seatedHour through endHour
+      // Note: A customer seated at hour H and leaving at hour H is still present during hour H
+      for (let hour = seatedHour; hour <= endHour; hour++) {
+        if (hour >= 0 && hour < 24) {
+          hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+        }
+      }
     });
     
-    // Fill in missing hours with 0 for complete 24-hour view
+    // Convert map to array format expected by frontend
     const items = [];
     for (let hour = 0; hour < 24; hour++) {
       items.push({
@@ -506,83 +516,71 @@ analyticsRouter.get('/daily', async (req, res, next) => {
     else start.setDate(now.getDate() - 7);
     start.setHours(0, 0, 0, 0); // Start of day
 
-    // Get seated reservations grouped by seatedAt date
-    const seatedPipeline: any[] = [
-      { 
-        $match: { 
+    // Get all seated reservations and categorize them as reservations or walk-ins
+    // Walk-ins are identified by phone === '0000000000'
+    // Use find() like peak-hours endpoint for consistency and reliability
+    const matchCondition: any = {
           restaurantId: restaurantId as any,
           status: 'seated',
-          seatedAt: { $gte: start, $lte: now }
-        } 
-      },
-      { 
-        $addFields: { 
-          day: { $dateToString: { format: '%Y-%m-%d', date: '$seatedAt' } } 
-        } 
-      },
-      { 
-        $group: {
-          _id: '$day',
-          seated: { $sum: 1 }
-        } 
+      seatedAt: { $exists: true, $gte: start, $lte: now }
+    };
+
+    const reservations = await Reservation.find(matchCondition)
+      .select({ seatedAt: 1, phone: 1 })
+      .lean();
+
+    // Create maps for easy lookup - group by day
+    const reservationsMap = new Map<string, number>();
+    const walkInsMap = new Map<string, number>();
+    
+    reservations.forEach((reservation: any) => {
+      if (!reservation.seatedAt) return;
+      
+      const seatedDate = new Date(reservation.seatedAt);
+      // Format as YYYY-MM-DD using UTC to match date string format
+      const year = seatedDate.getUTCFullYear();
+      const month = String(seatedDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(seatedDate.getUTCDate()).padStart(2, '0');
+      const dayStr = `${year}-${month}-${day}`;
+      
+      // Walk-ins are identified by phone === '0000000000'
+      // Everything else (including undefined/null phone) counts as a reservation
+      const isWalkIn = reservation.phone === '0000000000';
+      
+      if (isWalkIn) {
+        walkInsMap.set(dayStr, (walkInsMap.get(dayStr) || 0) + 1);
+      } else {
+        // Count as reservation if phone is not the walk-in placeholder
+        // This includes: real phone numbers, email-only reservations (phone undefined), etc.
+        reservationsMap.set(dayStr, (reservationsMap.get(dayStr) || 0) + 1);
       }
-    ];
-
-    // Get waitlist requests grouped by requestedAt date
-    const waitingPipeline: any[] = [
-      { 
-        $match: { 
-          restaurantId: restaurantId as any,
-          mode: 'waitlist',
-          requestedAt: { $gte: start, $lte: now }
-        } 
-      },
-      { 
-        $addFields: { 
-          day: { $dateToString: { format: '%Y-%m-%d', date: '$requestedAt' } } 
-        } 
-      },
-      { 
-        $group: {
-          _id: '$day',
-          waiting: { $sum: 1 }
-        } 
-      }
-    ];
-
-    const [seatedData, waitingData] = await Promise.all([
-      Reservation.aggregate(seatedPipeline),
-      Reservation.aggregate(waitingPipeline)
-    ]);
-
-    // Create maps for easy lookup
-    const seatedMap = new Map<string, number>();
-    seatedData.forEach((item: any) => {
-      seatedMap.set(item._id, item.seated);
     });
 
-    const waitingMap = new Map<string, number>();
-    waitingData.forEach((item: any) => {
-      waitingMap.set(item._id, item.waiting);
-    });
-
-    // Generate all days in range (use local date to avoid timezone issues)
+    // Generate all days in range (use UTC to match MongoDB's $dateToString behavior)
     const items: any[] = [];
     const currentDate = new Date(start);
-    while (currentDate <= now) {
-      // Format as YYYY-MM-DD using local date components
-      const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const day = String(currentDate.getDate()).padStart(2, '0');
+    // Set to UTC to match MongoDB's date string formatting
+    const utcStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    const utcNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59));
+    let currentUtcDate = new Date(utcStart);
+    
+    while (currentUtcDate <= utcNow) {
+      // Format as YYYY-MM-DD using UTC date components to match MongoDB
+      const year = currentUtcDate.getUTCFullYear();
+      const month = String(currentUtcDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(currentUtcDate.getUTCDate()).padStart(2, '0');
       const dayStr = `${year}-${month}-${day}`;
+      
+      const reservations = reservationsMap.get(dayStr) || 0;
+      const walkIns = walkInsMap.get(dayStr) || 0;
       
       items.push({
         day: dayStr,
-        seated: seatedMap.get(dayStr) || 0,
-        waiting: waitingMap.get(dayStr) || 0,
-        total: (seatedMap.get(dayStr) || 0) + (waitingMap.get(dayStr) || 0)
+        reservations: reservations,
+        walkIns: walkIns,
+        total: reservations + walkIns
       });
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentUtcDate.setUTCDate(currentUtcDate.getUTCDate() + 1);
     }
 
     res.json({ items });

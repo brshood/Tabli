@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -54,7 +54,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
   const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
   const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
-  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number; waiting: number; cancelled: number; noShow: number }[]>([]);
+  const [dailyData, setDailyData] = useState<{ day: string; total: number; reservations: number; walkIns: number; cancelled?: number; noShow?: number }[]>([]);
   const [kpiData, setKpiData] = useState<any>(null);
   const [capacityData, setCapacityData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(true);
@@ -62,6 +62,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [dailySummaryDialogOpen, setDailySummaryDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [guestSelectionModalOpen, setGuestSelectionModalOpen] = useState(false);
+  const [phoneDisplayModalOpen, setPhoneDisplayModalOpen] = useState(false);
+  const [selectedGuestForCall, setSelectedGuestForCall] = useState<{ name: string; phone: string; reservationId: string } | null>(null);
+  const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
+  const [tableSeatingDialogOpen, setTableSeatingDialogOpen] = useState(false);
+  const [tableCustomerSelectionOpen, setTableCustomerSelectionOpen] = useState(false);
+  const [tableEditDialogOpen, setTableEditDialogOpen] = useState(false);
+  const [selectedTableForEdit, setSelectedTableForEdit] = useState<{ id: string; name: string; capacity: number } | null>(null);
+  const [tableEditName, setTableEditName] = useState('');
+  const [tableEditCapacity, setTableEditCapacity] = useState(4);
+  const [customerSearchFilter, setCustomerSearchFilter] = useState('');
 
   useEffect(() => {
     let timer: any;
@@ -288,8 +299,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       if (!staffAuth?.restaurantId) return;
       
       // Fetch both reservations and tables to properly map table names
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
       const [resRes, tablesRes] = await Promise.all([
-        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId }).toString()}`),
+        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId, _t: timestamp.toString() }).toString()}`),
         fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`)
       ]);
       
@@ -349,8 +362,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           partySize: r.partySize || 2,
           waitTime: '—',
           phone: r.phone || '',
+          email: r.email || '',
           joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           contactMethod: (r.contactMethod || 'phone') as any,
+          gender: r.gender,
+          seatingPreference: r.seatingPreference,
+          calledAt: r.calledAt ? new Date(r.calledAt) : null,
+          reservationType: r.reservationType,
           holdTimeExpires: Date.now() + 10 * 60000,
         }));
       setWaitlist(wl);
@@ -497,14 +515,203 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const callNext = () => {
-    if (waitlist.length > 0) {
-      const nextCustomer = waitlist[0];
-      toast.success(`Calling ${nextCustomer.name} - Party of ${nextCustomer.partySize}`);
-    } else {
+  const openGuestSelectionModal = () => {
+    if (waitlist.length === 0) {
       toast.info('No customers in waitlist');
+      return;
+    }
+    setGuestSelectionModalOpen(true);
+  };
+
+  const handleInviteGuest = async (customer: any) => {
+    try {
+      const reservationId = customer.reservationId;
+      if (!reservationId) {
+        toast.error('Invalid reservation data');
+        return;
+      }
+
+      // Get restaurant name for email
+      const restaurantRes = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}`);
+      const restaurantData = await restaurantRes.json();
+      const restaurantName = restaurantData.item?.name || 'the restaurant';
+
+      if (customer.contactMethod === 'email' && customer.email) {
+        // Send email notification
+        const emailResponse = await fetch(`${API_URL}/reservations/${reservationId}/notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `Your table at ${restaurantName} is ready! Please come to the host stand.`,
+            subject: 'Your table is ready'
+          })
+        });
+
+        if (emailResponse.ok) {
+          toast.success(`Email sent to ${customer.name}`);
+          setGuestSelectionModalOpen(false);
+        } else {
+          const errorData = await emailResponse.json();
+          throw new Error(errorData.error || 'Failed to send email');
+        }
+      } else if (customer.contactMethod === 'phone' && customer.phone) {
+        // Display phone number for staff to call
+        setSelectedGuestForCall({
+          name: customer.name,
+          phone: customer.phone,
+          reservationId: reservationId
+        });
+        setPhoneDisplayModalOpen(true);
+        setGuestSelectionModalOpen(false);
+      } else {
+        toast.error('No contact information available for this guest');
+      }
+    } catch (error: any) {
+      console.error('Error inviting guest:', error);
+      toast.error(error.message || 'Failed to invite guest');
     }
   };
+
+  const markAsCalled = async () => {
+    if (!selectedGuestForCall) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/reservations/${selectedGuestForCall.reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calledAt: new Date().toISOString() })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to mark as called');
+      }
+      
+      toast.success(`Marked ${selectedGuestForCall.name} as called`);
+      setPhoneDisplayModalOpen(false);
+      setSelectedGuestForCall(null);
+      
+      // Refresh data to show updated status
+      await loadReservationsFromDB();
+    } catch (error: any) {
+      console.error('Error marking as called:', error);
+      toast.error(error.message || 'Failed to mark as called');
+    }
+  };
+
+  const toggleCalledStatus = async (reservationId: string, currentlyCalled: boolean) => {
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calledAt: currentlyCalled ? null : new Date().toISOString() })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update called status');
+      }
+      
+      toast.success(currentlyCalled ? 'Unmarked as called' : 'Marked as called');
+      
+      // Refresh data to show updated status
+      await loadReservationsFromDB();
+    } catch (error: any) {
+      console.error('Error toggling called status:', error);
+      toast.error(error.message || 'Failed to update called status');
+    }
+  };
+
+  const handleClearQueue = async () => {
+    try {
+      if (!staffAuth.restaurantId) {
+        toast.error('Restaurant ID not found');
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { 
+        method: 'POST' 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to clear queue');
+      }
+      
+      const data = await response.json();
+      const clearedCount = data.count || 0;
+      
+      // Wait a moment for the database update to complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Refresh all data - force a fresh fetch
+      await loadReservationsFromDB();
+      
+      toast.success(`Queue cleared successfully. ${clearedCount} ${clearedCount === 1 ? 'reservation' : 'reservations'} cancelled.`);
+      setClearQueueDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error clearing queue:', error);
+      toast.error(error.message || 'Failed to clear queue');
+    }
+  };
+
+  const handleAutoAssignTable = async () => {
+    try {
+      if (!staffAuth.restaurantId) {
+        toast.error('Restaurant ID not found');
+        return;
+      }
+
+      // Find first customer in waitlist who fits any available table
+      const fittingCustomer = waitlist.find(customer => {
+        return availableTables.some(table => customer.partySize <= table.capacity);
+      });
+
+      if (!fittingCustomer) {
+        toast.info('No customers in waitlist can fit any available table');
+        return;
+      }
+
+      // Find best fitting table (smallest table that fits)
+      const fittingTable = availableTables
+        .filter(table => fittingCustomer.partySize <= table.capacity)
+        .sort((a, b) => a.capacity - b.capacity)[0];
+
+      if (!fittingTable) {
+        toast.error('No suitable table found');
+        return;
+      }
+
+      // Call assign-table endpoint with specific table
+      const response = await fetch(`${API_URL}/reservations/${fittingCustomer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: fittingTable.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${fittingCustomer.name} seated at ${data.table.name}`);
+
+      // Refresh data
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error auto-assigning table:', error);
+      toast.error(error.message || 'Failed to auto-assign table');
+    }
+  };
+
+  // Check if auto-assign is possible
+  const canAutoAssign = waitlist.some(customer => 
+    availableTables.some(table => customer.partySize <= table.capacity)
+  );
 
   const addTable = async (tableName: string, capacity: number) => {
     try {
@@ -556,6 +763,121 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
+  const openTableSeatingDialog = (tableId: number) => {
+    const table = availableTables.find(t => t.id === tableId);
+    if (table) {
+      setSelectedTableForSeating({ id: tableId, tableName: table.tableName, capacity: table.capacity });
+      setTableSeatingDialogOpen(true);
+    }
+  };
+
+  const handleAutoAssignFromWaitlist = async () => {
+    if (!selectedTableForSeating) return;
+
+    // Find first customer in waitlist who fits this table
+    const fittingCustomer = waitlist.find(customer => 
+      customer.partySize <= selectedTableForSeating.capacity
+    );
+
+    if (!fittingCustomer) {
+      toast.info('No customers in waitlist can fit this table');
+      setTableSeatingDialogOpen(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/reservations/${fittingCustomer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: selectedTableForSeating.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${fittingCustomer.name} seated at ${data.table.name}`);
+      setTableSeatingDialogOpen(false);
+
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error auto-assigning from waitlist:', error);
+      toast.error(error.message || 'Failed to auto-assign table');
+    }
+  };
+
+  const handleSeatCustomerFromWaitlist = async (customer: any) => {
+    if (!selectedTableForSeating) return;
+
+    try {
+      const response = await fetch(`${API_URL}/reservations/${customer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: selectedTableForSeating.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${customer.name} seated at ${data.table.name}`);
+      setTableCustomerSelectionOpen(false);
+      setTableSeatingDialogOpen(false);
+
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error seating customer:', error);
+      toast.error(error.message || 'Failed to seat customer');
+    }
+  };
+
+  const handleEditTable = async () => {
+    if (!selectedTableForEdit || !staffAuth.restaurantId) return;
+
+    if (tableEditName.trim().length === 0) {
+      toast.error('Table name cannot be empty');
+      return;
+    }
+
+    if (tableEditCapacity < 1) {
+      toast.error('Table capacity must be at least 1');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/tables/${selectedTableForEdit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tableEditName.trim(),
+          capacity: tableEditCapacity
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update table');
+      }
+
+      toast.success('Table updated successfully');
+      setTableEditDialogOpen(false);
+      await loadTablesFromDB();
+    } catch (error: any) {
+      console.error('Error editing table:', error);
+      toast.error(error.message || 'Failed to update table');
+    }
+  };
+
   const openSeatWalkInModal = (tableId: number) => {
     const availableTable = availableTables.find(table => table.id === tableId);
     if (!availableTable) return;
@@ -566,6 +888,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     setWalkInFormErrors({});
     setSeatWalkInModalOpen(true);
   };
+
+  // Get customers who fit the selected table
+  const getFittingCustomers = () => {
+    if (!selectedTableForSeating) return [];
+    return waitlist
+      .filter(customer => customer.partySize <= selectedTableForSeating.capacity)
+      .filter(customer => {
+        if (!customerSearchFilter) return true;
+        const searchLower = customerSearchFilter.toLowerCase();
+        return (
+          customer.name?.toLowerCase().includes(searchLower) ||
+          customer.phone?.includes(searchLower) ||
+          customer.email?.toLowerCase().includes(searchLower)
+        );
+      });
+  };
+
+  const canAutoAssignFromTable = selectedTableForSeating && 
+    waitlist.some(customer => customer.partySize <= selectedTableForSeating.capacity);
 
   const validateWalkInForm = () => {
     const errors: Record<string, string> = {};
@@ -686,9 +1027,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           <div>
             <h1 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>Staff Dashboard</h1>
             <div className="flex items-center mt-2">
-              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: 'var(--where2go-buff)', color: 'var(--where2go-accent)'}}>
-                Downtown Location
-              </Badge>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -724,11 +1062,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 <div className="flex flex-wrap gap-4">
                   <Button 
                     className="pill-button text-white"
-                    onClick={callNext}
+                    onClick={openGuestSelectionModal}
                     style={{backgroundColor: '#3F4427'}}
                   >
                     <Users className="h-4 w-4 mr-2" />
-                    Call Next in Waitlist
+                    Select the Guest from the Waitlist
+                  </Button>
+                  <Button 
+                    className="pill-button text-white"
+                    onClick={handleAutoAssignTable}
+                    disabled={!canAutoAssign}
+                    style={{
+                      backgroundColor: canAutoAssign ? '#5A5E3E' : '#9FA0A0',
+                      cursor: canAutoAssign ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <Table className="h-4 w-4 mr-2" />
+                    Auto-Assign Table
                   </Button>
                   <Button 
                     className="pill-button text-white" 
@@ -749,16 +1099,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <Button 
                       className="pill-button text-white"
                       style={{backgroundColor: '#B7410E'}}
-                      onClick={async () => {
-                        try {
-                          if (!staffAuth.restaurantId) return;
-                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
-                          // Refresh KPIs next tick
-                          alert('Queue cleared for this restaurant.');
-                        } catch {
-                          alert('Failed to clear queue.');
-                        }
-                      }}
+                      onClick={() => setClearQueueDialogOpen(true)}
                     >
                       Clear Queue
                     </Button>
@@ -862,8 +1203,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </div>
 
 
-            {/* Two Column Layout */}
-            <div className="grid lg:grid-cols-2 gap-8">
+            {/* Full Width Stacked Layout */}
+            <div className="space-y-8">
               {/* Waitlist */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
@@ -882,7 +1223,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
                             </div>
                             <div>
-                              <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                                {customer.reservationType && (
+                                  <Badge 
+                                    className="px-2 py-0.5 rounded-full text-xs"
+                                    style={{
+                                      backgroundColor: customer.reservationType === 'reserved' ? '#3F4427' : '#B889A6',
+                                      color: '#FFFFFF'
+                                    }}
+                                  >
+                                    {customer.reservationType === 'reserved' ? 'Reserved Table' : 'Joined Waitlist'}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm" style={{color: '#2D2D2B'}}>Party of {customer.partySize} • Joined {customer.joined}</p>
                             </div>
                           </div>
@@ -892,10 +1246,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         </div>
                         
                         <div className="space-y-2">
+                          {/* Contact Method */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center text-sm" style={{color: '#2D2D2B'}}>
-                              <Phone className="h-4 w-4 mr-1" />
-                              {customer.phone}
+                              {customer.contactMethod === 'email' ? (
+                                <>
+                                  <Mail className="h-4 w-4 mr-1" />
+                                  {customer.email || 'No email'}
+                                </>
+                              ) : (
+                                <>
+                                  <Phone className="h-4 w-4 mr-1" />
+                                  {customer.phone || 'No phone'}
+                                </>
+                              )}
                             </div>
                             
                             <div className="flex gap-2">
@@ -927,6 +1291,22 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               </Button>
                             </div>
                           </div>
+                          
+                          {/* Preferences */}
+                          {(customer.gender || customer.seatingPreference) && (
+                            <div className="flex flex-wrap gap-3 text-xs" style={{color: '#5A5E3E'}}>
+                              {customer.gender && (
+                                <span>
+                                  Gender: {customer.gender === 'prefer-not-to-say' ? 'Prefer not to say' : customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)}
+                                </span>
+                              )}
+                              {customer.seatingPreference && (
+                                <span>
+                                  Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -941,13 +1321,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 </CardContent>
               </Card>
 
-              {/* Currently Seated */}
+              {/* Tables Management - Combined Currently Seated and Available Tables */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
                       <Table className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
-                      Currently Seated ({seatedTables.length})
+                      Tables
                     </CardTitle>
                     <Button
                       size="sm"
@@ -961,100 +1341,125 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
-                  <div className="space-y-6">
-                    {/* Occupied Tables */}
-                    <div className="space-y-4 max-h-64 overflow-y-auto">
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Occupied Tables</h5>
-                      {seatedTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center">
-                              <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Left Half - Currently Seated */}
+                    <div className="space-y-4">
+                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
+                        <Table className="h-4 w-4 mr-2" />
+                        Currently Seated ({seatedTables.length})
+                      </h5>
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {seatedTables.map((table) => (
+                          <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center">
+                                <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                  <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
+                                  <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
-                                <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
-                              </div>
-                            </div>
-                            <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
-                              {table.duration}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm" style={{color: '#2D2D2B'}}>
-                              Seated at {table.seatedTime}
+                              <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
+                                {table.duration}
+                              </Badge>
                             </div>
                             
-                            <Button 
-                              size="sm" 
-                              onClick={() => checkOutTable(table.id)}
-                              className="pill-button text-xs text-white"
-                              style={{backgroundColor: '#3F4427'}}
-                            >
-                              Check Out
-                            </Button>
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm" style={{color: '#2D2D2B'}}>
+                                Seated at {table.seatedTime}
+                              </div>
+                              
+                              <Button 
+                                size="sm" 
+                                onClick={() => checkOutTable(table.id)}
+                                className="pill-button text-xs text-white"
+                                style={{backgroundColor: '#3F4427'}}
+                              >
+                                Check Out
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      
-                      {seatedTables.length === 0 && (
-                        <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                          <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No occupied tables</p>
-                        </div>
-                      )}
+                        ))}
+                        
+                        {seatedTables.length === 0 && (
+                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No occupied tables</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Available Tables */}
-                    <div className="space-y-4 max-h-32 overflow-y-auto border-t pt-4" style={{borderColor: 'rgba(183, 65, 14, 0.2)'}}>
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Available Tables</h5>
-                      {availableTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
+                    {/* Right Half - Available Tables */}
+                    <div className="space-y-4">
+                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Available Tables ({availableTables.length})
+                      </h5>
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {availableTables.map((table) => (
+                          <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                  <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                                  <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
-                                <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
+                              
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => openTableSeatingDialog(table.id)}
+                                  className="pill-button text-xs h-7 px-2 text-white"
+                                  style={{backgroundColor: '#3F4427'}}
+                                  title="Seat customer at this table"
+                                >
+                                  <UserPlus className="h-3 w-3 mr-1" />
+                                  Seat
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity });
+                                    setTableEditName(table.tableName);
+                                    setTableEditCapacity(table.capacity);
+                                    setTableEditDialogOpen(true);
+                                  }}
+                                  className="pill-button text-xs h-7 w-7 p-0"
+                                  style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
+                                  title="Edit table"
+                                >
+                                  <Settings className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => removeTable(table.id)}
+                                  className="pill-button text-xs h-7 w-7 p-0"
+                                  style={{borderColor: '#D77A61', color: '#D77A61'}}
+                                  title="Remove table"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => openSeatWalkInModal(table.id)}
-                                className="pill-button text-xs h-7 px-2 text-white"
-                                style={{backgroundColor: '#3F4427'}}
-                                title="Seat walk-in customer"
-                              >
-                                <UserPlus className="h-3 w-3 mr-1" />
-                                Seat
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => removeTable(table.id)}
-                                className="pill-button text-xs h-7 w-7 p-0"
-                                style={{borderColor: '#D77A61', color: '#D77A61'}}
-                                title="Remove table"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                      
-                      {availableTables.length === 0 && (
-                        <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                          <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No available tables</p>
-                        </div>
-                      )}
+                        ))}
+                        
+                        {availableTables.length === 0 && (
+                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No available tables</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -1190,10 +1595,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
             {/* Charts Grid */}
             <div className="grid lg:grid-cols-2 gap-8">
-              {/* Seated vs Waiting Chart */}
+              {/* Reservations vs Walk-ins Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting (Last 7 Days)</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Reservations vs Walk-ins (Last 7 Days)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {dailyData.length === 0 ? (
@@ -1207,14 +1612,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
                         return {
                           name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
-                          seated: d.seated || 0, 
-                          waiting: d.waiting || 0
+                          reservations: d.reservations || 0, 
+                          walkIns: d.walkIns || 0
                         };
                       } catch (e) {
                         return {
                           name: d.day, 
-                          seated: d.seated || 0, 
-                          waiting: d.waiting || 0
+                          reservations: d.reservations || 0, 
+                          walkIns: d.walkIns || 0
                         };
                       }
                     })}>
@@ -1229,8 +1634,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                         }}
                       />
-                      <Bar dataKey="seated" fill="#5A5E3E" radius={[4, 4, 0, 0]} name="Seated" />
-                      <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} name="Waiting" />
+                      <Bar dataKey="reservations" fill="#5A5E3E" radius={[4, 4, 0, 0]} name="Reservations" />
+                      <Bar dataKey="walkIns" fill="#B889A6" radius={[4, 4, 0, 0]} name="Walk-ins" />
                     </BarChart>
                   </ResponsiveContainer>
                   )}
@@ -1640,6 +2045,433 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               style={{backgroundColor: '#3F4427'}}
             >
               {generatingPdf ? 'Generating...' : 'Generate PDF'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guest Selection Modal */}
+      <Dialog open={guestSelectionModalOpen} onOpenChange={setGuestSelectionModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Guest from Waitlist</DialogTitle>
+            <DialogDescription>
+              Choose a guest to invite. An email will be sent or a phone number will be displayed based on their contact method.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {waitlist.length === 0 ? (
+              <p className="text-center py-8" style={{color: '#9FA0A0'}}>No customers in waitlist</p>
+            ) : (
+              waitlist.map((customer) => (
+                <div
+                  key={customer.id}
+                  className="p-4 rounded-lg border"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                        <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
+                          {customer.name}
+                        </h4>
+                      </div>
+                      <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
+                        <div>Party of {customer.partySize}</div>
+                        <div className="flex items-center gap-2">
+                          {customer.contactMethod === 'email' ? (
+                            <>
+                              <Mail className="h-4 w-4" />
+                              <span>{customer.email || 'No email'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Phone className="h-4 w-4" />
+                              <span>{customer.phone || 'No phone'}</span>
+                            </>
+                          )}
+                        </div>
+                        {customer.gender && (
+                          <div>
+                            Gender: {customer.gender === 'prefer-not-to-say' ? 'Prefer not to say' : customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)}
+                          </div>
+                        )}
+                        {customer.seatingPreference && (
+                          <div>
+                            Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                          </div>
+                        )}
+                        <div className="text-xs" style={{color: '#9FA0A0'}}>
+                          Joined {customer.joined}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {customer.calledAt ? (
+                        <>
+                          <div className="text-xs text-center" style={{color: '#5A5E3E'}}>
+                            <div className="font-semibold">Called</div>
+                            <div className="text-xs opacity-70">
+                              {new Date(customer.calledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => toggleCalledStatus(customer.reservationId, true)}
+                            variant="outline"
+                            size="sm"
+                            className="pill-button text-xs"
+                            style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
+                          >
+                            Unmark
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          onClick={() => handleInviteGuest(customer)}
+                          className="pill-button text-white text-sm"
+                          style={{backgroundColor: '#3F4427'}}
+                          disabled={!customer.email && !customer.phone}
+                        >
+                          Invite
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGuestSelectionModalOpen(false)}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone Display Modal */}
+      <Dialog open={phoneDisplayModalOpen} onOpenChange={setPhoneDisplayModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Call Guest</DialogTitle>
+            <DialogDescription>
+              Contact information for the selected guest
+            </DialogDescription>
+          </DialogHeader>
+          {selectedGuestForCall && (
+            <div className="py-6">
+              <div className="text-center space-y-4">
+                <div>
+                  <User className="h-12 w-12 mx-auto mb-2" style={{color: '#5A5E3E'}} />
+                  <h3 className="text-lg font-semibold" style={{color: '#2D2D2B'}}>
+                    {selectedGuestForCall.name}
+                  </h3>
+                </div>
+                <div className="p-4 rounded-lg" style={{backgroundColor: '#F5F5F5'}}>
+                  <Phone className="h-6 w-6 mx-auto mb-2" style={{color: '#3F4427'}} />
+                  <a
+                    href={`tel:${selectedGuestForCall.phone}`}
+                    className="text-2xl font-bold block hover:opacity-80 transition-opacity"
+                    style={{color: '#3F4427'}}
+                  >
+                    {selectedGuestForCall.phone}
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPhoneDisplayModalOpen(false);
+                setSelectedGuestForCall(null);
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Close
+            </Button>
+            {selectedGuestForCall && (
+              <>
+                <Button
+                  onClick={() => {
+                    window.location.href = `tel:${selectedGuestForCall.phone}`;
+                  }}
+                  className="pill-button text-white"
+                  style={{backgroundColor: '#3F4427'}}
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call
+                </Button>
+                <Button
+                  onClick={markAsCalled}
+                  className="pill-button text-white"
+                  style={{backgroundColor: '#5A5E3E'}}
+                >
+                  Mark as Called
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Queue Confirmation Dialog */}
+      <Dialog open={clearQueueDialogOpen} onOpenChange={setClearQueueDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl" style={{color: '#2D2D2B'}}>
+              Clear Queue
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2" style={{color: '#5A5E3E'}}>
+              Are you sure you want to clear the entire waitlist? This will cancel all pending and confirmed reservations in the queue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="p-4 rounded-lg border" style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FFF9F0'}}>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 mt-0.5" style={{color: '#B7410E'}} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold mb-1" style={{color: '#2D2D2B'}}>
+                    This action cannot be undone
+                  </p>
+                  <p className="text-xs" style={{color: '#5A5E3E'}}>
+                    All customers in the waitlist will be notified that their spot has been cancelled. 
+                    {waitlist.length > 0 && (
+                      <span className="font-semibold"> {waitlist.length} {waitlist.length === 1 ? 'customer' : 'customers'} will be affected.</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setClearQueueDialogOpen(false)}
+              className="pill-button"
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClearQueue}
+              className="pill-button text-white"
+              style={{backgroundColor: '#B7410E'}}
+            >
+              Yes, Clear Queue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Table Seating Dialog */}
+      <Dialog open={tableSeatingDialogOpen} onOpenChange={setTableSeatingDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Seat at {selectedTableForSeating?.tableName}</DialogTitle>
+            <DialogDescription>
+              Choose how to seat a customer at this table (capacity: {selectedTableForSeating?.capacity} guests)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {canAutoAssignFromTable && (
+              <Button
+                onClick={handleAutoAssignFromWaitlist}
+                className="pill-button text-white w-full"
+                style={{backgroundColor: '#5A5E3E'}}
+              >
+                <Table className="h-4 w-4 mr-2" />
+                Auto-Assign from Waitlist
+              </Button>
+            )}
+            {canAutoAssignFromTable && (
+              <Button
+                onClick={() => {
+                  setTableCustomerSelectionOpen(true);
+                  setCustomerSearchFilter('');
+                }}
+                className="pill-button text-white w-full"
+                style={{backgroundColor: '#3F4427'}}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Select Customer Manually
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                setTableSeatingDialogOpen(false);
+                if (selectedTableForSeating) {
+                  openSeatWalkInModal(selectedTableForSeating.id);
+                }
+              }}
+              className="pill-button text-white w-full"
+              style={{backgroundColor: '#B889A6'}}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Seat Walk-In Guest
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTableSeatingDialogOpen(false)}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Selection for Table Modal */}
+      <Dialog open={tableCustomerSelectionOpen} onOpenChange={setTableCustomerSelectionOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Customer for {selectedTableForSeating?.tableName}</DialogTitle>
+            <DialogDescription>
+              Select a customer from the waitlist to seat at this table (capacity: {selectedTableForSeating?.capacity} guests)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Search by name, phone, or email..."
+              value={customerSearchFilter}
+              onChange={(e) => setCustomerSearchFilter(e.target.value)}
+              className="mb-4"
+            />
+            <div className="space-y-3">
+              {getFittingCustomers().length === 0 ? (
+                <p className="text-center py-8" style={{color: '#9FA0A0'}}>
+                  {customerSearchFilter ? 'No matching customers found' : 'No customers in waitlist fit this table'}
+                </p>
+              ) : (
+                getFittingCustomers().map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="p-4 rounded-lg border"
+                    style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                          <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
+                            {customer.name}
+                          </h4>
+                          {customer.reservationType && (
+                            <Badge 
+                              className="px-2 py-0.5 rounded-full text-xs"
+                              style={{
+                                backgroundColor: customer.reservationType === 'reserved' ? '#3F4427' : '#B889A6',
+                                color: '#FFFFFF'
+                              }}
+                            >
+                              {customer.reservationType === 'reserved' ? 'Reserved' : 'Waitlist'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
+                          <div>Party of {customer.partySize}</div>
+                          <div className="flex items-center gap-2">
+                            {customer.contactMethod === 'email' ? (
+                              <>
+                                <Mail className="h-4 w-4" />
+                                <span>{customer.email || 'No email'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Phone className="h-4 w-4" />
+                                <span>{customer.phone || 'No phone'}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="text-xs" style={{color: '#9FA0A0'}}>
+                            Joined {customer.joined}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleSeatCustomerFromWaitlist(customer)}
+                        className="pill-button text-white text-sm"
+                        style={{backgroundColor: '#3F4427'}}
+                      >
+                        Seat
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTableCustomerSelectionOpen(false);
+                setCustomerSearchFilter('');
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Table Edit Dialog */}
+      <Dialog open={tableEditDialogOpen} onOpenChange={setTableEditDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit Table</DialogTitle>
+            <DialogDescription>
+              Update table information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tableEditName">Table Name</Label>
+              <Input
+                id="tableEditName"
+                value={tableEditName}
+                onChange={(e) => setTableEditName(e.target.value)}
+                placeholder="Table name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tableEditCapacity">Capacity</Label>
+              <Input
+                id="tableEditCapacity"
+                type="number"
+                min="1"
+                value={tableEditCapacity}
+                onChange={(e) => setTableEditCapacity(Math.max(1, parseInt(e.target.value) || 1))}
+                placeholder="Number of guests"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTableEditDialogOpen(false);
+                setSelectedTableForEdit(null);
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditTable}
+              className="pill-button text-white"
+              style={{backgroundColor: '#3F4427'}}
+            >
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
