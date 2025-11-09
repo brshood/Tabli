@@ -4,7 +4,6 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail } from '../services/email';
-import { sendSMS } from '../services/sms';
 
 export const reservationsRouter = express.Router();
 
@@ -86,14 +85,16 @@ reservationsRouter.post('/', async (req, res, next) => {
         : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
       
       try {
-        if (data.contactMethod === 'phone' && data.phone) {
-          await sendSMS({ to: data.phone, message });
-        } else if (data.contactMethod === 'email' && data.email) {
-          await sendEmail({ to: data.email, subject: `Reservation at ${restaurant.name}`, text: message });
+        if (data.email) {
+          await sendEmail({
+            to: data.email,
+            subject: `Reservation at ${restaurant.name}`,
+            text: message,
+          });
         }
       } catch (err) {
         // Log but don't fail reservation if notification fails
-        console.error('Failed to send confirmation notification:', err);
+        console.error('Failed to send confirmation email:', err);
       }
     }
 
@@ -190,9 +191,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
     const subject = req.body?.subject || 'Your table is ready';
     
-    if (r.contactMethod === 'phone' && r.phone) {
-      await sendSMS({ to: r.phone, message });
-    } else if (r.contactMethod === 'email' && r.email) {
+    if (r.email) {
       await sendEmail({ to: r.email, subject, text: message });
     }
     
@@ -363,20 +362,14 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
     });
 
     // 7. Notify guest if applicable (queue to table promotion)
-    const needsNotification = (reservation.contactMethod === 'phone' && reservation.phone) ||
-      (reservation.contactMethod === 'email' && reservation.email);
-    if (needsNotification) {
+    if (reservation.email) {
       try {
         const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
         const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
 
-        if (reservation.contactMethod === 'phone' && reservation.phone) {
-          await sendSMS({ to: reservation.phone, message: notificationMessage });
-        } else if (reservation.contactMethod === 'email' && reservation.email) {
-          await sendEmail({ to: reservation.email, subject: 'Your table is ready', text: notificationMessage });
-        }
+        await sendEmail({ to: reservation.email, subject: 'Your table is ready', text: notificationMessage });
       } catch (notificationError) {
-        console.error('Failed to send queue promotion notification:', notificationError);
+        console.error('Failed to send queue promotion email:', notificationError);
       }
     }
     

@@ -204,7 +204,7 @@ export async function estimateWaitTimes(
   });
 
   // Without any table data, derive a fallback timeline so we can still return estimates
-  if (availabilityTimeline.length === 0) {
+  if (availabilityTimeline.length === 0 && waitlist.length > 0) {
     availabilityTimeline.push(nowMs + overallAvg * 60000);
   }
 
@@ -278,7 +278,7 @@ export async function estimateWaitTimes(
       availabilityTimeline.push(nextMs);
       availabilityTimeline.sort((a, b) => a - b);
     } else {
-      const fallbackWait = safeOverallAvg;
+      const fallbackWait = waitlist.length === 0 ? 0 : safeOverallAvg;
       nextPartyEstimate = {
         partySize: size,
         estimatedWaitMinutes: Math.round(fallbackWait),
