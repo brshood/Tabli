@@ -1203,8 +1203,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </div>
 
 
-            {/* Three Column Layout */}
-            <div className="grid lg:grid-cols-3 gap-8">
+            {/* Full Width Stacked Layout */}
+            <div className="space-y-8">
               {/* Waitlist */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
@@ -1321,13 +1321,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 </CardContent>
               </Card>
 
-              {/* Currently Seated */}
+              {/* Tables Management - Combined Currently Seated and Available Tables */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
                       <Table className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
-                      Currently Seated ({seatedTables.length})
+                      Tables
                     </CardTitle>
                     <Button
                       size="sm"
@@ -1341,121 +1341,126 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {seatedTables.map((table) => (
-                      <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center">
-                            <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                              <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Left Half - Currently Seated */}
+                    <div className="space-y-4">
+                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
+                        <Table className="h-4 w-4 mr-2" />
+                        Currently Seated ({seatedTables.length})
+                      </h5>
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {seatedTables.map((table) => (
+                          <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center">
+                                <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                  <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
+                                  <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
+                                </div>
+                              </div>
+                              <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
+                                {table.duration}
+                              </Badge>
                             </div>
-                            <div>
-                              <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
-                              <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm" style={{color: '#2D2D2B'}}>
+                                Seated at {table.seatedTime}
+                              </div>
+                              
+                              <Button 
+                                size="sm" 
+                                onClick={() => checkOutTable(table.id)}
+                                className="pill-button text-xs text-white"
+                                style={{backgroundColor: '#3F4427'}}
+                              >
+                                Check Out
+                              </Button>
                             </div>
                           </div>
-                          <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
-                            {table.duration}
-                          </Badge>
-                        </div>
+                        ))}
                         
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm" style={{color: '#2D2D2B'}}>
-                            Seated at {table.seatedTime}
+                        {seatedTables.length === 0 && (
+                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No occupied tables</p>
                           </div>
-                          
-                          <Button 
-                            size="sm" 
-                            onClick={() => checkOutTable(table.id)}
-                            className="pill-button text-xs text-white"
-                            style={{backgroundColor: '#3F4427'}}
-                          >
-                            Check Out
-                          </Button>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                    
-                    {seatedTables.length === 0 && (
-                      <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                        <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No occupied tables</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
 
-              {/* Available Tables */}
-              <Card className="card-shadow border-0 rounded-3xl">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
-                    <CheckCircle className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
-                    Available Tables ({availableTables.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {availableTables.map((table) => (
-                      <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                              <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
-                            </div>
-                            <div>
-                              <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
-                              <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
+                    {/* Right Half - Available Tables */}
+                    <div className="space-y-4">
+                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Available Tables ({availableTables.length})
+                      </h5>
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {availableTables.map((table) => (
+                          <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                                  <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                                  <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => openTableSeatingDialog(table.id)}
+                                  className="pill-button text-xs h-7 px-2 text-white"
+                                  style={{backgroundColor: '#3F4427'}}
+                                  title="Seat customer at this table"
+                                >
+                                  <UserPlus className="h-3 w-3 mr-1" />
+                                  Seat
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity });
+                                    setTableEditName(table.tableName);
+                                    setTableEditCapacity(table.capacity);
+                                    setTableEditDialogOpen(true);
+                                  }}
+                                  className="pill-button text-xs h-7 w-7 p-0"
+                                  style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
+                                  title="Edit table"
+                                >
+                                  <Settings className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => removeTable(table.id)}
+                                  className="pill-button text-xs h-7 w-7 p-0"
+                                  style={{borderColor: '#D77A61', color: '#D77A61'}}
+                                  title="Remove table"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => openTableSeatingDialog(table.id)}
-                              className="pill-button text-xs h-7 px-2 text-white"
-                              style={{backgroundColor: '#3F4427'}}
-                              title="Seat customer at this table"
-                            >
-                              <UserPlus className="h-3 w-3 mr-1" />
-                              Seat
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity });
-                                setTableEditName(table.tableName);
-                                setTableEditCapacity(table.capacity);
-                                setTableEditDialogOpen(true);
-                              }}
-                              className="pill-button text-xs h-7 w-7 p-0"
-                              style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
-                              title="Edit table"
-                            >
-                              <Settings className="h-3 w-3" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => removeTable(table.id)}
-                              className="pill-button text-xs h-7 w-7 p-0"
-                              style={{borderColor: '#D77A61', color: '#D77A61'}}
-                              title="Remove table"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                        ))}
+                        
+                        {availableTables.length === 0 && (
+                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No available tables</p>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                    
-                    {availableTables.length === 0 && (
-                      <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                        <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No available tables</p>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
