@@ -389,7 +389,7 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
       const leftAt = reservation.leftAt ? new Date(reservation.leftAt) : null;
       const leftHour = leftAt ? leftAt.getHours() : null;
       const currentHour = now.getHours();
-      
+    
       // Determine the end hour: if not left yet, use current hour; otherwise use left hour
       const endHour = leftHour !== null ? leftHour : currentHour;
       
@@ -520,8 +520,8 @@ analyticsRouter.get('/daily', async (req, res, next) => {
     // Walk-ins are identified by phone === '0000000000'
     // Use find() like peak-hours endpoint for consistency and reliability
     const matchCondition: any = {
-      restaurantId: restaurantId as any,
-      status: 'seated',
+          restaurantId: restaurantId as any,
+          status: 'seated',
       seatedAt: { $exists: true, $gte: start, $lte: now }
     };
 

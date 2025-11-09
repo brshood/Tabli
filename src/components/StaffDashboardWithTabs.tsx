@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { QRCodeDisplay } from './QRCodeDisplay';
@@ -62,6 +62,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [dailySummaryDialogOpen, setDailySummaryDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [guestSelectionModalOpen, setGuestSelectionModalOpen] = useState(false);
+  const [phoneDisplayModalOpen, setPhoneDisplayModalOpen] = useState(false);
+  const [selectedGuestForCall, setSelectedGuestForCall] = useState<{ name: string; phone: string; reservationId: string } | null>(null);
+  const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
 
   useEffect(() => {
     let timer: any;
@@ -288,8 +292,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       if (!staffAuth?.restaurantId) return;
       
       // Fetch both reservations and tables to properly map table names
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
       const [resRes, tablesRes] = await Promise.all([
-        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId }).toString()}`),
+        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId, _t: timestamp.toString() }).toString()}`),
         fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`)
       ]);
       
@@ -349,8 +355,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           partySize: r.partySize || 2,
           waitTime: '—',
           phone: r.phone || '',
+          email: r.email || '',
           joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           contactMethod: (r.contactMethod || 'phone') as any,
+          gender: r.gender,
+          seatingPreference: r.seatingPreference,
+          calledAt: r.calledAt ? new Date(r.calledAt) : null,
           holdTimeExpires: Date.now() + 10 * 60000,
         }));
       setWaitlist(wl);
@@ -497,12 +507,143 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const callNext = () => {
-    if (waitlist.length > 0) {
-      const nextCustomer = waitlist[0];
-      toast.success(`Calling ${nextCustomer.name} - Party of ${nextCustomer.partySize}`);
-    } else {
+  const openGuestSelectionModal = () => {
+    if (waitlist.length === 0) {
       toast.info('No customers in waitlist');
+      return;
+    }
+    setGuestSelectionModalOpen(true);
+  };
+
+  const handleInviteGuest = async (customer: any) => {
+    try {
+      const reservationId = customer.reservationId;
+      if (!reservationId) {
+        toast.error('Invalid reservation data');
+        return;
+      }
+
+      // Get restaurant name for email
+      const restaurantRes = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}`);
+      const restaurantData = await restaurantRes.json();
+      const restaurantName = restaurantData.item?.name || 'the restaurant';
+
+      if (customer.contactMethod === 'email' && customer.email) {
+        // Send email notification
+        const emailResponse = await fetch(`${API_URL}/reservations/${reservationId}/notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `Your table at ${restaurantName} is ready! Please come to the host stand.`,
+            subject: 'Your table is ready'
+          })
+        });
+
+        if (emailResponse.ok) {
+          toast.success(`Email sent to ${customer.name}`);
+          setGuestSelectionModalOpen(false);
+        } else {
+          const errorData = await emailResponse.json();
+          throw new Error(errorData.error || 'Failed to send email');
+        }
+      } else if (customer.contactMethod === 'phone' && customer.phone) {
+        // Display phone number for staff to call
+        setSelectedGuestForCall({
+          name: customer.name,
+          phone: customer.phone,
+          reservationId: reservationId
+        });
+        setPhoneDisplayModalOpen(true);
+        setGuestSelectionModalOpen(false);
+      } else {
+        toast.error('No contact information available for this guest');
+      }
+    } catch (error: any) {
+      console.error('Error inviting guest:', error);
+      toast.error(error.message || 'Failed to invite guest');
+    }
+  };
+
+  const markAsCalled = async () => {
+    if (!selectedGuestForCall) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/reservations/${selectedGuestForCall.reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calledAt: new Date().toISOString() })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to mark as called');
+      }
+      
+      toast.success(`Marked ${selectedGuestForCall.name} as called`);
+      setPhoneDisplayModalOpen(false);
+      setSelectedGuestForCall(null);
+      
+      // Refresh data to show updated status
+      await loadReservationsFromDB();
+    } catch (error: any) {
+      console.error('Error marking as called:', error);
+      toast.error(error.message || 'Failed to mark as called');
+    }
+  };
+
+  const toggleCalledStatus = async (reservationId: string, currentlyCalled: boolean) => {
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calledAt: currentlyCalled ? null : new Date().toISOString() })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update called status');
+      }
+      
+      toast.success(currentlyCalled ? 'Unmarked as called' : 'Marked as called');
+      
+      // Refresh data to show updated status
+      await loadReservationsFromDB();
+    } catch (error: any) {
+      console.error('Error toggling called status:', error);
+      toast.error(error.message || 'Failed to update called status');
+    }
+  };
+
+  const handleClearQueue = async () => {
+    try {
+      if (!staffAuth.restaurantId) {
+        toast.error('Restaurant ID not found');
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { 
+        method: 'POST' 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to clear queue');
+      }
+      
+      const data = await response.json();
+      const clearedCount = data.count || 0;
+      
+      // Wait a moment for the database update to complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Refresh all data - force a fresh fetch
+      await loadReservationsFromDB();
+      
+      toast.success(`Queue cleared successfully. ${clearedCount} ${clearedCount === 1 ? 'reservation' : 'reservations'} cancelled.`);
+      setClearQueueDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error clearing queue:', error);
+      toast.error(error.message || 'Failed to clear queue');
     }
   };
 
@@ -721,11 +862,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 <div className="flex flex-wrap gap-4">
                   <Button 
                     className="pill-button text-white"
-                    onClick={callNext}
+                    onClick={openGuestSelectionModal}
                     style={{backgroundColor: '#3F4427'}}
                   >
                     <Users className="h-4 w-4 mr-2" />
-                    Call Next in Waitlist
+                    Select the Guest from the Waitlist
                   </Button>
                   <Button 
                     className="pill-button text-white" 
@@ -746,16 +887,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     <Button 
                       className="pill-button text-white"
                       style={{backgroundColor: '#B7410E'}}
-                      onClick={async () => {
-                        try {
-                          if (!staffAuth.restaurantId) return;
-                          await fetch(`${API_URL}/maintenance/zero/${staffAuth.restaurantId}`, { method: 'POST' });
-                          // Refresh KPIs next tick
-                          alert('Queue cleared for this restaurant.');
-                        } catch {
-                          alert('Failed to clear queue.');
-                        }
-                      }}
+                      onClick={() => setClearQueueDialogOpen(true)}
                     >
                       Clear Queue
                     </Button>
@@ -889,10 +1021,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         </div>
                         
                         <div className="space-y-2">
+                          {/* Contact Method */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center text-sm" style={{color: '#2D2D2B'}}>
-                              <Phone className="h-4 w-4 mr-1" />
-                              {customer.phone}
+                              {customer.contactMethod === 'email' ? (
+                                <>
+                                  <Mail className="h-4 w-4 mr-1" />
+                                  {customer.email || 'No email'}
+                                </>
+                              ) : (
+                                <>
+                                  <Phone className="h-4 w-4 mr-1" />
+                                  {customer.phone || 'No phone'}
+                                </>
+                              )}
                             </div>
                             
                             <div className="flex gap-2">
@@ -924,6 +1066,22 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               </Button>
                             </div>
                           </div>
+                          
+                          {/* Preferences */}
+                          {(customer.gender || customer.seatingPreference) && (
+                            <div className="flex flex-wrap gap-3 text-xs" style={{color: '#5A5E3E'}}>
+                              {customer.gender && (
+                                <span>
+                                  Gender: {customer.gender === 'prefer-not-to-say' ? 'Prefer not to say' : customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)}
+                                </span>
+                              )}
+                              {customer.seatingPreference && (
+                                <span>
+                                  Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1637,6 +1795,226 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               style={{backgroundColor: '#3F4427'}}
             >
               {generatingPdf ? 'Generating...' : 'Generate PDF'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guest Selection Modal */}
+      <Dialog open={guestSelectionModalOpen} onOpenChange={setGuestSelectionModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Guest from Waitlist</DialogTitle>
+            <DialogDescription>
+              Choose a guest to invite. An email will be sent or a phone number will be displayed based on their contact method.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {waitlist.length === 0 ? (
+              <p className="text-center py-8" style={{color: '#9FA0A0'}}>No customers in waitlist</p>
+            ) : (
+              waitlist.map((customer) => (
+                <div
+                  key={customer.id}
+                  className="p-4 rounded-lg border"
+                  style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                        <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
+                          {customer.name}
+                        </h4>
+                      </div>
+                      <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
+                        <div>Party of {customer.partySize}</div>
+                        <div className="flex items-center gap-2">
+                          {customer.contactMethod === 'email' ? (
+                            <>
+                              <Mail className="h-4 w-4" />
+                              <span>{customer.email || 'No email'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Phone className="h-4 w-4" />
+                              <span>{customer.phone || 'No phone'}</span>
+                            </>
+                          )}
+                        </div>
+                        {customer.gender && (
+                          <div>
+                            Gender: {customer.gender === 'prefer-not-to-say' ? 'Prefer not to say' : customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)}
+                          </div>
+                        )}
+                        {customer.seatingPreference && (
+                          <div>
+                            Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                          </div>
+                        )}
+                        <div className="text-xs" style={{color: '#9FA0A0'}}>
+                          Joined {customer.joined}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {customer.calledAt ? (
+                        <>
+                          <div className="text-xs text-center" style={{color: '#5A5E3E'}}>
+                            <div className="font-semibold">Called</div>
+                            <div className="text-xs opacity-70">
+                              {new Date(customer.calledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => toggleCalledStatus(customer.reservationId, true)}
+                            variant="outline"
+                            size="sm"
+                            className="pill-button text-xs"
+                            style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
+                          >
+                            Unmark
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          onClick={() => handleInviteGuest(customer)}
+                          className="pill-button text-white text-sm"
+                          style={{backgroundColor: '#3F4427'}}
+                          disabled={!customer.email && !customer.phone}
+                        >
+                          Invite
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGuestSelectionModalOpen(false)}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone Display Modal */}
+      <Dialog open={phoneDisplayModalOpen} onOpenChange={setPhoneDisplayModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Call Guest</DialogTitle>
+            <DialogDescription>
+              Contact information for the selected guest
+            </DialogDescription>
+          </DialogHeader>
+          {selectedGuestForCall && (
+            <div className="py-6">
+              <div className="text-center space-y-4">
+                <div>
+                  <User className="h-12 w-12 mx-auto mb-2" style={{color: '#5A5E3E'}} />
+                  <h3 className="text-lg font-semibold" style={{color: '#2D2D2B'}}>
+                    {selectedGuestForCall.name}
+                  </h3>
+                </div>
+                <div className="p-4 rounded-lg" style={{backgroundColor: '#F5F5F5'}}>
+                  <Phone className="h-6 w-6 mx-auto mb-2" style={{color: '#3F4427'}} />
+                  <a
+                    href={`tel:${selectedGuestForCall.phone}`}
+                    className="text-2xl font-bold block hover:opacity-80 transition-opacity"
+                    style={{color: '#3F4427'}}
+                  >
+                    {selectedGuestForCall.phone}
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPhoneDisplayModalOpen(false);
+                setSelectedGuestForCall(null);
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Close
+            </Button>
+            {selectedGuestForCall && (
+              <>
+                <Button
+                  onClick={() => {
+                    window.location.href = `tel:${selectedGuestForCall.phone}`;
+                  }}
+                  className="pill-button text-white"
+                  style={{backgroundColor: '#3F4427'}}
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call
+                </Button>
+                <Button
+                  onClick={markAsCalled}
+                  className="pill-button text-white"
+                  style={{backgroundColor: '#5A5E3E'}}
+                >
+                  Mark as Called
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Queue Confirmation Dialog */}
+      <Dialog open={clearQueueDialogOpen} onOpenChange={setClearQueueDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl" style={{color: '#2D2D2B'}}>
+              Clear Queue
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2" style={{color: '#5A5E3E'}}>
+              Are you sure you want to clear the entire waitlist? This will cancel all pending and confirmed reservations in the queue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="p-4 rounded-lg border" style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FFF9F0'}}>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 mt-0.5" style={{color: '#B7410E'}} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold mb-1" style={{color: '#2D2D2B'}}>
+                    This action cannot be undone
+                  </p>
+                  <p className="text-xs" style={{color: '#5A5E3E'}}>
+                    All customers in the waitlist will be notified that their spot has been cancelled. 
+                    {waitlist.length > 0 && (
+                      <span className="font-semibold"> {waitlist.length} {waitlist.length === 1 ? 'customer' : 'customers'} will be affected.</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setClearQueueDialogOpen(false)}
+              className="pill-button"
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClearQueue}
+              className="pill-button text-white"
+              style={{backgroundColor: '#B7410E'}}
+            >
+              Yes, Clear Queue
             </Button>
           </DialogFooter>
         </DialogContent>

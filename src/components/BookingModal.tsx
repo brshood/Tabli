@@ -82,6 +82,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           contactMethod,
           phone: contactMethod === 'phone' ? phone : undefined,
           email: contactMethod === 'email' ? email : undefined,
+          gender: gender !== 'prefer-not-to-say' ? gender : undefined,
+          seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
         })
       });
       if (!res.ok) throw new Error('reservation_failed');

@@ -16,6 +16,8 @@ const createSchema = z.object({
   contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
   email: z.string().email().optional(),
+  gender: z.enum(['male', 'female', 'prefer-not-to-say']).optional(),
+  seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
 });
 
 reservationsRouter.post('/', async (req, res, next) => {
@@ -69,6 +71,8 @@ reservationsRouter.post('/', async (req, res, next) => {
       queuePosition,
       confirmedAt: status !== 'pending' ? new Date() : undefined,
       seatedAt: status === 'seated' ? new Date() : undefined,
+      gender: data.gender,
+      seatingPreference: data.seatingPreference,
     });
 
     if (status === 'seated' && tableToSeat) {
@@ -129,6 +133,7 @@ const patchSchema = z.object({
   queuePosition: z.number().optional(),
   tableId: z.string().optional(),
   leftAt: z.string().optional(), // Allow explicit setting of leftAt for checkout
+  calledAt: z.string().nullable().optional(), // Allow setting calledAt timestamp (null to unmark)
 });
 
 reservationsRouter.patch('/:id', async (req, res, next) => {
@@ -156,6 +161,10 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     if (data.tableId) (r as any).tableId = data.tableId;
     // Allow explicit setting of leftAt (for checkout without status change)
     if (data.leftAt) r.leftAt = new Date(data.leftAt);
+    // Handle calledAt: set to Date if provided, or null to unmark
+    if (data.calledAt !== undefined) {
+      (r as any).calledAt = (data.calledAt === null || data.calledAt === '') ? null : new Date(data.calledAt);
+    }
     await r.save();
     const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
@@ -177,12 +186,15 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     
     const restaurant = await Restaurant.findById(r.restaurantId);
     const restaurantName = restaurant?.name || 'the restaurant';
-    const message = `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
+    
+    // Use custom message/subject from request body if provided, otherwise use default
+    const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
+    const subject = req.body?.subject || 'Your table is ready';
     
     if (r.contactMethod === 'phone' && r.phone) {
       await sendSMS({ to: r.phone, message });
     } else if (r.contactMethod === 'email' && r.email) {
-      await sendEmail({ to: r.email, subject: 'Your table is ready', text: message });
+      await sendEmail({ to: r.email, subject, text: message });
     }
     
     res.json({ success: true });

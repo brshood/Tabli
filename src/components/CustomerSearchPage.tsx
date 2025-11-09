@@ -220,12 +220,16 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                   {restaurant.status === 'available' ? (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
                       <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-                      <span>{restaurant.tablesAvailable} {t('search.tables.available')}</span>
+                      <span>Tables available now</span>
                     </div>
                   ) : (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
                       <Clock className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-                      <span>{t('search.wait.time')} {restaurant.waitTime}</span>
+                      <span>
+                        {restaurant.waitTime 
+                          ? `${t('search.wait.time')} ${restaurant.waitTime}`
+                          : `${t('search.wait.time')} N/A`}
+                      </span>
                     </div>
                   )}
                 </div>

@@ -110,34 +110,42 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
         const res = await fetch(`${API_URL}/restaurants`);
         if (!res.ok) return;
         const { items } = await res.json();
-        const mapped: Restaurant[] = (items || []).map((r: any) => ({
-          id: r._id || r.id,
-          name: r.name,
-          city: r.city,
-          cuisine: r.cuisine,
-          phone: r.phone || '',
-          email: r.email || '',
-          description: r.description || '',
-          location: r.address || '',
-          rating: r.ratingSummary?.average ?? 0,
-          ratingCount: r.ratingSummary?.count ?? 0,
-          status: (r.availableTables && r.availableTables > 0) ? 'available' : 'waitlist',
-          waitTime: null,
-          tablesAvailable: r.availableTables || 0,
-          image: 'restaurant-generic',
-          waitingInLine: 0,
-          weeklyAverageCustomers: 0,
-          coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
-          menu: r.menu || [],
-          priceRange: r.priceRange || '$$',
-          openingHours: r.openingHours || '09:00',
-          closingHours: r.closingHours || '22:00',
-          averageTableTurnTime: 45,
-          maxHoldTime: 10,
-          address: r.address || '',
-          indoorSeating: true,
-          outdoorSeating: true,
-        }));
+        const mapped: Restaurant[] = (items || []).map((r: any) => {
+          // Format wait time as average if data exists
+          let waitTime: string | null = null;
+          if (r.avgWaitTime !== null && r.avgWaitTime !== undefined) {
+            waitTime = `~${r.avgWaitTime} min`;
+          }
+          
+          return {
+            id: r._id || r.id,
+            name: r.name,
+            city: r.city,
+            cuisine: r.cuisine,
+            phone: r.phone || '',
+            email: r.email || '',
+            description: r.description || '',
+            location: r.address || '',
+            rating: r.ratingSummary?.average ?? 0,
+            ratingCount: r.ratingSummary?.count ?? 0,
+            status: (r.availableTables && r.availableTables > 0) ? 'available' : 'waitlist',
+            waitTime: waitTime,
+            tablesAvailable: r.availableTables || 0,
+            image: 'restaurant-generic',
+            waitingInLine: 0,
+            weeklyAverageCustomers: 0,
+            coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
+            menu: r.menu || [],
+            priceRange: r.priceRange || '$$',
+            openingHours: r.openingHours || '09:00',
+            closingHours: r.closingHours || '22:00',
+            averageTableTurnTime: 45,
+            maxHoldTime: 10,
+            address: r.address || '',
+            indoorSeating: true,
+            outdoorSeating: true,
+          };
+        });
         if (!cancelled && mapped.length) {
           setAllRestaurants(mapped);
           setCurrentRestaurant(mapped[0]);

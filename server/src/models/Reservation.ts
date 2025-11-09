@@ -18,6 +18,9 @@ export interface ReservationDocument extends Document {
   confirmedAt?: Date;
   seatedAt?: Date;
   leftAt?: Date;
+  gender?: 'male' | 'female' | 'prefer-not-to-say';
+  seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
+  calledAt?: Date;
 }
 
 const reservationSchema = new Schema<ReservationDocument>(
@@ -36,6 +39,9 @@ const reservationSchema = new Schema<ReservationDocument>(
     confirmedAt: Date,
     seatedAt: Date,
     leftAt: Date,
+    gender: { type: String, enum: ['male', 'female', 'prefer-not-to-say'] },
+    seatingPreference: { type: String, enum: ['indoor', 'outdoor', 'no-preference'] },
+    calledAt: Date,
   },
   { timestamps: true }
 );
