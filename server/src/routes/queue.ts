@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail } from '../services/email';
-import { sendSMS } from '../services/sms';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 
 export const queueRouter = express.Router();
@@ -38,8 +37,13 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
 
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
     try {
-      if (data.contactMethod === 'phone' && data.phone) await sendSMS({ to: data.phone, message });
-      if (data.contactMethod === 'email' && data.email) await sendEmail({ to: data.email, subject: `Queue at ${restaurant.name}`, text: message });
+      if (data.email) {
+        await sendEmail({
+          to: data.email,
+          subject: `Queue at ${restaurant.name}`,
+          text: message,
+        });
+      }
     } catch (err) {
       console.error('Queue join notify failed:', (err as any)?.message);
     }
@@ -55,8 +59,13 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     if (!r) return res.status(404).json({ error: 'Not found' });
     const restaurant = await Restaurant.findById(r.restaurantId);
     const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 10 minutes.`;
-    if (r.contactMethod === 'phone' && r.phone) await sendSMS({ to: r.phone, message });
-    if (r.contactMethod === 'email' && r.email) await sendEmail({ to: r.email, subject: 'Your turn', text: message });
+    if (r.email) {
+      await sendEmail({
+        to: r.email,
+        subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
+        text: message,
+      });
+    }
     res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -73,12 +82,16 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     r.leftAt = new Date();
     await r.save();
     try {
-      if (r.contactMethod === 'phone' && r.phone) {
+      if (r.email) {
         const message = `We weren't able to hold your spot at ${restaurant?.name || 'the restaurant'} any longer. Reply if you still plan to join us.`;
-        await sendSMS({ to: r.phone, message });
+        await sendEmail({
+          to: r.email,
+          subject: restaurant?.name ? `${restaurant.name} queue update` : 'Queue update',
+          text: message,
+        });
       }
     } catch (notificationError) {
-      console.error('Failed to send queue removal SMS:', notificationError);
+      console.error('Failed to send queue removal email:', notificationError);
     }
     if (typeof oldPos === 'number') {
       await Reservation.updateMany(

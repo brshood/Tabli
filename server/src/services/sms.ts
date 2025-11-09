@@ -10,24 +10,44 @@ function getTwilioClient() {
   return twilioClient;
 }
 
-export interface SendSMSOptions {
+export interface SendNotificationOptions {
   to: string;
   message: string;
 }
 
 /**
- * Send SMS using Twilio
+ * Send notification using Twilio (WhatsApp preferred, fallback to SMS)
  */
-export async function sendSMS(opts: SendSMSOptions): Promise<void> {
+export async function sendNotification(opts: SendNotificationOptions): Promise<void> {
   const client = getTwilioClient();
 
-  if (!client || (!env.TWILIO_PHONE_NUMBER && !env.TWILIO_MESSAGING_SERVICE_SID)) {
+  if (!client) {
     // eslint-disable-next-line no-console
-    console.log('[SMS:DEV]', { to: opts.to, message: opts.message });
+    console.log('[NOTIFY:DEV]', { to: opts.to, message: opts.message });
+    return;
+  }
+
+  const hasWhatsApp = Boolean(env.TWILIO_WHATSAPP_NUMBER);
+  const hasSms = Boolean(env.TWILIO_PHONE_NUMBER) || Boolean(env.TWILIO_MESSAGING_SERVICE_SID);
+
+  if (!hasWhatsApp && !hasSms) {
+    // eslint-disable-next-line no-console
+    console.log('[NOTIFY:DEV:NO-CHANNEL]', { to: opts.to, message: opts.message });
     return;
   }
 
   try {
+    if (hasWhatsApp) {
+      await client.messages.create({
+        body: opts.message,
+        from: `whatsapp:${env.TWILIO_WHATSAPP_NUMBER}`,
+        to: opts.to.startsWith('whatsapp:') ? opts.to : `whatsapp:${opts.to}`,
+      });
+      // eslint-disable-next-line no-console
+      console.log('[NOTIFY:SENT:WHATSAPP]', { to: opts.to });
+      return;
+    }
+
     const payload: any = {
       body: opts.message,
       to: opts.to,
@@ -41,10 +61,10 @@ export async function sendSMS(opts: SendSMSOptions): Promise<void> {
 
     await client.messages.create(payload);
     // eslint-disable-next-line no-console
-    console.log('[SMS:SENT]', { to: opts.to });
+    console.log('[NOTIFY:SENT:SMS]', { to: opts.to });
   } catch (error: any) {
     // eslint-disable-next-line no-console
-    console.error('[SMS:ERROR]', error.message);
+    console.error('[NOTIFY:ERROR]', error.message);
     throw error;
   }
 }

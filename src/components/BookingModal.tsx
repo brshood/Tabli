@@ -94,7 +94,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const waitLabel = (() => {
     if (estimateStatus === 'loading') return 'Calculating…';
     if (estimateStatus === 'error') return 'N/A';
-    if (estimatedWaitMinutes === null) return '—';
+    if (estimatedWaitMinutes === null) return 'N/A';
     if (estimatedWaitMinutes <= 1) return 'Ready soon';
     return `~${estimatedWaitMinutes} min`;
   })();
