@@ -21,6 +21,7 @@ export interface ReservationDocument extends Document {
   gender?: 'male' | 'female' | 'prefer-not-to-say';
   seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
   calledAt?: Date;
+  reservationType?: 'reserved' | 'waitlist';
 }
 
 const reservationSchema = new Schema<ReservationDocument>(
@@ -42,6 +43,7 @@ const reservationSchema = new Schema<ReservationDocument>(
     gender: { type: String, enum: ['male', 'female', 'prefer-not-to-say'] },
     seatingPreference: { type: String, enum: ['indoor', 'outdoor', 'no-preference'] },
     calledAt: Date,
+    reservationType: { type: String, enum: ['reserved', 'waitlist'] },
   },
   { timestamps: true }
 );

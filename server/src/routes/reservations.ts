@@ -32,32 +32,34 @@ reservationsRouter.post('/', async (req, res, next) => {
       Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
     ]);
     
-    // Seating logic
-    const capacities = availableTables.map(t => t.capacity);
-    const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
-    const totalCapacity = capacities.reduce((a,b)=> a+b, 0);
-    let status: any = 'pending';
-    let tableToSeat: any = null;
-    
     // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
     const isWalkIn = data.phone === '0000000000';
     
-    // For 'reserve' mode, check if we can auto-seat (but NOT for walk-ins)
-    // For walk-ins, staff will manually assign the specific table via assign-table endpoint
-    // For 'waitlist' mode, keep as pending/confirmed (don't auto-seat)
-    if (data.mode === 'reserve' && !isWalkIn && data.partySize <= maxCapacity) {
-      // find first fitting table
-      tableToSeat = availableTables.find(t => t.capacity >= data.partySize) || null;
-      if (tableToSeat) status = 'seated';
-    } else if (data.partySize > maxCapacity && totalCapacity >= data.partySize) {
-      // queue with rearrangement note (client can message)
-      status = 'pending';
+    // Determine reservation type and status
+    // All customers (except walk-ins) go to waitlist by default
+    let status: any = 'pending';
+    let reservationType: 'reserved' | 'waitlist' | undefined = undefined;
+    
+    if (isWalkIn) {
+      // Walk-ins are handled separately - they will be manually assigned by staff
+      // Don't set reservationType for walk-ins
     } else {
-      status = 'pending';
+      // For both 'reserve' and 'waitlist' modes, always set status to 'pending'
+      // Determine reservationType based on mode and table availability
+      const capacities = availableTables.map(t => t.capacity);
+      const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
+      
+      if (data.mode === 'reserve' && data.partySize <= maxCapacity) {
+        // Table was available when they reserved
+        reservationType = 'reserved';
+      } else {
+        // No table available or mode is 'waitlist'
+        reservationType = 'waitlist';
+      }
     }
     
-    // Only assign queue position for waitlist mode AND when not already seated
-    const queuePosition = (data.mode === 'waitlist' && status !== 'seated') ? count + 1 : undefined;
+    // Only assign queue position for waitlist mode
+    const queuePosition = (data.mode === 'waitlist') ? count + 1 : undefined;
 
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
@@ -73,11 +75,8 @@ reservationsRouter.post('/', async (req, res, next) => {
       seatedAt: status === 'seated' ? new Date() : undefined,
       gender: data.gender,
       seatingPreference: data.seatingPreference,
+      reservationType,
     });
-
-    if (status === 'seated' && tableToSeat) {
-      await Table.findByIdAndUpdate(tableToSeat._id, { $set: { status: 'occupied', currentReservationId: doc._id } });
-    }
 
     // Send confirmation notification
     const restaurant = await Restaurant.findById(data.restaurantId);

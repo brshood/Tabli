@@ -66,6 +66,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [phoneDisplayModalOpen, setPhoneDisplayModalOpen] = useState(false);
   const [selectedGuestForCall, setSelectedGuestForCall] = useState<{ name: string; phone: string; reservationId: string } | null>(null);
   const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
+  const [tableSeatingDialogOpen, setTableSeatingDialogOpen] = useState(false);
+  const [tableCustomerSelectionOpen, setTableCustomerSelectionOpen] = useState(false);
+  const [tableEditDialogOpen, setTableEditDialogOpen] = useState(false);
+  const [selectedTableForEdit, setSelectedTableForEdit] = useState<{ id: string; name: string; capacity: number } | null>(null);
+  const [tableEditName, setTableEditName] = useState('');
+  const [tableEditCapacity, setTableEditCapacity] = useState(4);
+  const [customerSearchFilter, setCustomerSearchFilter] = useState('');
 
   useEffect(() => {
     let timer: any;
@@ -361,6 +368,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           gender: r.gender,
           seatingPreference: r.seatingPreference,
           calledAt: r.calledAt ? new Date(r.calledAt) : null,
+          reservationType: r.reservationType,
           holdTimeExpires: Date.now() + 10 * 60000,
         }));
       setWaitlist(wl);
@@ -647,6 +655,64 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
+  const handleAutoAssignTable = async () => {
+    try {
+      if (!staffAuth.restaurantId) {
+        toast.error('Restaurant ID not found');
+        return;
+      }
+
+      // Find first customer in waitlist who fits any available table
+      const fittingCustomer = waitlist.find(customer => {
+        return availableTables.some(table => customer.partySize <= table.capacity);
+      });
+
+      if (!fittingCustomer) {
+        toast.info('No customers in waitlist can fit any available table');
+        return;
+      }
+
+      // Find best fitting table (smallest table that fits)
+      const fittingTable = availableTables
+        .filter(table => fittingCustomer.partySize <= table.capacity)
+        .sort((a, b) => a.capacity - b.capacity)[0];
+
+      if (!fittingTable) {
+        toast.error('No suitable table found');
+        return;
+      }
+
+      // Call assign-table endpoint with specific table
+      const response = await fetch(`${API_URL}/reservations/${fittingCustomer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: fittingTable.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${fittingCustomer.name} seated at ${data.table.name}`);
+
+      // Refresh data
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error auto-assigning table:', error);
+      toast.error(error.message || 'Failed to auto-assign table');
+    }
+  };
+
+  // Check if auto-assign is possible
+  const canAutoAssign = waitlist.some(customer => 
+    availableTables.some(table => customer.partySize <= table.capacity)
+  );
+
   const addTable = async (tableName: string, capacity: number) => {
     try {
       if (!staffAuth.restaurantId) return;
@@ -697,6 +763,121 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
+  const openTableSeatingDialog = (tableId: number) => {
+    const table = availableTables.find(t => t.id === tableId);
+    if (table) {
+      setSelectedTableForSeating({ id: tableId, tableName: table.tableName, capacity: table.capacity });
+      setTableSeatingDialogOpen(true);
+    }
+  };
+
+  const handleAutoAssignFromWaitlist = async () => {
+    if (!selectedTableForSeating) return;
+
+    // Find first customer in waitlist who fits this table
+    const fittingCustomer = waitlist.find(customer => 
+      customer.partySize <= selectedTableForSeating.capacity
+    );
+
+    if (!fittingCustomer) {
+      toast.info('No customers in waitlist can fit this table');
+      setTableSeatingDialogOpen(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/reservations/${fittingCustomer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: selectedTableForSeating.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${fittingCustomer.name} seated at ${data.table.name}`);
+      setTableSeatingDialogOpen(false);
+
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error auto-assigning from waitlist:', error);
+      toast.error(error.message || 'Failed to auto-assign table');
+    }
+  };
+
+  const handleSeatCustomerFromWaitlist = async (customer: any) => {
+    if (!selectedTableForSeating) return;
+
+    try {
+      const response = await fetch(`${API_URL}/reservations/${customer.reservationId}/assign-table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: selectedTableForSeating.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign table');
+      }
+
+      const data = await response.json();
+      toast.success(`${customer.name} seated at ${data.table.name}`);
+      setTableCustomerSelectionOpen(false);
+      setTableSeatingDialogOpen(false);
+
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB()
+      ]);
+    } catch (error: any) {
+      console.error('Error seating customer:', error);
+      toast.error(error.message || 'Failed to seat customer');
+    }
+  };
+
+  const handleEditTable = async () => {
+    if (!selectedTableForEdit || !staffAuth.restaurantId) return;
+
+    if (tableEditName.trim().length === 0) {
+      toast.error('Table name cannot be empty');
+      return;
+    }
+
+    if (tableEditCapacity < 1) {
+      toast.error('Table capacity must be at least 1');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/tables/${selectedTableForEdit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tableEditName.trim(),
+          capacity: tableEditCapacity
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update table');
+      }
+
+      toast.success('Table updated successfully');
+      setTableEditDialogOpen(false);
+      await loadTablesFromDB();
+    } catch (error: any) {
+      console.error('Error editing table:', error);
+      toast.error(error.message || 'Failed to update table');
+    }
+  };
+
   const openSeatWalkInModal = (tableId: number) => {
     const availableTable = availableTables.find(table => table.id === tableId);
     if (!availableTable) return;
@@ -707,6 +888,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     setWalkInFormErrors({});
     setSeatWalkInModalOpen(true);
   };
+
+  // Get customers who fit the selected table
+  const getFittingCustomers = () => {
+    if (!selectedTableForSeating) return [];
+    return waitlist
+      .filter(customer => customer.partySize <= selectedTableForSeating.capacity)
+      .filter(customer => {
+        if (!customerSearchFilter) return true;
+        const searchLower = customerSearchFilter.toLowerCase();
+        return (
+          customer.name?.toLowerCase().includes(searchLower) ||
+          customer.phone?.includes(searchLower) ||
+          customer.email?.toLowerCase().includes(searchLower)
+        );
+      });
+  };
+
+  const canAutoAssignFromTable = selectedTableForSeating && 
+    waitlist.some(customer => customer.partySize <= selectedTableForSeating.capacity);
 
   const validateWalkInForm = () => {
     const errors: Record<string, string> = {};
@@ -869,6 +1069,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     Select the Guest from the Waitlist
                   </Button>
                   <Button 
+                    className="pill-button text-white"
+                    onClick={handleAutoAssignTable}
+                    disabled={!canAutoAssign}
+                    style={{
+                      backgroundColor: canAutoAssign ? '#5A5E3E' : '#9FA0A0',
+                      cursor: canAutoAssign ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <Table className="h-4 w-4 mr-2" />
+                    Auto-Assign Table
+                  </Button>
+                  <Button 
                     className="pill-button text-white" 
                     style={{backgroundColor: '#B889A6'}}
                     onClick={() => setDailySummaryDialogOpen(true)}
@@ -991,8 +1203,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </div>
 
 
-            {/* Two Column Layout */}
-            <div className="grid lg:grid-cols-2 gap-8">
+            {/* Three Column Layout */}
+            <div className="grid lg:grid-cols-3 gap-8">
               {/* Waitlist */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader className="pb-4">
@@ -1011,7 +1223,20 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
                             </div>
                             <div>
-                              <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                                {customer.reservationType && (
+                                  <Badge 
+                                    className="px-2 py-0.5 rounded-full text-xs"
+                                    style={{
+                                      backgroundColor: customer.reservationType === 'reserved' ? '#3F4427' : '#B889A6',
+                                      color: '#FFFFFF'
+                                    }}
+                                  >
+                                    {customer.reservationType === 'reserved' ? 'Reserved Table' : 'Joined Waitlist'}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm" style={{color: '#2D2D2B'}}>Party of {customer.partySize} • Joined {customer.joined}</p>
                             </div>
                           </div>
@@ -1116,101 +1341,121 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
-                  <div className="space-y-6">
-                    {/* Occupied Tables */}
-                    <div className="space-y-4 max-h-64 overflow-y-auto">
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Occupied Tables</h5>
-                      {seatedTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center">
-                              <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
-                                <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
-                              </div>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {seatedTables.map((table) => (
+                      <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center">
+                            <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                              <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
                             </div>
-                            <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
-                              {table.duration}
-                            </Badge>
+                            <div>
+                              <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
+                              <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
+                            </div>
+                          </div>
+                          <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
+                            {table.duration}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm" style={{color: '#2D2D2B'}}>
+                            Seated at {table.seatedTime}
                           </div>
                           
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm" style={{color: '#2D2D2B'}}>
-                              Seated at {table.seatedTime}
+                          <Button 
+                            size="sm" 
+                            onClick={() => checkOutTable(table.id)}
+                            className="pill-button text-xs text-white"
+                            style={{backgroundColor: '#3F4427'}}
+                          >
+                            Check Out
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {seatedTables.length === 0 && (
+                      <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                        <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No occupied tables</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Available Tables */}
+              <Card className="card-shadow border-0 rounded-3xl">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
+                    <CheckCircle className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
+                    Available Tables ({availableTables.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 pt-0">
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {availableTables.map((table) => (
+                      <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
+                              <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
                             </div>
-                            
+                            <div>
+                              <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                              <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
                             <Button 
                               size="sm" 
-                              onClick={() => checkOutTable(table.id)}
-                              className="pill-button text-xs text-white"
+                              onClick={() => openTableSeatingDialog(table.id)}
+                              className="pill-button text-xs h-7 px-2 text-white"
                               style={{backgroundColor: '#3F4427'}}
+                              title="Seat customer at this table"
                             >
-                              Check Out
+                              <UserPlus className="h-3 w-3 mr-1" />
+                              Seat
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity });
+                                setTableEditName(table.tableName);
+                                setTableEditCapacity(table.capacity);
+                                setTableEditDialogOpen(true);
+                              }}
+                              className="pill-button text-xs h-7 w-7 p-0"
+                              style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
+                              title="Edit table"
+                            >
+                              <Settings className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => removeTable(table.id)}
+                              className="pill-button text-xs h-7 w-7 p-0"
+                              style={{borderColor: '#D77A61', color: '#D77A61'}}
+                              title="Remove table"
+                            >
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
-                      ))}
-                      
-                      {seatedTables.length === 0 && (
-                        <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                          <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No occupied tables</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Available Tables */}
-                    <div className="space-y-4 max-h-32 overflow-y-auto border-t pt-4" style={{borderColor: 'rgba(183, 65, 14, 0.2)'}}>
-                      <h5 className="text-sm font-medium uppercase tracking-wide" style={{color: '#2D2D2B'}}>Available Tables</h5>
-                      {availableTables.map((table) => (
-                        <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
-                              </div>
-                              <div>
-                                <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
-                                <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => openSeatWalkInModal(table.id)}
-                                className="pill-button text-xs h-7 px-2 text-white"
-                                style={{backgroundColor: '#3F4427'}}
-                                title="Seat walk-in customer"
-                              >
-                                <UserPlus className="h-3 w-3 mr-1" />
-                                Seat
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => removeTable(table.id)}
-                                className="pill-button text-xs h-7 w-7 p-0"
-                                style={{borderColor: '#D77A61', color: '#D77A61'}}
-                                title="Remove table"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {availableTables.length === 0 && (
-                        <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                          <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No available tables</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
+                    
+                    {availableTables.length === 0 && (
+                      <div className="text-center py-4" style={{color: '#9FA0A0'}}>
+                        <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No available tables</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2015,6 +2260,213 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               style={{backgroundColor: '#B7410E'}}
             >
               Yes, Clear Queue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Table Seating Dialog */}
+      <Dialog open={tableSeatingDialogOpen} onOpenChange={setTableSeatingDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Seat at {selectedTableForSeating?.tableName}</DialogTitle>
+            <DialogDescription>
+              Choose how to seat a customer at this table (capacity: {selectedTableForSeating?.capacity} guests)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {canAutoAssignFromTable && (
+              <Button
+                onClick={handleAutoAssignFromWaitlist}
+                className="pill-button text-white w-full"
+                style={{backgroundColor: '#5A5E3E'}}
+              >
+                <Table className="h-4 w-4 mr-2" />
+                Auto-Assign from Waitlist
+              </Button>
+            )}
+            {canAutoAssignFromTable && (
+              <Button
+                onClick={() => {
+                  setTableCustomerSelectionOpen(true);
+                  setCustomerSearchFilter('');
+                }}
+                className="pill-button text-white w-full"
+                style={{backgroundColor: '#3F4427'}}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Select Customer Manually
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                setTableSeatingDialogOpen(false);
+                if (selectedTableForSeating) {
+                  openSeatWalkInModal(selectedTableForSeating.id);
+                }
+              }}
+              className="pill-button text-white w-full"
+              style={{backgroundColor: '#B889A6'}}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Seat Walk-In Guest
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTableSeatingDialogOpen(false)}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Selection for Table Modal */}
+      <Dialog open={tableCustomerSelectionOpen} onOpenChange={setTableCustomerSelectionOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Customer for {selectedTableForSeating?.tableName}</DialogTitle>
+            <DialogDescription>
+              Select a customer from the waitlist to seat at this table (capacity: {selectedTableForSeating?.capacity} guests)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Search by name, phone, or email..."
+              value={customerSearchFilter}
+              onChange={(e) => setCustomerSearchFilter(e.target.value)}
+              className="mb-4"
+            />
+            <div className="space-y-3">
+              {getFittingCustomers().length === 0 ? (
+                <p className="text-center py-8" style={{color: '#9FA0A0'}}>
+                  {customerSearchFilter ? 'No matching customers found' : 'No customers in waitlist fit this table'}
+                </p>
+              ) : (
+                getFittingCustomers().map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="p-4 rounded-lg border"
+                    style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
+                          <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
+                            {customer.name}
+                          </h4>
+                          {customer.reservationType && (
+                            <Badge 
+                              className="px-2 py-0.5 rounded-full text-xs"
+                              style={{
+                                backgroundColor: customer.reservationType === 'reserved' ? '#3F4427' : '#B889A6',
+                                color: '#FFFFFF'
+                              }}
+                            >
+                              {customer.reservationType === 'reserved' ? 'Reserved' : 'Waitlist'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
+                          <div>Party of {customer.partySize}</div>
+                          <div className="flex items-center gap-2">
+                            {customer.contactMethod === 'email' ? (
+                              <>
+                                <Mail className="h-4 w-4" />
+                                <span>{customer.email || 'No email'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Phone className="h-4 w-4" />
+                                <span>{customer.phone || 'No phone'}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="text-xs" style={{color: '#9FA0A0'}}>
+                            Joined {customer.joined}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleSeatCustomerFromWaitlist(customer)}
+                        className="pill-button text-white text-sm"
+                        style={{backgroundColor: '#3F4427'}}
+                      >
+                        Seat
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTableCustomerSelectionOpen(false);
+                setCustomerSearchFilter('');
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Table Edit Dialog */}
+      <Dialog open={tableEditDialogOpen} onOpenChange={setTableEditDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit Table</DialogTitle>
+            <DialogDescription>
+              Update table information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tableEditName">Table Name</Label>
+              <Input
+                id="tableEditName"
+                value={tableEditName}
+                onChange={(e) => setTableEditName(e.target.value)}
+                placeholder="Table name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tableEditCapacity">Capacity</Label>
+              <Input
+                id="tableEditCapacity"
+                type="number"
+                min="1"
+                value={tableEditCapacity}
+                onChange={(e) => setTableEditCapacity(Math.max(1, parseInt(e.target.value) || 1))}
+                placeholder="Number of guests"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTableEditDialogOpen(false);
+                setSelectedTableForEdit(null);
+              }}
+              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditTable}
+              className="pill-button text-white"
+              style={{backgroundColor: '#3F4427'}}
+            >
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
