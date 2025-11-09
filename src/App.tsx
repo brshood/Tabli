@@ -6,6 +6,7 @@ import { CustomerSearchPage } from './components/CustomerSearchPage';
 import { RestaurantProfilePage } from './components/RestaurantProfilePage';
 import { StaffDashboardWithTabs } from './components/StaffDashboardWithTabs';
 import { StaffAuthModal } from './components/StaffAuthModal';
+import { AdminPanel } from './components/AdminPanel';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 import { Search, Compass, Users } from 'lucide-react';
@@ -19,7 +20,7 @@ import { LanguageProvider, useLanguage } from './components/LanguageContext';
 import { LanguageToggle } from './components/LanguageToggle';
 import { parseQRCodeFromUrl, generateQRCodeDataUrl, parseRestaurantProfileFromUrl } from './utils/qrCodeGenerator';
 
-type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile';
+type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin';
 
 interface StaffUser {
   name: string;
@@ -71,11 +72,16 @@ function AppContent() {
     if (hash) {
       // Parse hash to determine initial page
       const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile'].includes(pageFromHash)) {
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin'].includes(pageFromHash)) {
         setCurrentPage(pageFromHash);
         
-        // If restaurant-profile, will be handled by restaurants-loaded effect
-        if (pageFromHash !== 'restaurant-profile') {
+        // Admin and restaurant-profile need special handling
+        if (pageFromHash === 'admin') {
+          // Admin doesn't need restaurant data, set immediately
+          window.history.replaceState({ page: 'admin' }, '', hash);
+        } else if (pageFromHash === 'restaurant-profile') {
+          // Will be handled by restaurants-loaded effect
+        } else {
           window.history.replaceState({ page: pageFromHash }, '', hash);
         }
       }
@@ -93,6 +99,9 @@ function AppContent() {
     if (!hasInitialized || allRestaurants.length === 0) return;
     
     const hash = window.location.hash;
+    
+    // Skip admin route - it doesn't need restaurant data
+    if (hash === '#admin' || currentPage === 'admin') return;
     
     // Skip if we've already processed this exact hash
     if (lastProcessedHash === hash) return;
@@ -225,6 +234,11 @@ function AppContent() {
                 return;
               }
             }
+          } else if (pageFromHash === 'admin') {
+            setPreviousPage(currentPage);
+            setCurrentPage('admin');
+            setSelectedRestaurant(null);
+            return;
           }
         }
         // Default to landing page
@@ -522,6 +536,20 @@ function AppContent() {
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
             <StaffDashboardWithTabs onNavigate={navigateToPage} staffAuth={staffAuth} onLogout={handleStaffLogout} onUserUpdate={handleUserUpdate} />
+          </motion.div>
+        );
+      case 'admin':
+        return (
+          <motion.div
+            key="admin"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <AdminPanel />
           </motion.div>
         );
       default:
