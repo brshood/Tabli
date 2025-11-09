@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { QrCode, Download, Printer } from 'lucide-react';
 import { generateQRCodeDataUrl, downloadQRCode, generateRestaurantProfileUrl } from '../utils/qrCodeGenerator';
 import { toast } from 'sonner@2.0.3';
+import tabliLogo from '../assets/tabli-logo-new.png';
 
 interface QRCodeDisplayProps {
   restaurantId: string;
@@ -44,58 +45,290 @@ export function QRCodeDisplay({ restaurantId, restaurantName, qrCodeUrl: initial
     if (qrCodeUrl) {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Print QR Code - ${restaurantName}</title>
-              <style>
-                body {
-                  font-family: Arial, sans-serif;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  height: 100vh;
-                  margin: 0;
-                  text-align: center;
-                }
-                h1 {
-                  color: #5A5E3E;
-                  margin-bottom: 20px;
-                }
-                img {
-                  max-width: 400px;
-                  margin: 20px 0;
-                }
-                p {
-                  color: #2D2D2B;
-                  font-size: 18px;
-                  margin: 10px;
-                }
-                .instructions {
-                  max-width: 600px;
-                  margin-top: 30px;
-                  padding: 20px;
-                  background: #FAF8F2;
-                  border-radius: 10px;
-                }
-              </style>
-            </head>
-            <body>
-              <h1>${restaurantName}</h1>
-              <p style="font-size: 24px; font-weight: bold;">Scan to View Menu & Book</p>
-              <img src="${qrCodeUrl}" alt="QR Code" />
-              <div class="instructions">
-                <p><strong>Instructions for Staff:</strong></p>
-                <p>1. Print this QR code and display it at the entrance or on tables</p>
-                <p>2. Customers can scan to instantly view your menu and book a table</p>
-                <p>3. The QR code links directly to your restaurant profile</p>
-              </div>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+        // Convert logo to base64 data URL for printing
+        const logoImg = new Image();
+        logoImg.src = tabliLogo;
+        
+        logoImg.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            // Fallback if canvas context is not available
+            printWindow.document.write(`
+              <html>
+                <head>
+                  <title>Print QR Code - ${restaurantName}</title>
+                  <style>
+                    @media print {
+                      @page {
+                        margin: 20mm;
+                      }
+                    }
+                    body {
+                      font-family: Arial, sans-serif;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      min-height: 100vh;
+                      margin: 0;
+                      text-align: center;
+                      position: relative;
+                      padding: 40px 20px;
+                    }
+                    .logo-container {
+                      position: absolute;
+                      top: 20px;
+                      right: 20px;
+                    }
+                    .logo-container img {
+                      height: 60px;
+                      width: auto;
+                    }
+                    h1 {
+                      color: #5A5E3E;
+                      margin-bottom: 10px;
+                      margin-top: 0;
+                      font-size: 32px;
+                    }
+                    .subtitle {
+                      color: #2D2D2B;
+                      font-size: 20px;
+                      font-weight: bold;
+                      margin-bottom: 30px;
+                    }
+                    .qr-code {
+                      max-width: 400px;
+                      width: 100%;
+                      margin: 20px 0;
+                    }
+                    .customer-instructions {
+                      max-width: 500px;
+                      margin-top: 30px;
+                      padding: 20px;
+                      text-align: center;
+                    }
+                    .customer-instructions p {
+                      color: #2D2D2B;
+                      font-size: 16px;
+                      margin: 8px 0;
+                      line-height: 1.5;
+                    }
+                    .cta {
+                      color: #5A5E3E;
+                      font-weight: bold;
+                      font-size: 18px;
+                      margin-top: 15px;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="logo-container">
+                    <img src="${tabliLogo}" alt="Tabli Logo" />
+                  </div>
+                  <h1>${restaurantName}</h1>
+                  <p class="subtitle">Scan to View Menu & Book</p>
+                  <img src="${qrCodeUrl}" alt="QR Code" class="qr-code" />
+                  <div class="customer-instructions">
+                    <p>Scan this QR code with your phone camera</p>
+                    <p>to view our menu and book your table instantly</p>
+                    <p class="cta">Book your table next time faster with Tabli</p>
+                  </div>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+              printWindow.print();
+            }, 250);
+            return;
+          }
+          
+          canvas.width = logoImg.width;
+          canvas.height = logoImg.height;
+          ctx.drawImage(logoImg, 0, 0);
+          const logoDataUrl = canvas.toDataURL('image/png');
+          
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Print QR Code - ${restaurantName}</title>
+                <style>
+                  @media print {
+                    @page {
+                      margin: 20mm;
+                    }
+                  }
+                  body {
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    text-align: center;
+                    position: relative;
+                    padding: 40px 20px;
+                  }
+                  .logo-container {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                  }
+                  .logo-container img {
+                    height: 60px;
+                    width: auto;
+                  }
+                  h1 {
+                    color: #5A5E3E;
+                    margin-bottom: 10px;
+                    margin-top: 0;
+                    font-size: 32px;
+                  }
+                  .subtitle {
+                    color: #2D2D2B;
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-bottom: 30px;
+                  }
+                  .qr-code {
+                    max-width: 400px;
+                    width: 100%;
+                    margin: 20px 0;
+                  }
+                  .customer-instructions {
+                    max-width: 500px;
+                    margin-top: 30px;
+                    padding: 20px;
+                    text-align: center;
+                  }
+                  .customer-instructions p {
+                    color: #2D2D2B;
+                    font-size: 16px;
+                    margin: 8px 0;
+                    line-height: 1.5;
+                  }
+                  .cta {
+                    color: #5A5E3E;
+                    font-weight: bold;
+                    font-size: 18px;
+                    margin-top: 15px;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="logo-container">
+                  <img src="${logoDataUrl}" alt="Tabli Logo" />
+                </div>
+                <h1>${restaurantName}</h1>
+                <p class="subtitle">Scan to View Menu & Book</p>
+                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code" />
+                <div class="customer-instructions">
+                  <p>Scan this QR code with your phone camera</p>
+                  <p>to view our menu and book your table instantly</p>
+                  <p class="cta">Book your table next time faster with Tabli</p>
+                </div>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          // Small delay to ensure images are loaded before printing
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        };
+        
+        logoImg.onerror = () => {
+          // Fallback if logo fails to load - use direct import path
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>Print QR Code - ${restaurantName}</title>
+                <style>
+                  @media print {
+                    @page {
+                      margin: 20mm;
+                    }
+                  }
+                  body {
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    text-align: center;
+                    position: relative;
+                    padding: 40px 20px;
+                  }
+                  .logo-container {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                  }
+                  .logo-container img {
+                    height: 60px;
+                    width: auto;
+                  }
+                  h1 {
+                    color: #5A5E3E;
+                    margin-bottom: 10px;
+                    margin-top: 0;
+                    font-size: 32px;
+                  }
+                  .subtitle {
+                    color: #2D2D2B;
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-bottom: 30px;
+                  }
+                  .qr-code {
+                    max-width: 400px;
+                    width: 100%;
+                    margin: 20px 0;
+                  }
+                  .customer-instructions {
+                    max-width: 500px;
+                    margin-top: 30px;
+                    padding: 20px;
+                    text-align: center;
+                  }
+                  .customer-instructions p {
+                    color: #2D2D2B;
+                    font-size: 16px;
+                    margin: 8px 0;
+                    line-height: 1.5;
+                  }
+                  .cta {
+                    color: #5A5E3E;
+                    font-weight: bold;
+                    font-size: 18px;
+                    margin-top: 15px;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="logo-container">
+                  <img src="${tabliLogo}" alt="Tabli Logo" />
+                </div>
+                <h1>${restaurantName}</h1>
+                <p class="subtitle">Scan to View Menu & Book</p>
+                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code" />
+                <div class="customer-instructions">
+                  <p>Scan this QR code with your phone camera</p>
+                  <p>to view our menu and book your table instantly</p>
+                  <p class="cta">Book your table next time faster with Tabli</p>
+                </div>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        };
       }
     }
   };

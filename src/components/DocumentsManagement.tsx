@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2, Camera } from 'lucide-react';
+import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2, Camera, QrCode } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import {
   fetchRestaurantDocuments,
@@ -16,6 +16,7 @@ import {
   type GroupedDocuments,
 } from '../services/documentsApi';
 import { updateMenuType, uploadProfilePicture, deleteProfilePicture, getProfilePictureUrl, getRestaurantInfo } from '../services/profileApi';
+import { QRCodeDisplay } from './QRCodeDisplay';
 
 interface DocumentsManagementProps {
   restaurantId: string;
@@ -38,6 +39,7 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
   
   const [profilePictureId, setProfilePictureId] = useState<string | null>(null);
   const [uploadingProfilePicture, setUploadingProfilePicture] = useState(false);
+  const [restaurantName, setRestaurantName] = useState<string>('');
   
   const licenseInputRef = useRef<HTMLInputElement>(null);
   const menuInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +47,18 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
 
   useEffect(() => {
     loadDocuments();
+    loadRestaurantName();
   }, [restaurantId, token]);
+
+  const loadRestaurantName = async () => {
+    try {
+      const result = await getRestaurantInfo(restaurantId);
+      const restaurant = result.item;
+      setRestaurantName(restaurant?.name || '');
+    } catch (error: any) {
+      console.error('Failed to load restaurant name:', error);
+    }
+  };
 
   const loadDocuments = async () => {
     try {
@@ -344,7 +357,7 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
     <div className="space-y-8">
       {/* Profile Picture Card */}
       <Card className="card-shadow border-0 rounded-3xl overflow-hidden">
-        <CardHeader style={{ background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)' }}>
+        <CardHeader>
           <CardTitle className="text-2xl flex items-center" style={{ color: '#2D2D2B' }}>
             <Camera className="h-6 w-6 mr-2" style={{ color: '#5A5E3E' }} />
             Restaurant Profile Picture
@@ -456,6 +469,34 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* QR Code Card */}
+      <Card className="card-shadow border-0 rounded-3xl overflow-hidden">
+        <CardHeader>
+          <CardTitle className="text-2xl flex items-center" style={{ color: '#2D2D2B' }}>
+            <QrCode className="h-6 w-6 mr-2" style={{ color: '#5A5E3E' }} />
+            Restaurant QR Code
+          </CardTitle>
+          <p className="text-sm mt-2" style={{ color: '#5A5E3E' }}>
+            Display this QR code at your restaurant for customers to scan and view your profile
+          </p>
+        </CardHeader>
+        <CardContent className="p-8">
+          {restaurantName ? (
+            <QRCodeDisplay 
+              restaurantId={restaurantId} 
+              restaurantName={restaurantName} 
+            />
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: '#5A5E3E' }}></div>
+                <p style={{ color: '#5A5E3E' }}>Loading QR code...</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
