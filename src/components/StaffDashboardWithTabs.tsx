@@ -10,7 +10,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cel
 import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
-import { QRCodeDisplay } from './QRCodeDisplay';
 import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner@2.0.3';
 import { WaveBackground } from './WaveBackground';
@@ -1804,27 +1803,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   )}
                 </CardContent>
               </Card>
-            </div>
-
-            {/* QR Code Section - Moved to Bottom */}
-            <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                {/* Placeholder for spacing */}
-              </div>
-              <div>
-                {staffAuth.restaurantId && (() => {
-                  const restaurant = allRestaurants.find(r => r.id === staffAuth.restaurantId);
-                  if (restaurant) {
-                    return (
-                      <QRCodeDisplay 
-                        restaurantId={restaurant.id} 
-                        restaurantName={restaurant.name} 
-                      />
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
             </div>
           </TabsContent>
 
