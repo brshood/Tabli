@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Plus, Minus, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useLanguage } from './LanguageContext';
@@ -21,8 +22,9 @@ interface BookingModalProps {
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
   const [partySize, setPartySize] = useState(2);
   const [customerName, setCustomerName] = useState('');
-  const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('phone');
-  const [phone, setPhone] = useState('');
+  const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('email');
+  const [countryCode, setCountryCode] = useState('+971');
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
   const [seatingPreference, setSeatingPreference] = useState<'indoor' | 'outdoor' | 'no-preference'>('no-preference');
   const [gender, setGender] = useState<'male' | 'female' | 'prefer-not-to-say'>('prefer-not-to-say');
@@ -103,8 +105,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   useEffect(() => {
     if (!isOpen) {
       setPartySize(2);
-      setContactMethod('phone');
-      setPhone('');
+      setContactMethod('email');
+      setCountryCode('+971');
+      setPhoneLocal('');
       setEmail('');
       setSeatingPreference('no-preference');
       setGender('prefer-not-to-say');
@@ -120,7 +123,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     }
 
     if (contactMethod === 'phone') {
-      if (!phone || phone.length < 10) {
+      const numericLocal = phoneLocal.replace(/\D/g, '');
+      if (!numericLocal || numericLocal.length < 5) {
         newErrors.phone = 'Please enter a valid phone number';
       }
     } else if (contactMethod === 'email') {
@@ -147,7 +151,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           name: customerName || undefined,
           partySize,
           contactMethod,
-          phone: contactMethod === 'phone' ? phone : undefined,
+          phone: contactMethod === 'phone'
+            ? `${countryCode}${phoneLocal.replace(/\D/g, '')}`
+            : undefined,
           email: contactMethod === 'email' ? email : undefined,
           gender: gender !== 'prefer-not-to-say' ? gender : undefined,
           seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
@@ -170,7 +176,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
   const isFormValid = () => {
     if (partySize < 1 || partySize > 12) return false;
-    if (contactMethod === 'phone' && (!phone || phone.length < 10)) return false;
+    if (contactMethod === 'phone' && phoneLocal.replace(/\D/g, '').length < 5) return false;
     if (contactMethod === 'email' && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return false;
     return true;
   };
@@ -333,23 +339,37 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           </div>
 
           {/* Contact Input */}
-          {contactMethod === 'phone' && (
-            <div className="space-y-2">
-              <Label htmlFor="phoneInput" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
+        {contactMethod === 'phone' && (
+          <div className="space-y-2">
+            <Label htmlFor="phoneInput" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
+            <div className="flex gap-2">
+              <Select value={countryCode} onValueChange={setCountryCode}>
+                <SelectTrigger className="w-[110px] bg-white" style={{borderColor: 'var(--where2go-border)'}}>
+                  <SelectValue placeholder="+971" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="+971">UAE +971</SelectItem>
+                  <SelectItem value="+966">Saudi Arabia +966</SelectItem>
+                  <SelectItem value="+974">Qatar +974</SelectItem>
+                  <SelectItem value="+973">Bahrain +973</SelectItem>
+                  <SelectItem value="+968">Oman +968</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 id="phoneInput"
                 type="tel"
-                placeholder="Enter your phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-white"
+                placeholder="Enter phone number"
+                value={phoneLocal}
+                onChange={(e) => setPhoneLocal(e.target.value)}
+                className="bg-white flex-1"
                 style={{borderColor: 'var(--where2go-border)'}}
               />
-              {errors.phone && (
-                <p className="text-sm text-red-600">{errors.phone}</p>
-              )}
             </div>
-          )}
+            {errors.phone && (
+              <p className="text-sm text-red-600">{errors.phone}</p>
+            )}
+          </div>
+        )}
 
           {contactMethod === 'email' && (
             <div className="space-y-2">

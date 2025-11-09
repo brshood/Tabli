@@ -25,6 +25,11 @@ export interface Restaurant {
     description: string;
     price: string;
   }[];
+  featuredMenuItems?: {
+    name: string;
+    description?: string;
+    price?: string;
+  }[];
   priceRange: string;
   openingHours: string;
   closingHours: string;
@@ -75,6 +80,7 @@ const defaultRestaurant: Restaurant = {
       price: "14"
     }
   ],
+  featuredMenuItems: [],
   priceRange: "$$",
   openingHours: "11:00",
   closingHours: "22:00",
@@ -136,6 +142,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             weeklyAverageCustomers: 0,
             coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
             menu: r.menu || [],
+            featuredMenuItems: r.featuredMenuItems || [],
             priceRange: r.priceRange || '$$',
             openingHours: r.openingHours || '09:00',
             closingHours: r.closingHours || '22:00',

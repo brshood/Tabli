@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Store, MapPin, Phone, Mail, Clock, DollarSign, FileText } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, Clock, DollarSign, FileText, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { updateRestaurantInfo, getRestaurantInfo, type RestaurantInfo } from '../services/profileApi';
 
@@ -28,6 +28,7 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
   const [closingHours, setClosingHours] = useState('');
   const [priceRange, setPriceRange] = useState('$$');
   const [description, setDescription] = useState('');
+  const [featuredItems, setFeaturedItems] = useState<Array<{ name: string; description: string; price: string }>>([]);
 
   useEffect(() => {
     loadRestaurantInfo();
@@ -49,6 +50,13 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
       setClosingHours(restaurant.closingHours || '');
       setPriceRange(restaurant.priceRange || '$$');
       setDescription(restaurant.description || '');
+      setFeaturedItems(
+        (restaurant.featuredMenuItems || []).map((item: any) => ({
+          name: item.name || '',
+          description: item.description || '',
+          price: item.price || '',
+        }))
+      );
     } catch (error: any) {
       toast.error(error.message || 'Failed to load restaurant information');
     } finally {
@@ -77,6 +85,13 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
           closingHours,
           priceRange,
           description,
+          featuredMenuItems: featuredItems
+            .filter((item) => item.name.trim())
+            .map((item) => ({
+              name: item.name.trim(),
+              description: item.description.trim(),
+              price: item.price.trim(),
+            })),
         },
         token
       );
@@ -290,6 +305,102 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
               backgroundColor: '#FFFFFF'
             }}
           />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label style={{ color: '#2D2D2B' }}>Featured Menu Items</Label>
+            <Button
+              type="button"
+              variant="outline"
+              className="pill-button"
+              style={{ borderColor: 'rgba(90, 94, 62, 0.3)', color: '#2D2D2B' }}
+              onClick={() => {
+                if (featuredItems.length >= 6) {
+                  toast.error('You can highlight up to 6 featured items.');
+                  return;
+                }
+                setFeaturedItems([...featuredItems, { name: '', description: '', price: '' }]);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Featured Item
+            </Button>
+          </div>
+          <p className="text-sm" style={{ color: '#6B7280' }}>
+            Highlight signature dishes to display on your public profile. Leave the list empty if you don’t want to feature specific items.
+          </p>
+          <div className="space-y-4">
+            {featuredItems.length === 0 && (
+              <div className="p-4 rounded-xl border" style={{ borderColor: 'rgba(90, 94, 62, 0.2)', backgroundColor: '#F9FAFB' }}>
+                <p className="text-sm" style={{ color: '#6B7280' }}>
+                  No featured items yet. Use the “Add Featured Item” button to showcase your signature dishes.
+                </p>
+              </div>
+            )}
+            {featuredItems.map((item, index) => (
+              <div
+                key={`${index}-${item.name}`}
+                className="p-4 rounded-xl border space-y-3"
+                style={{ borderColor: 'rgba(90, 94, 62, 0.2)', backgroundColor: '#FFFFFF' }}
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold" style={{ color: '#2D2D2B' }}>
+                    Featured Item #{index + 1}
+                  </h4>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-600"
+                    onClick={() => setFeaturedItems(featuredItems.filter((_, i) => i !== index))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label style={{ color: '#2D2D2B' }}>Item name *</Label>
+                    <Input
+                      value={item.name}
+                      onChange={(e) => {
+                        const updated = [...featuredItems];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        setFeaturedItems(updated);
+                      }}
+                      placeholder="e.g. Truffle Risotto"
+                      style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label style={{ color: '#2D2D2B' }}>Price</Label>
+                    <Input
+                      value={item.price}
+                      onChange={(e) => {
+                        const updated = [...featuredItems];
+                        updated[index] = { ...updated[index], price: e.target.value };
+                        setFeaturedItems(updated);
+                      }}
+                      placeholder="e.g. AED 75"
+                      style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label style={{ color: '#2D2D2B' }}>Short description</Label>
+                  <Textarea
+                    value={item.description}
+                    onChange={(e) => {
+                      const updated = [...featuredItems];
+                      updated[index] = { ...updated[index], description: e.target.value };
+                      setFeaturedItems(updated);
+                    }}
+                    placeholder="What makes this item special?"
+                    style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="pt-4">

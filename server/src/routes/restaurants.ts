@@ -184,6 +184,12 @@ const menuItemSchema = z.object({
   price: z.string().min(1),
 });
 
+const featuredMenuItemSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  price: z.string().optional(),
+});
+
 const updateSchema = z.object({
   name: z.string().min(2).trim().optional(),
   city: z.enum(['Al Ain','Abu Dhabi','Dubai']).optional(),
@@ -196,6 +202,7 @@ const updateSchema = z.object({
   closingHours: z.string().optional(),
   priceRange: z.string().optional(),
   menu: z.array(menuItemSchema).optional(),
+  featuredMenuItems: z.array(featuredMenuItemSchema).max(6).optional(),
 });
 
 restaurantsRouter.put('/:id', requireAuth, requireOwnRestaurant, async (req, res, next) => {

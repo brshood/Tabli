@@ -2,16 +2,17 @@ import express from 'express';
 import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail } from '../services/email';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 
 export const queueRouter = express.Router();
 
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
-  contactMethod: z.enum(['phone','email']),
+  contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
   email: z.string().email().optional(),
+  name: z.string().min(1).max(100).optional(),
 });
 
 // POST /queue/:restaurantId/join
@@ -27,6 +28,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     const doc = await Reservation.create({
       restaurantId: restaurant._id,
       mode: 'waitlist',
+      name: data.name,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
       phone: data.contactMethod === 'phone' ? data.phone : undefined,
@@ -42,6 +44,15 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
           to: data.email,
           subject: `Queue at ${restaurant.name}`,
           text: message,
+          html: buildEmailTemplate({
+            heading: `Thanks for joining the queue at ${restaurant.name}`,
+            intro: doc.name ? `Hi ${doc.name},` : 'Hello,',
+            lines: [
+              `You're currently #${queuePosition} in line at ${restaurant.name}.`,
+              'We’ll email you as soon as your table is ready.',
+            ],
+            footer: 'Need to make a change? Reply to this email and we’ll help you out.',
+          }),
         });
       }
     } catch (err) {
@@ -64,6 +75,16 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
         to: r.email,
         subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
         text: message,
+        html: buildEmailTemplate({
+          heading: 'Your table is ready!',
+          intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+          lines: [
+            restaurant?.name
+              ? `Your table at ${restaurant.name} is ready. Please arrive within 10 minutes so we can keep it for you.`
+              : 'Your table is ready. Please arrive within 10 minutes so we can keep it for you.',
+            'If you’re on your way, no action is needed. Otherwise, reply to this email to let us know.',
+          ],
+        }),
       });
     }
     res.json({ success: true });
@@ -88,6 +109,16 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
           to: r.email,
           subject: restaurant?.name ? `${restaurant.name} queue update` : 'Queue update',
           text: message,
+          html: buildEmailTemplate({
+            heading: 'We released your spot',
+            intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+            lines: [
+              restaurant?.name
+                ? `We tried to reach you, but we need to release your place in line at ${restaurant.name}.`
+                : 'We tried to reach you, but we need to release your place in line.',
+              'If you’re still planning to dine with us, reply to this email and we’ll do our best to help.',
+            ],
+          }),
         });
       }
     } catch (notificationError) {
