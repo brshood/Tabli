@@ -22,6 +22,7 @@ export interface RestaurantInfo {
   closingHours: string;
   priceRange: string;
   description: string;
+  featuredMenuItems?: { name: string; description?: string; price?: string }[];
 }
 
 /**

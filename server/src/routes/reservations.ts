@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
-import { sendEmail } from '../services/email';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 
 export const reservationsRouter = express.Router();
 
@@ -86,10 +86,26 @@ reservationsRouter.post('/', async (req, res, next) => {
       
       try {
         if (data.email) {
+          const introName = data.name ? `Hi ${data.name},` : 'Hello,';
           await sendEmail({
             to: data.email,
             subject: `Reservation at ${restaurant.name}`,
             text: message,
+            html: buildEmailTemplate({
+              heading: data.mode === 'waitlist'
+                ? `You're on the waitlist at ${restaurant.name}`
+                : `We've received your reservation`,
+              intro: introName,
+              lines: data.mode === 'waitlist'
+                ? [
+                    `You're currently #${queuePosition} in line at ${restaurant.name}.`,
+                    'We’ll email you again when your table is ready.',
+                  ]
+                : [
+                    `Thanks for choosing ${restaurant.name}. We’re reviewing your reservation request and will confirm shortly.`,
+                  ],
+              footer: 'Questions? Reply to this email and we’ll get right back to you.',
+            }),
           });
         }
       } catch (err) {
@@ -192,7 +208,16 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const subject = req.body?.subject || 'Your table is ready';
     
     if (r.email) {
-      await sendEmail({ to: r.email, subject, text: message });
+      await sendEmail({
+        to: r.email,
+        subject,
+        text: message,
+        html: buildEmailTemplate({
+          heading: subject,
+          intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+          lines: [message],
+        }),
+      });
     }
     
     res.json({ success: true });
@@ -367,7 +392,19 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
         const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
         const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
 
-        await sendEmail({ to: reservation.email, subject: 'Your table is ready', text: notificationMessage });
+        await sendEmail({
+          to: reservation.email,
+          subject: 'Your table is ready',
+          text: notificationMessage,
+          html: buildEmailTemplate({
+            heading: 'Your table is ready!',
+            intro: `Hi${reservation.name ? ` ${reservation.name}` : ''},`,
+            lines: [
+              notificationMessage,
+              'If you need a few more minutes, just reply to this email to let us know.',
+            ],
+          }),
+        });
       } catch (notificationError) {
         console.error('Failed to send queue promotion email:', notificationError);
       }

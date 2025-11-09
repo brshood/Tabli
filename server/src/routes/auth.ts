@@ -5,7 +5,7 @@ import multer from 'multer';
 import { User } from '../models/User';
 import { Restaurant } from '../models/Restaurant';
 import { signJwt, verifyJwt } from '../utils/jwt';
-import { sendEmail } from '../services/email';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 import { getGridFsBucket } from '../db/gridfs';
 import crypto from 'crypto';
 import { env } from '../config/env';
@@ -254,10 +254,21 @@ authRouter.post('/forgot-password', async (req, res, next) => {
       const resetBase = env.CORS_ORIGIN || 'http://localhost:5173';
       const link = `${resetBase.replace(/\/$/, '')}/reset-password?token=${token}`;
 
+      const text = `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`;
       await sendEmail({
         to: user.email,
         subject: 'Reset your Tabli password',
-        text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+        text,
+        html: buildEmailTemplate({
+          heading: 'Reset your password',
+          intro: `Hello ${user.name},`,
+          lines: [
+            'Click the button below to reset your password.',
+          ],
+          actionText: 'Reset Password',
+          actionUrl: link,
+          footer: 'This link expires in 1 hour. If you did not request this, you can safely ignore this email.',
+        }),
       });
     }
     res.json({ success: true });

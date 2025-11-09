@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail } from '../services/email';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 import { env } from '../config/env';
 
 export const tablesRouter = express.Router();
@@ -150,6 +150,18 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
           to: reservation.email,
           subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
           text: thankYouMessage,
+          html: buildEmailTemplate({
+            heading: 'Thank you for dining with us!',
+            intro: reservation.name ? `Hi ${reservation.name},` : 'Hello,',
+            lines: [
+              restaurant?.name
+                ? `We hope you enjoyed your time at ${restaurant.name}.`
+                : 'We hope you enjoyed your dining experience.',
+              'We’d love to hear how everything went—share your thoughts with us!',
+            ],
+            actionText: 'Leave a quick rating',
+            actionUrl: ratingLink,
+          }),
         });
       } catch (notificationError) {
         console.error('Failed to send thank-you email:', notificationError);
