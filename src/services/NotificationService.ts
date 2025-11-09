@@ -186,25 +186,3 @@ export async function sendHoldTimeReminder(
   return true;
 }
 
-/**
- * Calculate estimated wait time based on queue position
- */
-export function calculateEstimatedWaitTime(
-  queuePosition: number,
-  averageTableTurnTime: number = 45
-): string {
-  const estimatedMinutes = queuePosition * (averageTableTurnTime / 2); // Rough estimate
-  
-  if (estimatedMinutes < 15) {
-    return '10-15 min';
-  } else if (estimatedMinutes < 25) {
-    return '15-25 min';
-  } else if (estimatedMinutes < 35) {
-    return '25-35 min';
-  } else if (estimatedMinutes < 50) {
-    return '35-50 min';
-  } else {
-    return '50+ min';
-  }
-}
-

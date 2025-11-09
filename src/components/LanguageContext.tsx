@@ -59,6 +59,34 @@ const translations = {
     'cta.find': 'Find a Table',
     'cta.login': 'Restaurant Login',
 
+    // Landing Page - Metrics Section
+    'metrics.title': 'Tabli by the Numbers',
+    'metrics.subtitle': 'A quick look at how restaurants and guests are connecting on Tabli.',
+    'metrics.reservations.heading': 'Reservations',
+    'metrics.reservations.desc': 'Guests who booked a table through Tabli.',
+    'metrics.restaurants.heading': 'Restaurants',
+    'metrics.restaurants.desc': 'Partners currently welcoming diners on Tabli.',
+    'metrics.unique.heading': 'Unique Guests',
+    'metrics.unique.desc': 'Individual phone numbers or emails that have booked with Tabli.',
+
+    // Discover Page - Browse More
+    'discover.more.title': "Can't find what you're looking for?",
+    'discover.more.cta': 'Browse More!',
+
+    // Discover Page - Featured Cities
+    'discover.cities.dubai': 'Dubai',
+    'discover.cities.alAin': 'Al Ain',
+    'discover.cities.abuDhabi': 'Abu Dhabi',
+
+    // Availability tags and actions
+    'status.available': 'Available',
+    'status.waitlist': 'Waitlist',
+    'action.standInQueue': 'Stand in Queue',
+    'status.tablesAvailableNow': 'Tables available now',
+
+    // Search Page Results Summary
+    'search.results.count': 'Restaurants Found',
+
     // Search Page
     'search.title': 'Find Your Perfect Table',
     'search.subtitle': 'Discover available tables near you or join waitlists with real-time updates',
@@ -135,6 +163,34 @@ const translations = {
     'cta.subtitle': 'انضم إلى آلاف المطاعم وملايين رواد المطاعم المستخدمين لتابلي',
     'cta.find': 'ابحث عن طاولة',
     'cta.login': 'دخول المطعم',
+
+    // Landing Page - Metrics Section
+    'metrics.title': 'أرقام تابلي',
+    'metrics.subtitle': 'نظرة سريعة على كيفية اتصال المطاعم والضيوف عبر تابلي.',
+    'metrics.reservations.heading': 'الحجوزات',
+    'metrics.reservations.desc': 'ضيوف حجزوا طاولة عبر تابلي.',
+    'metrics.restaurants.heading': 'المطاعم',
+    'metrics.restaurants.desc': 'شركاء يستقبلون الضيوف حالياً على تابلي.',
+    'metrics.unique.heading': 'الضيوف الفريدون',
+    'metrics.unique.desc': 'أرقام هواتف أو رسائل بريد إلكتروني حجزت عبر تابلي.',
+
+    // Discover Page - Browse More
+    'discover.more.title': 'لم تجد ما تبحث عنه؟',
+    'discover.more.cta': 'تصفح المزيد!',
+
+    // Discover Page - Featured Cities
+    'discover.cities.dubai': 'دبي',
+    'discover.cities.alAin': 'العين',
+    'discover.cities.abuDhabi': 'أبوظبي',
+
+    // Availability tags and actions
+    'status.available': 'متاح',
+    'status.waitlist': 'قائمة الانتظار',
+    'action.standInQueue': 'انضم إلى الطابور',
+    'status.tablesAvailableNow': 'طاولات متاحة الآن',
+
+    // Search Page Results Summary
+    'search.results.count': 'المطاعم الموجودة',
 
     // Search Page
     'search.title': 'ابحث عن طاولتك المثالية',

@@ -274,7 +274,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   }}
                 >
                   <Users className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                  Stand in Queue
+                  {t('action.standInQueue')}
                 </Button>
               )}
               
