@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Plus, Minus, Users, Clock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { calculateEstimatedWaitTime } from '../services/NotificationService';
+import { useLanguage } from './LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 import type { Restaurant } from './RestaurantContext';
 
@@ -27,10 +27,77 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [seatingPreference, setSeatingPreference] = useState<'indoor' | 'outdoor' | 'no-preference'>('no-preference');
   const [gender, setGender] = useState<'male' | 'female' | 'prefer-not-to-say'>('prefer-not-to-say');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [liveQueueCount, setLiveQueueCount] = useState<number | null>(restaurant?.waitingInLine ?? null);
+  const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<number | null>(null);
+  const [estimateStatus, setEstimateStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const { t } = useLanguage();
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
   const queuePosition = restaurant?.waitingInLine || 0;
-  const estimatedWaitTime = calculateEstimatedWaitTime(queuePosition, restaurant?.averageTableTurnTime);
+
+  useEffect(() => {
+    setLiveQueueCount(restaurant?.waitingInLine ?? null);
+  }, [restaurant?.waitingInLine]);
+
+  useEffect(() => {
+    if (!isOpen || mode !== 'waitlist' || !restaurant) {
+      return;
+    }
+
+    const restaurantId = (restaurant as any)?.id || (restaurant as any)?._id;
+    if (!restaurantId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchEstimate = async () => {
+      try {
+        setEstimateStatus('loading');
+        const url = new URL(`${API_URL}/queue/${restaurantId}/estimate`);
+        url.searchParams.set('partySize', String(partySize));
+
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          throw new Error('failed_to_fetch_estimate');
+        }
+
+        const data = await res.json();
+        if (cancelled) return;
+
+        const estimates = data?.estimates;
+        if (typeof estimates?.queueLength === 'number') {
+          setLiveQueueCount(estimates.queueLength);
+        }
+        const next = estimates?.nextPartyEstimate;
+        if (typeof next?.estimatedWaitMinutes === 'number') {
+          setEstimatedWaitMinutes(next.estimatedWaitMinutes);
+        } else {
+          setEstimatedWaitMinutes(null);
+        }
+        setEstimateStatus('idle');
+      } catch (_error) {
+        if (cancelled) return;
+        setEstimateStatus('error');
+        setEstimatedWaitMinutes(null);
+      }
+    };
+
+    fetchEstimate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, mode, restaurant, partySize]);
+
+  const formattedQueueCount = liveQueueCount ?? queuePosition ?? 0;
+  const waitLabel = (() => {
+    if (estimateStatus === 'loading') return 'Calculating…';
+    if (estimateStatus === 'error') return 'N/A';
+    if (estimatedWaitMinutes === null) return '—';
+    if (estimatedWaitMinutes <= 1) return 'Ready soon';
+    return `~${estimatedWaitMinutes} min`;
+  })();
 
   // Reset form when modal closes
   useEffect(() => {
@@ -118,7 +185,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       <DialogContent className="sm:max-w-md mx-4 !opacity-100 !bg-white" style={{backgroundColor: '#FFFFFF !important', borderColor: 'var(--where2go-border)', opacity: '1 !important'}}>
         <DialogHeader>
           <DialogTitle style={{color: 'var(--where2go-text)'}}>
-            {mode === 'reserve' ? 'Reserve a Table' : 'Stand in Queue'}
+                {mode === 'reserve' ? 'Reserve a Table' : t('action.standInQueue')}
           </DialogTitle>
           <DialogDescription style={{color: 'var(--where2go-text)', opacity: 0.7}}>
             {mode === 'reserve' 
@@ -135,14 +202,14 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 <Users className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
                 <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>People ahead:</span>
               </div>
-              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{queuePosition}</span>
+              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{formattedQueueCount}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
                 <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>Estimated wait:</span>
               </div>
-              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{estimatedWaitTime}</span>
+              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{waitLabel}</span>
             </div>
           </div>
         )}
@@ -330,7 +397,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 borderColor: '#000000'
               } : {}}
             >
-              {mode === 'reserve' ? 'Confirm Reservation' : 'Stand in Queue'}
+              {mode === 'reserve' ? 'Confirm Reservation' : t('action.standInQueue')}
             </Button>
           </div>
         </div>

@@ -31,6 +31,19 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
+  const getLocationLabel = (location: string) => {
+    switch (location) {
+      case 'Dubai':
+        return t('discover.cities.dubai');
+      case 'Al Ain':
+        return t('discover.cities.alAin');
+      case 'Abu Dhabi':
+        return t('discover.cities.abuDhabi');
+      default:
+        return location;
+    }
+  };
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -112,25 +125,27 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 key={location}
                 variant={selectedLocation === location ? "default" : "outline"}
                 onClick={() => setSelectedLocation(selectedLocation === location ? null : location)}
-                className="pill-button"
+                className={`pill-button ${isRTL ? 'font-arabic' : ''}`}
                 size="sm"
                 style={selectedLocation === location ? {backgroundColor: '#3F4427', color: 'white'} : {}}
               >
-                <MapPin className="h-4 w-4 mr-1" />
-                {location}
+                <MapPin className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
+                {getLocationLabel(location)}
               </Button>
             ))}
           </div>
         </div>
 
         {/* Search Results Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold" style={{color: 'var(--where2go-text)'}}>
-            {filteredRestaurants.length} {filteredRestaurants.length === 1 ? 'Restaurant' : 'Restaurants'} Found
+        <div className={`flex items-center justify-between mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <h2 className={`text-2xl font-bold ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>
+            {isRTL
+              ? `${t('search.results.count')} ${filteredRestaurants.length}`
+              : `${filteredRestaurants.length} ${t('search.results.count')}`}
           </h2>
           {selectedLocation && (
-            <div className="text-sm" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-              {selectedLocation}
+            <div className={`text-sm ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+              {getLocationLabel(selectedLocation)}
             </div>
           )}
         </div>
@@ -169,8 +184,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 )}
 
                 {/* Available tables badge */}
-                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg`} style={{backgroundColor: '#000000', color: '#FFFFFF'}}>
-                  {restaurant.tablesAvailable} available
+                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#000000', color: '#FFFFFF'}}>
+                  {restaurant.tablesAvailable} {t('status.available')}
                 </div>
                 
                 {/* Fire icon for restaurants with >5 people waiting */}
@@ -220,7 +235,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                   {restaurant.status === 'available' ? (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
                       <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
-                      <span>Tables available now</span>
+                      <span>{t('status.tablesAvailableNow')}</span>
                     </div>
                   ) : (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
@@ -261,7 +276,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                           setBookingModalOpen(true);
                         }}
                       >
-                        Stand in Queue
+                    {t('action.standInQueue')}
                       </Button>
                     )}
                     

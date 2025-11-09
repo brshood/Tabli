@@ -4,6 +4,7 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail } from '../services/email';
 import { sendSMS } from '../services/sms';
+import { estimateWaitTimes } from '../services/waitTimeEstimator';
 
 export const queueRouter = express.Router();
 
@@ -89,4 +90,22 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /queue/:restaurantId/estimate
+queueRouter.get('/:restaurantId/estimate', async (req, res, next) => {
+  try {
+    const { restaurantId } = req.params;
+    const { partySize: partySizeParam } = req.query;
+
+    const partySize =
+      typeof partySizeParam === 'string' && partySizeParam.trim().length
+        ? Number(partySizeParam)
+        : undefined;
+
+    const estimates = await estimateWaitTimes(restaurantId, {
+      partySize: Number.isFinite(partySize) ? partySize : undefined,
+    });
+
+    res.json({ estimates });
+  } catch (err) { next(err); }
+});
 

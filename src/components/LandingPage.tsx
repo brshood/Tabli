@@ -169,38 +169,44 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="container mx-auto px-4">
           <div className="text-center mb-8 sm:mb-12 max-w-3xl mx-auto">
             <h2 className={`text-3xl sm:text-5xl font-bold mb-3 sm:mb-6 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
-              Tabli by the Numbers
+              {t('metrics.title')}
             </h2>
             <p className={`text-base sm:text-xl ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
-              A quick look at how restaurants and guests are connecting on Tabli.
+              {t('metrics.subtitle')}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 max-w-5xl mx-auto">
             <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
-              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Reservations</p>
+              <p className={`uppercase tracking-wide text-xs sm:text-sm mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#9FA0A0'}}>
+                {t('metrics.reservations.heading')}
+              </p>
               <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
                 {formatNumber(displayStats.reservations)}
               </div>
               <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
-                Guests who booked a table through Tabli.
+                {t('metrics.reservations.desc')}
               </p>
             </div>
             <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
-              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Restaurants</p>
+              <p className={`uppercase tracking-wide text-xs sm:text-sm mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#9FA0A0'}}>
+                {t('metrics.restaurants.heading')}
+              </p>
               <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
                 {formatNumber(displayStats.restaurants)}
               </div>
               <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
-                Partners currently welcoming diners on Tabli.
+                {t('metrics.restaurants.desc')}
               </p>
             </div>
             <div className="rounded-3xl card-shadow p-6 sm:p-8 text-center" style={{backgroundColor: '#FFFFFF'}}>
-              <p className="uppercase tracking-wide text-xs sm:text-sm mb-2" style={{color: '#9FA0A0'}}>Unique Guests</p>
+              <p className={`uppercase tracking-wide text-xs sm:text-sm mb-2 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#9FA0A0'}}>
+                {t('metrics.unique.heading')}
+              </p>
               <div className="text-4xl sm:text-5xl font-bold mb-3" style={{color: '#B8860B'}}>
                 {formatNumber(displayStats.users)}
               </div>
               <p className={`text-sm sm:text-base ${isRTL ? 'font-arabic' : ''}`} style={{color: '#4B5563'}}>
-                Individual phone numbers or emails that have booked with Tabli.
+                {t('metrics.unique.desc')}
               </p>
             </div>
           </div>

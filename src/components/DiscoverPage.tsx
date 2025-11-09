@@ -80,8 +80,9 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
               onClick={handleSearchClick}
               size="lg"
               className="pill-button text-lg px-8 py-6"
+              className={`pill-button text-lg px-8 py-6 ${isRTL ? 'font-arabic' : ''}`}
             >
-              Browse More!
+              {t('discover.more.cta')}
             </Button>
           </div>
         </div>
@@ -294,16 +295,16 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
         )}
 
         {/* Call to Action */}
-        <div className="text-center py-12">
-          <h3 className="text-2xl font-bold mb-4" style={{color: 'var(--where2go-text)'}}>
-            Can't find what you're looking for?
+        <div className="text-center py-12" dir={isRTL ? 'rtl' : 'ltr'}>
+          <h3 className={`text-2xl font-bold mb-4 ${isRTL ? 'font-arabic' : ''}`} style={{color: 'var(--where2go-text)'}}>
+            {t('discover.more.title')}
           </h3>
           <Button 
             onClick={handleSearchClick}
-            className="pill-button cta-button text-lg px-8 py-4"
+            className={`pill-button cta-button text-lg px-8 py-4 ${isRTL ? 'font-arabic flex-row-reverse' : ''}`}
           >
-            <Search className="h-5 w-5 mr-2" />
-            Browse More!
+            <Search className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+            {t('discover.more.cta')}
           </Button>
         </div>
       </div>

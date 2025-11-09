@@ -18,6 +18,7 @@ import { notifyTableReady, notifyQueuePositionUpdate } from '../services/Notific
 import { Calendar } from './ui/calendar';
 import { openDailySummaryPdf, generateDailySummary } from '../services/analyticsApi';
 import { useRestaurant } from './RestaurantContext';
+import { estimateWaitTimes } from '../utils/waitTimeEstimator';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -33,6 +34,15 @@ interface StaffDashboardProps {
 
 // Analytics state (live)
 type Overview = { total: number; confirmed: number; seated: number; cancelled: number };
+
+const formatWaitBadge = (minutes: number | null | undefined): string => {
+  if (minutes === null || minutes === undefined) return '—';
+  if (minutes <= 0) return 'Ready now';
+  if (minutes <= 5) return '≈5 min';
+  if (minutes <= 10) return '≈10 min';
+  if (minutes <= 15) return '≈15 min';
+  return `≈${minutes} min`;
+};
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
