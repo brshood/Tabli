@@ -34,6 +34,7 @@ export const PASSWORD_REQUIREMENTS = {
 
 // Strong password: 8+ chars, 1 uppercase, 1 number, 1 special char
 const passwordSchema = z.string()
+  .trim() // Trim whitespace to ensure consistency between FormData and JSON
   .min(PASSWORD_REQUIREMENTS.minLength, `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`)
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
@@ -169,7 +170,7 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
 
 const loginSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
-  password: z.string().min(6),
+  password: z.string().min(6), // Don't trim here - we'll handle it in comparison for backward compatibility
 });
 
 authRouter.post('/login', async (req, res, next) => {
@@ -177,7 +178,18 @@ authRouter.post('/login', async (req, res, next) => {
     const { email, password } = loginSchema.parse(req.body);
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    
+    // Try comparing with trimmed password (new accounts created with trim)
+    // Also try with original password (backward compatibility for old accounts)
+    // This handles cases where old accounts were created with passwords that had whitespace
+    const trimmedPassword = password.trim();
+    let ok = await bcrypt.compare(trimmedPassword, user.passwordHash);
+    
+    // If trimmed password doesn't match and password has whitespace, try original (for old accounts)
+    if (!ok && password !== trimmedPassword) {
+      ok = await bcrypt.compare(password, user.passwordHash);
+    }
+    
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     const token = signJwt({ sub: (user._id as any).toString(), email: user.email, role: user.role });
     res.json({ 

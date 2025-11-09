@@ -42,7 +42,6 @@ export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps) {
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Analytics Dashboard</h1>
-              <p className="text-gray-600 mt-1">Spice Route - Downtown Location</p>
             </div>
           </div>
           <Badge className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full">

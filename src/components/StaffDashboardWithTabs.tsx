@@ -54,7 +54,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [avgWaitMinutes, setAvgWaitMinutes] = useState<number>(0);
   const [overview, setOverview] = useState<Overview>({ total: 0, confirmed: 0, seated: 0, cancelled: 0 });
   const [peakHoursData, setPeakHoursData] = useState<{ time: string; all: number }[]>([]);
-  const [dailyData, setDailyData] = useState<{ day: string; total: number; seated: number; waiting: number; cancelled: number; noShow: number }[]>([]);
+  const [dailyData, setDailyData] = useState<{ day: string; total: number; reservations: number; walkIns: number; cancelled?: number; noShow?: number }[]>([]);
   const [kpiData, setKpiData] = useState<any>(null);
   const [capacityData, setCapacityData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(true);
@@ -686,9 +686,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           <div>
             <h1 className="text-3xl font-bold" style={{color: 'var(--where2go-text)'}}>Staff Dashboard</h1>
             <div className="flex items-center mt-2">
-              <Badge className="px-3 py-1 rounded-full" style={{backgroundColor: 'var(--where2go-buff)', color: 'var(--where2go-accent)'}}>
-                Downtown Location
-              </Badge>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -1190,10 +1187,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
             {/* Charts Grid */}
             <div className="grid lg:grid-cols-2 gap-8">
-              {/* Seated vs Waiting Chart */}
+              {/* Reservations vs Walk-ins Chart */}
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
-                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Seated vs Waiting (Last 7 Days)</CardTitle>
+                  <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Reservations vs Walk-ins (Last 7 Days)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {dailyData.length === 0 ? (
@@ -1207,14 +1204,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
                         return {
                           name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
-                          seated: d.seated || 0, 
-                          waiting: d.waiting || 0
+                          reservations: d.reservations || 0, 
+                          walkIns: d.walkIns || 0
                         };
                       } catch (e) {
                         return {
                           name: d.day, 
-                          seated: d.seated || 0, 
-                          waiting: d.waiting || 0
+                          reservations: d.reservations || 0, 
+                          walkIns: d.walkIns || 0
                         };
                       }
                     })}>
@@ -1229,8 +1226,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           boxShadow: '0 8px 30px rgba(90, 94, 62, 0.15)'
                         }}
                       />
-                      <Bar dataKey="seated" fill="#5A5E3E" radius={[4, 4, 0, 0]} name="Seated" />
-                      <Bar dataKey="waiting" fill="#B889A6" radius={[4, 4, 0, 0]} name="Waiting" />
+                      <Bar dataKey="reservations" fill="#5A5E3E" radius={[4, 4, 0, 0]} name="Reservations" />
+                      <Bar dataKey="walkIns" fill="#B889A6" radius={[4, 4, 0, 0]} name="Walk-ins" />
                     </BarChart>
                   </ResponsiveContainer>
                   )}

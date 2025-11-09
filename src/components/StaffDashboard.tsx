@@ -38,9 +38,6 @@ export function StaffDashboard({ onNavigate }: StaffDashboardProps) {
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Spice Route – Staff Dashboard</h1>
             <div className="flex items-center mt-2">
-              <Badge className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                Downtown Location
-              </Badge>
             </div>
           </div>
           <Button 

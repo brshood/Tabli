@@ -7,5 +7,6 @@ const ratingSchema = new Schema({
     name: { type: String },
     email: { type: String, index: true },
     phone: { type: String, index: true },
+    showName: { type: Boolean, default: false },
 }, { timestamps: true });
 export const Rating = mongoose.models.Rating || mongoose.model('Rating', ratingSchema);
