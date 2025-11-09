@@ -107,6 +107,10 @@ EMAIL_FROM=noreply@yourdomain.com
 TWILIO_ACCOUNT_SID=your-twilio-account-sid
 TWILIO_AUTH_TOKEN=your-twilio-auth-token
 TWILIO_PHONE_NUMBER=+1234567890
+
+# Admin Panel
+ADMIN_USERNAME=your-admin-username
+ADMIN_PASSWORD=your-secure-admin-password
 ```
 
 **Frontend** (`.env` in root):

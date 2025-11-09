@@ -83,8 +83,16 @@ async function checkDataExists(restaurantId: string, targetDate: Date): Promise<
   }
 
   // Check if restaurant existed on this date
-  if (restaurant.createdAt && new Date(restaurant.createdAt) > targetDate) {
-    return { exists: false, message: 'Restaurant did not exist on this date' };
+  // Normalize restaurant creation date to start of day for comparison
+  if (restaurant.createdAt) {
+    const restaurantCreatedDate = new Date(restaurant.createdAt);
+    restaurantCreatedDate.setHours(0, 0, 0, 0);
+    const targetDateNormalized = new Date(targetDate);
+    targetDateNormalized.setHours(0, 0, 0, 0);
+    
+    if (restaurantCreatedDate > targetDateNormalized) {
+      return { exists: false, message: 'Restaurant did not exist on this date' };
+    }
   }
 
   // Check if there's any reservation data for this day
