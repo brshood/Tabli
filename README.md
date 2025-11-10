@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/brshood/Tabli/workflows/CI/badge.svg)](https://github.com/brshood/Tabli/actions)
 [![Test Coverage](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://github.com/brshood/Tabli)
 [![License](https://img.shields.io/badge/license-Proprietary-red)](LICENSE)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/7fbae95b-6b7b-4ffd-857c-bbc0545712ec/deploy-status)](https://app.netlify.com/projects/tabli/deploys)
 
 A modern, full-featured restaurant reservation and management system with real-time queue management, SMS/Email notifications, and comprehensive analytics.
 
