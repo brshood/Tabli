@@ -3,12 +3,11 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Clock, CheckCircle, MessageSquare, Zap, TrendingUp, Users, Calendar, Star, Smartphone } from 'lucide-react';
 import tabliLogo from '../assets/tabli-logo-new.png';
-import diningIllustration from '../assets/dining-illustration.png';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 
 interface LandingPageProps {
-  onNavigate: (page: 'landing' | 'search' | 'staff') => void;
+  onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
 }
 
 export function LandingPage({ onNavigate }: LandingPageProps) {
@@ -18,6 +17,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
   const [stats, setStats] = useState({ reservations: 0, restaurants: 0, users: 0 });
   const [displayStats, setDisplayStats] = useState({ reservations: 0, restaurants: 0, users: 0 });
   const [hasAnimated, setHasAnimated] = useState(false);
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     let cancelled = false;
@@ -98,13 +98,13 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               <img src={tabliLogo} alt="Tabli" className="h-32 w-auto mx-auto mb-4 floating-logo" />
             </div>
             
-            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 floating-text-block ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: isRTL ? '0.15em' : 'normal', lineHeight: isRTL ? '1.1' : '1.25'}}>
+            <h1 className={`text-4xl sm:text-6xl md:text-7xl font-bold mb-6 floating-text-block ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: 'normal', lineHeight: isRTL ? '1.2' : '1.25'}}>
               <div className="block">{t('hero.title.line1')}</div>
               <div className="block">{t('hero.title.line2')}</div>
               <div className="block" style={{color: '#B8860B'}}>{t('hero.title.line3')}</div>
             </h1>
             
-            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: isRTL ? '0.08em' : 'normal', lineHeight: isRTL ? '1.1' : '1.625'}}>
+            <p className={`text-lg sm:text-xl md:text-2xl mb-8 sm:mb-12 max-w-2xl mx-auto ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B', letterSpacing: 'normal', lineHeight: isRTL ? '1.4' : '1.625'}}>
               {t('hero.subtitle')}
             </p>
             
@@ -221,15 +221,6 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
             <p className={`text-base sm:text-xl max-w-3xl mx-auto mb-8 sm:mb-12 ${isRTL ? 'font-arabic' : ''}`} style={{color: '#2D2D2B'}}>
               {t('why.subtitle')}
             </p>
-            
-            {/* Dining Illustration */}
-            <div className="flex justify-center mb-8 sm:mb-12">
-              <img 
-                src={diningIllustration} 
-                alt="People enjoying dining together" 
-                className="w-full max-w-md h-auto"
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
@@ -388,6 +379,36 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      <footer className="py-10" style={{backgroundColor: '#2D2D2B', color: '#F4F1E7'}}>
+        <div className="container mx-auto px-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 items-start">
+            <div className="space-y-2 text-center sm:text-left">
+              <h3 className="text-2xl font-semibold tracking-tight">Tabli</h3>
+              <p className="text-sm opacity-80">Est. 2025 • Crafted for memorable dining</p>
+              <p className="text-sm opacity-80">Serving restaurants and guests across the region</p>
+            </div>
+            <div className="space-y-2 text-center sm:text-left">
+              <p className="text-sm font-semibold uppercase tracking-wide opacity-90">Stay in touch</p>
+              <a href="mailto:tabli.team@gmail.com" className="text-sm hover:opacity-100 opacity-80 transition-opacity">
+                tabli.team@gmail.com
+              </a>
+              <p className="text-sm opacity-80">Available 7 days a week</p>
+            </div>
+            <div className="space-y-2 text-center sm:text-left">
+              <p className="text-sm font-semibold uppercase tracking-wide opacity-90">Quick links</p>
+              <ul className="space-y-1 text-sm opacity-80">
+                <li>Instant reservations</li>
+                <li>Live waitlists</li>
+                <li>Customer engagement &amp; insights</li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 border-t border-white/10 pt-4 text-xs text-center sm:text-left opacity-70">
+            © {currentYear} Tabli. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
