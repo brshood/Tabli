@@ -200,14 +200,17 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                 >
                   <div 
                     className="h-48 relative overflow-hidden"
-                    style={{background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'}}
+                    style={restaurant.coverImage ? {} : {background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'}}
                   >
-                    {/* Placeholder restaurant photo */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
-                      <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                    {restaurant.coverImage ? (
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
+                        <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
 
@@ -267,14 +270,17 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                 >
                   <div 
                     className="h-48 relative overflow-hidden"
-                    style={{background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'}}
+                    style={restaurant.coverImage ? {} : {background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'}}
                   >
-                    {/* Placeholder restaurant photo */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
-                      <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                    {restaurant.coverImage ? (
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
+                        <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
 
