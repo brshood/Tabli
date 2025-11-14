@@ -87,6 +87,13 @@ reservationsRouter.post('/', async (req, res, next) => {
       try {
         if (data.email) {
           const introName = data.name ? `Hi ${data.name},` : 'Hello,';
+          
+          // Construct frontend URL for cancel link (use CORS_ORIGIN or default to localhost)
+          const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
+          const cancelUrl = data.mode === 'waitlist' 
+            ? `${frontendUrl}/#cancel-queue?id=${doc._id}`
+            : undefined;
+          
           await sendEmail({
             to: data.email,
             subject: `Reservation at ${restaurant.name}`,
@@ -99,12 +106,15 @@ reservationsRouter.post('/', async (req, res, next) => {
               lines: data.mode === 'waitlist'
                 ? [
                     `You're currently #${queuePosition} in line at ${restaurant.name}.`,
-                    'We’ll email you again when your table is ready.',
+                    'We'll email you again when your table is ready.',
+                    'Need to cancel? Click the button below to remove yourself from the queue.',
                   ]
                 : [
-                    `Thanks for choosing ${restaurant.name}. We’re reviewing your reservation request and will confirm shortly.`,
+                    `Thanks for choosing ${restaurant.name}. We're reviewing your reservation request and will confirm shortly.`,
                   ],
-              footer: 'Questions? Reply to this email and we’ll get right back to you.',
+              actionText: data.mode === 'waitlist' ? 'Cancel Queue Position' : undefined,
+              actionUrl: cancelUrl,
+              footer: 'Questions? Reply to this email and we'll get right back to you.',
             }),
           });
         }

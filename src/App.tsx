@@ -19,8 +19,9 @@ import { RestaurantProvider, useRestaurant, type Restaurant } from './components
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
 import { LanguageToggle } from './components/LanguageToggle';
 import { parseQRCodeFromUrl, generateQRCodeDataUrl, parseRestaurantProfileFromUrl } from './utils/qrCodeGenerator';
+import { CancelQueuePage } from './components/CancelQueuePage';
 
-type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin';
+type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin' | 'cancel-queue';
 
 interface StaffUser {
   name: string;
@@ -72,13 +73,13 @@ function AppContent() {
     if (hash) {
       // Parse hash to determine initial page
       const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin'].includes(pageFromHash)) {
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue'].includes(pageFromHash)) {
         setCurrentPage(pageFromHash);
         
-        // Admin and restaurant-profile need special handling
-        if (pageFromHash === 'admin') {
-          // Admin doesn't need restaurant data, set immediately
-          window.history.replaceState({ page: 'admin' }, '', hash);
+        // Admin, cancel-queue, and restaurant-profile need special handling
+        if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue') {
+          // These don't need restaurant data, set immediately
+          window.history.replaceState({ page: pageFromHash }, '', hash);
         } else if (pageFromHash === 'restaurant-profile') {
           // Will be handled by restaurants-loaded effect
         } else {
@@ -218,8 +219,8 @@ function AppContent() {
         } else {
           setSelectedRestaurant(null);
         }
-      } else {
-        // If no state, check URL hash
+        } else {
+          // If no state, check URL hash
         const hash = window.location.hash;
         if (hash) {
           const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
@@ -234,9 +235,9 @@ function AppContent() {
                 return;
               }
             }
-          } else if (pageFromHash === 'admin') {
+          } else if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue') {
             setPreviousPage(currentPage);
-            setCurrentPage('admin');
+            setCurrentPage(pageFromHash);
             setSelectedRestaurant(null);
             return;
           }
@@ -550,6 +551,20 @@ function AppContent() {
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
             <AdminPanel />
+          </motion.div>
+        );
+      case 'cancel-queue':
+        return (
+          <motion.div
+            key="cancel-queue"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <CancelQueuePage />
           </motion.div>
         );
       default:
