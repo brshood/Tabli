@@ -114,7 +114,7 @@ reservationsRouter.post('/', async (req, res, next) => {
                   ],
               actionText: data.mode === 'waitlist' ? 'Cancel Queue Position' : undefined,
               actionUrl: cancelUrl,
-              footer: 'Questions? Reply to this email and we'll get right back to you.',
+              footer: "Questions? Reply to this email and we'll get right back to you.",
             }),
           });
         }

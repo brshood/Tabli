@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
-import { sendEmail } from '../services/email';
-import { sendSMS } from '../services/sms';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 export const reservationsRouter = express.Router();
 const createSchema = z.object({
     restaurantId: z.string(),
@@ -14,6 +13,8 @@ const createSchema = z.object({
     contactMethod: z.enum(['phone', 'email']),
     phone: z.string().optional(),
     email: z.string().email().optional(),
+    gender: z.enum(['male', 'female', 'prefer-not-to-say']).optional(),
+    seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
 });
 reservationsRouter.post('/', async (req, res, next) => {
     try {
@@ -25,32 +26,32 @@ reservationsRouter.post('/', async (req, res, next) => {
                 : Promise.resolve(0),
             Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
         ]);
-        // Seating logic
-        const capacities = availableTables.map(t => t.capacity);
-        const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
-        const totalCapacity = capacities.reduce((a, b) => a + b, 0);
-        let status = 'pending';
-        let tableToSeat = null;
         // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
         const isWalkIn = data.phone === '0000000000';
-        // For 'reserve' mode, check if we can auto-seat (but NOT for walk-ins)
-        // For walk-ins, staff will manually assign the specific table via assign-table endpoint
-        // For 'waitlist' mode, keep as pending/confirmed (don't auto-seat)
-        if (data.mode === 'reserve' && !isWalkIn && data.partySize <= maxCapacity) {
-            // find first fitting table
-            tableToSeat = availableTables.find(t => t.capacity >= data.partySize) || null;
-            if (tableToSeat)
-                status = 'seated';
-        }
-        else if (data.partySize > maxCapacity && totalCapacity >= data.partySize) {
-            // queue with rearrangement note (client can message)
-            status = 'pending';
+        // Determine reservation type and status
+        // All customers (except walk-ins) go to waitlist by default
+        let status = 'pending';
+        let reservationType = undefined;
+        if (isWalkIn) {
+            // Walk-ins are handled separately - they will be manually assigned by staff
+            // Don't set reservationType for walk-ins
         }
         else {
-            status = 'pending';
+            // For both 'reserve' and 'waitlist' modes, always set status to 'pending'
+            // Determine reservationType based on mode and table availability
+            const capacities = availableTables.map(t => t.capacity);
+            const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
+            if (data.mode === 'reserve' && data.partySize <= maxCapacity) {
+                // Table was available when they reserved
+                reservationType = 'reserved';
+            }
+            else {
+                // No table available or mode is 'waitlist'
+                reservationType = 'waitlist';
+            }
         }
-        // Only assign queue position for waitlist mode AND when not already seated
-        const queuePosition = (data.mode === 'waitlist' && status !== 'seated') ? count + 1 : undefined;
+        // Only assign queue position for waitlist mode
+        const queuePosition = (data.mode === 'waitlist') ? count + 1 : undefined;
         const doc = await Reservation.create({
             restaurantId: data.restaurantId,
             name: data.name,
@@ -63,10 +64,10 @@ reservationsRouter.post('/', async (req, res, next) => {
             queuePosition,
             confirmedAt: status !== 'pending' ? new Date() : undefined,
             seatedAt: status === 'seated' ? new Date() : undefined,
+            gender: data.gender,
+            seatingPreference: data.seatingPreference,
+            reservationType,
         });
-        if (status === 'seated' && tableToSeat) {
-            await Table.findByIdAndUpdate(tableToSeat._id, { $set: { status: 'occupied', currentReservationId: doc._id } });
-        }
         // Send confirmation notification
         const restaurant = await Restaurant.findById(data.restaurantId);
         if (restaurant) {
@@ -74,16 +75,41 @@ reservationsRouter.post('/', async (req, res, next) => {
                 ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready.`
                 : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
             try {
-                if (data.contactMethod === 'phone' && data.phone) {
-                    await sendSMS({ to: data.phone, message });
-                }
-                else if (data.contactMethod === 'email' && data.email) {
-                    await sendEmail({ to: data.email, subject: `Reservation at ${restaurant.name}`, text: message });
+                if (data.email) {
+                    const introName = data.name ? `Hi ${data.name},` : 'Hello,';
+                    // Construct frontend URL for cancel link (use CORS_ORIGIN or default to localhost)
+                    const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
+                    const cancelUrl = data.mode === 'waitlist'
+                        ? `${frontendUrl}/#cancel-queue?id=${doc._id}`
+                        : undefined;
+                    await sendEmail({
+                        to: data.email,
+                        subject: `Reservation at ${restaurant.name}`,
+                        text: message,
+                        html: buildEmailTemplate({
+                            heading: data.mode === 'waitlist'
+                                ? `You're on the waitlist at ${restaurant.name}`
+                                : `We've received your reservation`,
+                            intro: introName,
+                            lines: data.mode === 'waitlist'
+                                ? [
+                                    `You're currently #${queuePosition} in line at ${restaurant.name}.`,
+                                    "We'll email you again when your table is ready.",
+                                    'Need to cancel? Click the button below to remove yourself from the queue.',
+                                ]
+                                : [
+                                    `Thanks for choosing ${restaurant.name}. We're reviewing your reservation request and will confirm shortly.`,
+                                ],
+                            actionText: data.mode === 'waitlist' ? 'Cancel Queue Position' : undefined,
+                            actionUrl: cancelUrl,
+                            footer: "Questions? Reply to this email and we'll get right back to you.",
+                        }),
+                    });
                 }
             }
             catch (err) {
                 // Log but don't fail reservation if notification fails
-                console.error('Failed to send confirmation notification:', err);
+                console.error('Failed to send confirmation email:', err);
             }
         }
         res.status(201).json({ reservation: doc });
@@ -125,6 +151,7 @@ const patchSchema = z.object({
     queuePosition: z.number().optional(),
     tableId: z.string().optional(),
     leftAt: z.string().optional(), // Allow explicit setting of leftAt for checkout
+    calledAt: z.string().nullable().optional(), // Allow setting calledAt timestamp (null to unmark)
 });
 reservationsRouter.patch('/:id', async (req, res, next) => {
     try {
@@ -155,6 +182,10 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         // Allow explicit setting of leftAt (for checkout without status change)
         if (data.leftAt)
             r.leftAt = new Date(data.leftAt);
+        // Handle calledAt: set to Date if provided, or null to unmark
+        if (data.calledAt !== undefined) {
+            r.calledAt = (data.calledAt === null || data.calledAt === '') ? null : new Date(data.calledAt);
+        }
         await r.save();
         const reservation = r;
         if (!reservation)
@@ -181,12 +212,20 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
             return res.status(404).json({ error: 'Not found' });
         const restaurant = await Restaurant.findById(r.restaurantId);
         const restaurantName = restaurant?.name || 'the restaurant';
-        const message = `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
-        if (r.contactMethod === 'phone' && r.phone) {
-            await sendSMS({ to: r.phone, message });
-        }
-        else if (r.contactMethod === 'email' && r.email) {
-            await sendEmail({ to: r.email, subject: 'Your table is ready', text: message });
+        // Use custom message/subject from request body if provided, otherwise use default
+        const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
+        const subject = req.body?.subject || 'Your table is ready';
+        if (r.email) {
+            await sendEmail({
+                to: r.email,
+                subject,
+                text: message,
+                html: buildEmailTemplate({
+                    heading: subject,
+                    intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+                    lines: [message],
+                }),
+            });
         }
         res.json({ success: true });
     }
@@ -329,21 +368,26 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
             message: `Assigned to ${selectedTable.name}`
         });
         // 7. Notify guest if applicable (queue to table promotion)
-        const needsNotification = (reservation.contactMethod === 'phone' && reservation.phone) ||
-            (reservation.contactMethod === 'email' && reservation.email);
-        if (needsNotification) {
+        if (reservation.email) {
             try {
                 const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
                 const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
-                if (reservation.contactMethod === 'phone' && reservation.phone) {
-                    await sendSMS({ to: reservation.phone, message: notificationMessage });
-                }
-                else if (reservation.contactMethod === 'email' && reservation.email) {
-                    await sendEmail({ to: reservation.email, subject: 'Your table is ready', text: notificationMessage });
-                }
+                await sendEmail({
+                    to: reservation.email,
+                    subject: 'Your table is ready',
+                    text: notificationMessage,
+                    html: buildEmailTemplate({
+                        heading: 'Your table is ready!',
+                        intro: `Hi${reservation.name ? ` ${reservation.name}` : ''},`,
+                        lines: [
+                            notificationMessage,
+                            'If you need a few more minutes, just reply to this email to let us know.',
+                        ],
+                    }),
+                });
             }
             catch (notificationError) {
-                console.error('Failed to send queue promotion notification:', notificationError);
+                console.error('Failed to send queue promotion email:', notificationError);
             }
         }
     }
