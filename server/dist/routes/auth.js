@@ -5,7 +5,7 @@ import multer from 'multer';
 import { User } from '../models/User';
 import { Restaurant } from '../models/Restaurant';
 import { signJwt, verifyJwt } from '../utils/jwt';
-import { sendEmail } from '../services/email';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 import { getGridFsBucket } from '../db/gridfs';
 import crypto from 'crypto';
 import { env } from '../config/env';
@@ -155,7 +155,7 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
 });
 const loginSchema = z.object({
     email: z.string().email().trim().toLowerCase(),
-    password: z.string().trim().min(6), // Trim whitespace to match signup behavior
+    password: z.string().min(6), // Don't trim here - we'll handle it in comparison for backward compatibility
 });
 authRouter.post('/login', async (req, res, next) => {
     try {
@@ -163,7 +163,15 @@ authRouter.post('/login', async (req, res, next) => {
         const user = await User.findOne({ email });
         if (!user)
             return res.status(401).json({ error: 'Invalid credentials' });
-        const ok = await bcrypt.compare(password, user.passwordHash);
+        // Try comparing with trimmed password (new accounts created with trim)
+        // Also try with original password (backward compatibility for old accounts)
+        // This handles cases where old accounts were created with passwords that had whitespace
+        const trimmedPassword = password.trim();
+        let ok = await bcrypt.compare(trimmedPassword, user.passwordHash);
+        // If trimmed password doesn't match and password has whitespace, try original (for old accounts)
+        if (!ok && password !== trimmedPassword) {
+            ok = await bcrypt.compare(password, user.passwordHash);
+        }
         if (!ok)
             return res.status(401).json({ error: 'Invalid credentials' });
         const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
@@ -227,10 +235,21 @@ authRouter.post('/forgot-password', async (req, res, next) => {
             await user.save();
             const resetBase = env.CORS_ORIGIN || 'http://localhost:5173';
             const link = `${resetBase.replace(/\/$/, '')}/reset-password?token=${token}`;
+            const text = `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`;
             await sendEmail({
                 to: user.email,
                 subject: 'Reset your Tabli password',
-                text: `Hello ${user.name},\n\nClick the link to reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+                text,
+                html: buildEmailTemplate({
+                    heading: 'Reset your password',
+                    intro: `Hello ${user.name},`,
+                    lines: [
+                        'Click the button below to reset your password.',
+                    ],
+                    actionText: 'Reset Password',
+                    actionUrl: link,
+                    footer: 'This link expires in 1 hour. If you did not request this, you can safely ignore this email.',
+                }),
             });
         }
         res.json({ success: true });

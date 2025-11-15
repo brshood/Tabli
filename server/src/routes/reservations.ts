@@ -106,7 +106,7 @@ reservationsRouter.post('/', async (req, res, next) => {
               lines: data.mode === 'waitlist'
                 ? [
                     `You're currently #${queuePosition} in line at ${restaurant.name}.`,
-                    'We'll email you again when your table is ready.',
+                    "We'll email you again when your table is ready.",
                     'Need to cancel? Click the button below to remove yourself from the queue.',
                   ]
                 : [
@@ -114,7 +114,7 @@ reservationsRouter.post('/', async (req, res, next) => {
                   ],
               actionText: data.mode === 'waitlist' ? 'Cancel Queue Position' : undefined,
               actionUrl: cancelUrl,
-              footer: 'Questions? Reply to this email and we'll get right back to you.',
+              footer: "Questions? Reply to this email and we'll get right back to you.",
             }),
           });
         }

@@ -18,6 +18,13 @@ const restaurantSchema = new Schema({
             price: { type: String, required: true },
         },
     ],
+    featuredMenuItems: [
+        {
+            name: { type: String, required: true },
+            description: { type: String, required: false },
+            price: { type: String, required: false },
+        },
+    ],
     profilePictureId: { type: Schema.Types.ObjectId, required: false },
     featuredImageFileId: { type: Schema.Types.ObjectId, required: false },
     mediaRefs: [

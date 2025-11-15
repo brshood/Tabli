@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendSMS } from '../services/sms';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 import { env } from '../config/env';
 export const tablesRouter = express.Router();
 tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
@@ -126,17 +126,33 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
             timestamp: now.toISOString(),
             restaurantId: table.restaurantId.toString()
         });
-        // 7. Send thank-you SMS with rating link if applicable
-        if (reservation.contactMethod === 'phone' && reservation.phone) {
+        // 7. Send thank-you email with rating link if applicable
+        if (reservation.email) {
             try {
                 const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
                 const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
                 const ratingLink = `${base}/restaurant/${reservation.restaurantId.toString()}?qr=true`;
                 const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
-                await sendSMS({ to: reservation.phone, message: thankYouMessage });
+                await sendEmail({
+                    to: reservation.email,
+                    subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
+                    text: thankYouMessage,
+                    html: buildEmailTemplate({
+                        heading: 'Thank you for dining with us!',
+                        intro: reservation.name ? `Hi ${reservation.name},` : 'Hello,',
+                        lines: [
+                            restaurant?.name
+                                ? `We hope you enjoyed your time at ${restaurant.name}.`
+                                : 'We hope you enjoyed your dining experience.',
+                            'We’d love to hear how everything went—share your thoughts with us!',
+                        ],
+                        actionText: 'Leave a quick rating',
+                        actionUrl: ratingLink,
+                    }),
+                });
             }
             catch (notificationError) {
-                console.error('Failed to send thank-you SMS:', notificationError);
+                console.error('Failed to send thank-you email:', notificationError);
             }
         }
         // 8. Return success with complete data

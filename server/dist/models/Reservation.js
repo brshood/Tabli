@@ -14,6 +14,10 @@ const reservationSchema = new Schema({
     confirmedAt: Date,
     seatedAt: Date,
     leftAt: Date,
+    gender: { type: String, enum: ['male', 'female', 'prefer-not-to-say'] },
+    seatingPreference: { type: String, enum: ['indoor', 'outdoor', 'no-preference'] },
+    calledAt: Date,
+    reservationType: { type: String, enum: ['reserved', 'waitlist'] },
 }, { timestamps: true });
 // Compound indexes for better query performance
 reservationSchema.index({ restaurantId: 1, status: 1 }); // For filtering by restaurant and status
