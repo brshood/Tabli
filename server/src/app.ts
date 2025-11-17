@@ -41,6 +41,15 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Reservations limiter to prevent booking abuse
+const reservationsLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many reservation actions, please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /**
  * Creates and configures the Express application with all middleware and routes.
  * Sets up security, CORS, compression, rate limiting, and error handling.
@@ -71,7 +80,7 @@ export function createApp(): Application {
   app.use('/auth', authLimiter, authRouter);
   app.use('/restaurants', restaurantsRouter);
   app.use('/media', mediaRouter);
-  app.use('/reservations', reservationsRouter);
+  app.use('/reservations', reservationsLimiter, reservationsRouter);
   app.use('/queue', queueRouter);
   app.use('/qr', qrRouter);
   app.use('/analytics', analyticsRouter);

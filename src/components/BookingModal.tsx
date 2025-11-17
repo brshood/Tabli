@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Plus, Minus, Users, Clock } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 import type { Restaurant } from './RestaurantContext';

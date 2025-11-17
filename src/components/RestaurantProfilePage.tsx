@@ -7,7 +7,7 @@ import { MenuModal } from './MenuModal';
 import { PostBookingSurveyModal } from './PostBookingSurveyModal';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { 
   Star, 
   MapPin, 
@@ -18,7 +18,8 @@ import {
   Menu as MenuIcon,
   ArrowLeft,
   Flame,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 import type { Restaurant } from './RestaurantContext';
 import tabliLogo from '../assets/tabli-logo-new.png';
@@ -240,6 +241,18 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   <MapPin className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: '#6B7280'}} />
                   <span>{restaurant.address || restaurant.location}</span>
                 </div>
+                {restaurant.locationUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-sm"
+                    style={{ borderColor: '#B7410E', color: '#B7410E' }}
+                    onClick={() => window.open(restaurant.locationUrl, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-2" />
+                    Get Directions
+                  </Button>
+                )}
                 <div className="flex items-center text-sm" style={{color: '#4B5563'}}>
                   <Clock className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} style={{color: '#6B7280'}} />
                   <span>{restaurant.openingHours} - {restaurant.closingHours}</span>

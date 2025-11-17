@@ -79,7 +79,6 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
             <Button
               onClick={handleSearchClick}
               size="lg"
-              className="pill-button text-lg px-8 py-6"
               className={`pill-button text-lg px-8 py-6 ${isRTL ? 'font-arabic' : ''}`}
             >
               {t('discover.more.cta')}

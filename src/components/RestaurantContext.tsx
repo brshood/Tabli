@@ -10,6 +10,7 @@ export interface Restaurant {
   email: string;
   description: string;
   location: string;
+  locationUrl?: string | null;
   rating: number;
   ratingCount?: number;
   status: 'available' | 'waitlist';
@@ -58,6 +59,7 @@ const defaultRestaurant: Restaurant = {
   email: "info@downtownrestaurant.com",
   description: "A modern dining experience in the heart of the city",
   location: "Downtown, 0.5 miles",
+  locationUrl: '',
   rating: 4.8,
   status: "available",
   waitTime: null,
@@ -132,6 +134,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             email: r.email || '',
             description: r.description || '',
             location: r.address || '',
+            locationUrl: r.locationUrl || '',
             rating: r.ratingSummary?.average ?? 0,
             ratingCount: r.ratingSummary?.count ?? 0,
             status: (r.availableTables && r.availableTables > 0) ? 'available' : 'waitlist',

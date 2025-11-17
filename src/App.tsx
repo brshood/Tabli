@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import type { Transition } from 'motion';
 import { LandingPage } from './components/LandingPage';
 import { DiscoverPage } from './components/DiscoverPage';
 import { CustomerSearchPage } from './components/CustomerSearchPage';
@@ -13,7 +14,7 @@ import { Search, Compass, Users } from 'lucide-react';
 import tabliLogo from './assets/tabli-logo-new.png';
 import { Toaster } from './components/ui/sonner';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { WaveBackground } from './components/WaveBackground';
 import { RestaurantProvider, useRestaurant, type Restaurant } from './components/RestaurantContext';
 import { LanguageProvider, useLanguage } from './components/LanguageContext';
@@ -35,9 +36,29 @@ interface StaffAuth {
   token?: string;
 }
 
+const LAUNCH_COUNTDOWN_TARGET = new Date('2025-12-12T00:00:00Z').getTime();
+
+type CountdownParts = {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
+
+const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
+
+const getCountdownParts = (totalSeconds: number): CountdownParts => {
+  const safeValue = Math.max(0, totalSeconds);
+  const days = Math.floor(safeValue / 86400);
+  const hours = Math.floor((safeValue % 86400) / 3600);
+  const minutes = Math.floor((safeValue % 3600) / 60);
+  const seconds = Math.floor(safeValue % 60);
+  return { days, hours, minutes, seconds };
+};
+
 function AppContent() {
   const { updateRestaurantInList, allRestaurants } = useRestaurant();
-  const { t, isRTL } = useLanguage();
+  const { t } = useLanguage();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
@@ -47,12 +68,21 @@ function AppContent() {
   const [resetOpen, setResetOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [lastProcessedHash, setLastProcessedHash] = useState<string | null>(null);
+  const [countdownVisible, setCountdownVisible] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(0);
+  const [countdownFinished, setCountdownFinished] = useState<boolean>(() => Date.now() >= LAUNCH_COUNTDOWN_TARGET);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const countdownAnimationRef = useRef<number | null>(null);
+  const pendingRouteRef = useRef<Page | null>(null);
+  const countdownTargetLabel = useMemo(
+    () => new Date(LAUNCH_COUNTDOWN_TARGET).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
+    []
+  );
 
   // Initialize page from URL on mount (only once)
   useEffect(() => {
     if (hasInitialized) return;
     
-    const path = window.location.pathname;
     const hash = window.location.hash;
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
@@ -323,17 +353,157 @@ function AppContent() {
     }));
   };
 
-  const handleStaffClick = () => {
-    if (staffAuth.isAuthenticated) {
-      navigateToPage('staff');
-    } else {
-      setStaffAuthModalOpen(true);
+  const clearCountdownTimers = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
-  };
+    if (countdownAnimationRef.current) {
+      cancelAnimationFrame(countdownAnimationRef.current);
+      countdownAnimationRef.current = null;
+    }
+  }, []);
+
+  const resolvePendingNavigation = useCallback(() => {
+    if (pendingRouteRef.current) {
+      const nextPage = pendingRouteRef.current;
+      pendingRouteRef.current = null;
+      if (nextPage) {
+        navigateToPage(nextPage);
+      }
+    }
+  }, [navigateToPage]);
+
+  const completeCountdown = useCallback(() => {
+    clearCountdownTimers();
+    setCountdownVisible(false);
+    setCountdownSeconds(0);
+    setCountdownFinished(true);
+    resolvePendingNavigation();
+  }, [clearCountdownTimers, resolvePendingNavigation]);
+
+  const startCountdownTick = useCallback(
+    (initialSeconds: number) => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const targetTime = Date.now() + initialSeconds * 1000;
+      setCountdownSeconds(initialSeconds);
+
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+
+      countdownIntervalRef.current = window.setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
+        setCountdownSeconds(remaining);
+
+        if (remaining <= 0) {
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
+          completeCountdown();
+        }
+      }, 1000);
+    },
+    [completeCountdown]
+  );
+
+  const startCountdownAnimation = useCallback(
+    (initialSeconds: number) => {
+      clearCountdownTimers();
+
+      if (initialSeconds <= 0) {
+        completeCountdown();
+        return;
+      }
+
+      setCountdownSeconds(0);
+      setCountdownVisible(true);
+
+      if (typeof window === 'undefined') {
+        setCountdownSeconds(initialSeconds);
+        completeCountdown();
+        return;
+      }
+
+      const animationStart = performance.now();
+
+      const step = (timestamp: number) => {
+        const progress = Math.min((timestamp - animationStart) / 1200, 1);
+        const displayValue = Math.max(0, Math.floor(initialSeconds * easeOutQuad(progress)));
+        setCountdownSeconds(displayValue);
+
+        if (progress < 1) {
+          countdownAnimationRef.current = window.requestAnimationFrame(step);
+        } else {
+          countdownAnimationRef.current = null;
+          setCountdownSeconds(initialSeconds);
+          startCountdownTick(initialSeconds);
+        }
+      };
+
+      countdownAnimationRef.current = window.requestAnimationFrame(step);
+    },
+    [clearCountdownTimers, completeCountdown, startCountdownTick]
+  );
+
+  const handleCountdownNavigation = useCallback(
+    (target: Page) => {
+      if (countdownFinished) {
+        navigateToPage(target);
+        return;
+      }
+
+      const remaining = Math.max(0, Math.floor((LAUNCH_COUNTDOWN_TARGET - Date.now()) / 1000));
+      if (remaining <= 0) {
+        setCountdownFinished(true);
+        navigateToPage(target);
+        return;
+      }
+
+      pendingRouteRef.current = target;
+      startCountdownAnimation(remaining);
+    },
+    [countdownFinished, navigateToPage, startCountdownAnimation]
+  );
+
+  const handleCountdownClose = useCallback(() => {
+    clearCountdownTimers();
+    setCountdownSeconds(0);
+    setCountdownVisible(false);
+    pendingRouteRef.current = null;
+  }, [clearCountdownTimers]);
 
   const handleLogoClick = () => {
     navigateToPage('landing');
   };
+
+  useEffect(() => {
+    return () => {
+      clearCountdownTimers();
+    };
+  }, [clearCountdownTimers]);
+
+  useEffect(() => {
+    if (!countdownVisible || countdownFinished) {
+      return;
+    }
+
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = 'hidden';
+
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [countdownVisible, countdownFinished, clearCountdownTimers]);
 
   // Animation variants for smooth transitions
   const getPageVariants = () => {
@@ -358,11 +528,15 @@ function AppContent() {
     };
   };
 
-  const pageTransition = {
-    type: 'tween',
-    ease: [0.25, 0.8, 0.25, 1],
-    duration: 0.6,
+  const pageTransition: Transition = {
+    type: 'spring',
+    stiffness: 120,
+    damping: 22,
+    mass: 0.9,
   };
+  const countdownParts = useMemo(() => getCountdownParts(countdownSeconds), [countdownSeconds]);
+  const shouldShowCountdown = countdownVisible && !countdownFinished;
+  const formatCountdownValue = (value: number, pad = true) => (pad ? value.toString().padStart(2, '0') : value.toString());
 
   const renderPage = () => {
     const pageVariants = getPageVariants();
@@ -379,7 +553,7 @@ function AppContent() {
             transition={pageTransition}
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
-            <LandingPage onNavigate={navigateToPage} />
+            <LandingPage onNavigate={navigateToPage} onCtaNavigate={handleCountdownNavigation} />
           </motion.div>
         );
       case 'discover':
@@ -412,7 +586,6 @@ function AppContent() {
         );
       case 'restaurant-profile':
         if (!selectedRestaurant) {
-          const hash = window.location.hash;
           const { restaurantId } = parseRestaurantProfileFromUrl();
           
           // If restaurants haven't loaded yet, show loading
@@ -536,7 +709,13 @@ function AppContent() {
             transition={pageTransition}
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
-            <StaffDashboardWithTabs onNavigate={navigateToPage} staffAuth={staffAuth} onLogout={handleStaffLogout} onUserUpdate={handleUserUpdate} />
+            <StaffDashboardWithTabs
+              onNavigate={navigateToPage}
+              staffAuth={staffAuth}
+              onLogout={handleStaffLogout}
+              onUserUpdate={handleUserUpdate}
+              onRestaurantDeleted={handleStaffLogout}
+            />
           </motion.div>
         );
       case 'admin':
@@ -649,6 +828,48 @@ function AppContent() {
 
       {/* Reset Password Modal */}
       <ResetPasswordModal isOpen={resetOpen} token={resetToken} onClose={() => setResetOpen(false)} />
+
+      <AnimatePresence>
+        {shouldShowCountdown && (
+          <motion.div
+            key="countdown"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+            >
+              <p className="text-xs uppercase tracking-[0.4em] text-gray-500">We'll be live in:</p>
+              <div className="grid grid-cols-4 gap-3 my-8">
+                {[
+                  { label: 'Days', value: formatCountdownValue(countdownParts.days, false) },
+                  { label: 'Hours', value: formatCountdownValue(countdownParts.hours) },
+                  { label: 'Minutes', value: formatCountdownValue(countdownParts.minutes) },
+                  { label: 'Seconds', value: formatCountdownValue(countdownParts.seconds) },
+                ].map((segment) => (
+                  <div key={segment.label} className="rounded-2xl bg-[#FDF7ED] px-3 py-4">
+                    <div className="text-3xl font-semibold text-[#B8860B]">
+                      {segment.value}
+                    </div>
+                    <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">{segment.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-600">
+                We’re opening the line on {countdownTargetLabel}. Thanks for your patience!
+              </p>
+              <Button variant="ghost" className="mt-6" onClick={handleCountdownClose}>
+                Back to home
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

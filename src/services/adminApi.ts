@@ -8,6 +8,7 @@ export interface AdminRestaurant {
   email?: string;
   phone?: string;
   address?: string;
+  locationUrl?: string;
   description?: string;
   openingHours?: string;
   closingHours?: string;
@@ -36,6 +37,8 @@ export interface AdminRestaurant {
   ratingCount: number;
   tableCount: number;
   userCount: number;
+  approvalStatus: 'pending' | 'approved' | 'denied';
+  approvalNotes?: string | null;
 }
 
 export interface AdminRestaurantDetails {
@@ -156,5 +159,63 @@ export function isAdminAuthenticated(): boolean {
 
 export function logoutAdmin(): void {
   localStorage.removeItem('admin_token');
+}
+
+export async function updateRestaurantApproval(
+  id: string,
+  status: 'pending' | 'approved' | 'denied',
+  notes?: string
+): Promise<{ restaurant: AdminRestaurant }> {
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/admin/restaurants/${id}/approval`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status, notes }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('admin_token');
+      throw new Error('Session expired. Please login again.');
+    }
+    const error = await response.json().catch(() => ({ error: 'Failed to update approval status' }));
+    throw new Error(error.error || 'Failed to update approval status');
+  }
+
+  return response.json();
+}
+
+export async function deleteRestaurant(
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const token = localStorage.getItem('admin_token');
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${API_URL}/admin/restaurants/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('admin_token');
+      throw new Error('Session expired. Please login again.');
+    }
+    const error = await response.json().catch(() => ({ error: 'Failed to delete restaurant' }));
+    throw new Error(error.error || 'Failed to delete restaurant');
+  }
+
+  return response.json();
 }
 

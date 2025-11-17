@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Eye, EyeOff, Check, Upload, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -82,6 +82,14 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
         body: JSON.stringify({ email, password })
       });
       if (res.status === 401) throw new Error('invalid');
+      if (res.status === 403) {
+        const data = await res.json().catch(() => ({}));
+        const err: any = new Error(data.error || 'forbidden');
+        err.code = data.error;
+        err.message = data.message || err.message;
+        err.details = data;
+        throw err;
+      }
       if (!res.ok) {
         const errorText = await res.text();
         console.error('Login failed:', res.status, errorText);
@@ -231,8 +239,17 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       onAuthSuccess({ name: user.name, email: user.email, restaurantId: user.restaurantId } as any);
       onClose();
     } catch (error: any) {
-      if (error?.message === 'invalid') toast.error('Invalid email or password');
-      else toast.error('Login failed. Please try again.');
+      if (error?.code === 'pending_approval') {
+        toast.info(error?.message || 'Your application is still under review. Please wait for admin approval.');
+      } else if (error?.code === 'approval_denied') {
+        toast.error(error?.message || 'Your application was denied.', {
+          description: error?.details?.notes || undefined,
+        });
+      } else if (error?.message === 'invalid') {
+        toast.error('Invalid email or password');
+      } else {
+        toast.error('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -251,38 +268,19 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
         address: restaurantAddress.trim(),
       };
       
-      const { token, user, restaurant } = await authSignup(signupName.trim(), signupEmail, signupPassword, restaurantData, licenseFile);
-      localStorage.setItem('auth_token', token);
-      
-      const fullRestaurantData = {
-        id: restaurant.id,
-        name: restaurant.name,
-        city: restaurant.city,
-        cuisine: restaurant.cuisine,
-        phone: restaurantPhone.trim(),
-        email: signupEmail,
-        description: `Welcome to ${restaurant.name}!`,
-        location: `${restaurantAddress.trim()}, ${restaurant.city}`,
-        rating: 4.0,
-        status: 'available' as const,
-        waitTime: null,
-        tablesAvailable: 5,
-        priceRange: '$$',
-        openingHours: '09:00',
-        closingHours: '22:00',
-        image: 'restaurant-generic',
-        waitingInLine: 0,
-        weeklyAverageCustomers: 25,
-        coverImage: null,
-        menu: [],
-        address: restaurantAddress.trim(),
-        indoorSeating: true,
-        outdoorSeating: false,
-      };
-      
-      toast.success('Account created successfully!');
-      onAuthSuccess({ name: user.name, email: user.email }, fullRestaurantData);
-      onClose();
+      const response = await authSignup(signupName.trim(), signupEmail, signupPassword, restaurantData, licenseFile);
+      toast.success(response.message || 'Thanks! Please watch your email for an approval update.');
+      setSignupName('');
+      setSignupEmail('');
+      setSignupPassword('');
+      setRestaurantName('');
+      setRestaurantCity('');
+      setRestaurantCuisine('');
+      setRestaurantPhone('');
+      setRestaurantAddress('');
+      setLicenseNumber('');
+      setLicenseFile(null);
+      setActiveTab('login');
     } catch (error: any) {
       if (error?.message === 'exists') {
         toast.error('Email already in use');

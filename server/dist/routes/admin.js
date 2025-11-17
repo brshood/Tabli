@@ -1,4 +1,5 @@
 import express from 'express';
+import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant';
 import { Reservation } from '../models/Reservation';
 import { Rating } from '../models/Rating';
@@ -6,6 +7,7 @@ import { Table } from '../models/Table';
 import { User } from '../models/User';
 import { ObjectId } from 'mongodb';
 import { env } from '../config/env';
+import { deleteRestaurantProfile } from '../services/restaurantCleanup';
 export const adminRouter = express.Router();
 // Simple middleware to check admin authentication
 const requireAdmin = (req, res, next) => {
@@ -35,6 +37,40 @@ adminRouter.post('/login', async (req, res, next) => {
         else {
             res.status(401).json({ error: 'Invalid credentials' });
         }
+    }
+    catch (err) {
+        next(err);
+    }
+});
+const approvalSchema = z.object({
+    status: z.enum(['pending', 'approved', 'denied']),
+    notes: z.string().max(1000).optional(),
+});
+adminRouter.patch('/restaurants/:id/approval', requireAdmin, async (req, res, next) => {
+    try {
+        const { status, notes } = approvalSchema.parse(req.body);
+        const restaurant = await Restaurant.findByIdAndUpdate(req.params.id, {
+            $set: {
+                approvalStatus: status,
+                approvalNotes: notes || null,
+            },
+        }, { new: true });
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        res.json({ restaurant });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminRouter.delete('/restaurants/:id', requireAdmin, async (req, res, next) => {
+    try {
+        const restaurant = await deleteRestaurantProfile(req.params.id);
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        res.json({ success: true, message: 'Restaurant deleted successfully' });
     }
     catch (err) {
         next(err);

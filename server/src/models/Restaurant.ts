@@ -33,6 +33,7 @@ export interface RestaurantDocument extends Document {
   email?: string;
   description?: string;
   address?: string;
+  locationUrl?: string | null;
   openingHours?: string;
   closingHours?: string;
   priceRange?: string;
@@ -40,7 +41,9 @@ export interface RestaurantDocument extends Document {
   featuredMenuItems?: FeaturedMenuItem[];
   profilePictureId?: mongoose.Types.ObjectId;
   featuredImageFileId?: mongoose.Types.ObjectId;
-  mediaRefs?: DocumentRef[]; 
+  mediaRefs?: DocumentRef[];
+  approvalStatus: 'pending' | 'approved' | 'denied';
+  approvalNotes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +57,7 @@ const restaurantSchema = new Schema<RestaurantDocument>(
     email: String,
     description: String,
     address: String,
+    locationUrl: String,
     openingHours: String,
     closingHours: String,
     priceRange: String,
@@ -87,6 +91,14 @@ const restaurantSchema = new Schema<RestaurantDocument>(
         isActive: { type: Boolean, required: true, default: true },
       },
     ],
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'denied'],
+      required: true,
+      default: 'pending',
+      index: true,
+    },
+    approvalNotes: { type: String, required: false },
   },
   { timestamps: true }
 );

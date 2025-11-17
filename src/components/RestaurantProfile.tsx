@@ -11,9 +11,10 @@ interface RestaurantProfileProps {
   restaurantId: string;
   token: string;
   onUserUpdate: (user: any) => void;
+  onRestaurantDeleted: () => void;
 }
 
-export function RestaurantProfile({ user, restaurantId, token, onUserUpdate }: RestaurantProfileProps) {
+export function RestaurantProfile({ user, restaurantId, token, onUserUpdate, onRestaurantDeleted }: RestaurantProfileProps) {
   return (
     <div className="space-y-8">
       <div>
@@ -46,6 +47,7 @@ export function RestaurantProfile({ user, restaurantId, token, onUserUpdate }: R
           <RestaurantInformation 
             restaurantId={restaurantId}
             token={token}
+            onRestaurantDeleted={onRestaurantDeleted}
           />
         </TabsContent>
 

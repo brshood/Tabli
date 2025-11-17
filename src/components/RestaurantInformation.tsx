@@ -5,21 +5,26 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Store, MapPin, Phone, Mail, Clock, DollarSign, FileText, Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
-import { updateRestaurantInfo, getRestaurantInfo, type RestaurantInfo } from '../services/profileApi';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { Store, MapPin, Phone, Mail, Clock, DollarSign, FileText, Plus, Trash2, Link2, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { updateRestaurantInfo, getRestaurantInfo, type RestaurantInfo, deleteRestaurantAccount } from '../services/profileApi';
 
 interface RestaurantInformationProps {
   restaurantId: string;
   token: string;
+  onRestaurantDeleted?: () => void;
 }
 
-export function RestaurantInformation({ restaurantId, token }: RestaurantInformationProps) {
+export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted }: RestaurantInformationProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [locationUrl, setLocationUrl] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [city, setCity] = useState<'Al Ain' | 'Abu Dhabi' | 'Dubai'>('Al Ain');
@@ -42,6 +47,7 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
       
       setName(restaurant.name || '');
       setAddress(restaurant.address || '');
+      setLocationUrl(restaurant.locationUrl || '');
       setPhone(restaurant.phone || '');
       setEmail(restaurant.email || '');
       setCity(restaurant.city || 'Al Ain');
@@ -77,6 +83,7 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
         {
           name,
           address,
+          locationUrl: locationUrl.trim() ? locationUrl.trim() : null,
           phone,
           email,
           city,
@@ -100,6 +107,20 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
       toast.error(error.message || 'Failed to update restaurant information');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteRestaurant = async () => {
+    try {
+      setDeleting(true);
+      await deleteRestaurantAccount(restaurantId, token);
+      toast.success('Restaurant profile deleted');
+      onRestaurantDeleted?.();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete restaurant');
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -175,6 +196,28 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
               }}
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="locationUrl" style={{ color: '#2D2D2B' }}>Location Link</Label>
+          <div className="relative">
+            <Link2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: '#5A5E3E' }} />
+            <Input
+              id="locationUrl"
+              type="url"
+              value={locationUrl}
+              onChange={(e) => setLocationUrl(e.target.value)}
+              placeholder="https://maps.google.com/..."
+              className="pl-10"
+              style={{ 
+                borderColor: 'rgba(90, 94, 62, 0.3)',
+                backgroundColor: '#FFFFFF'
+              }}
+            />
+          </div>
+          <p className="text-xs" style={{ color: '#6B7280' }}>
+            Share a Google Maps or website link so guests can navigate to your restaurant with one tap.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -414,6 +457,36 @@ export function RestaurantInformation({ restaurantId, token }: RestaurantInforma
           </Button>
         </div>
       </CardContent>
+      <div className="border rounded-2xl p-6 mt-8" style={{ borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FFFBF5' }}>
+        <div className="flex items-center mb-4">
+          <AlertTriangle className="h-5 w-5 mr-2 text-red-600" />
+          <h3 className="text-lg font-semibold" style={{ color: '#B7410E' }}>Danger zone</h3>
+        </div>
+        <p className="text-sm mb-4" style={{ color: '#9B2C2C' }}>
+          Deleting your restaurant will permanently remove your data, reservations, documents, and staff accounts. This action cannot be undone.
+        </p>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogTrigger asChild>
+            <Button type="button" variant="destructive">
+              Delete restaurant profile
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete restaurant profile?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove your restaurant, reservations, documents, media, and staff logins. You will need to sign up again and go through approval to return to Tabli.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteRestaurant} disabled={deleting}>
+                {deleting ? 'Deleting...' : 'Delete restaurant'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </Card>
   );
 }

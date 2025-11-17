@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { QrCode, Download, Printer } from 'lucide-react';
 import { generateQRCodeDataUrl, downloadQRCode, generateRestaurantProfileUrl } from '../utils/qrCodeGenerator';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import tabliLogo from '../assets/tabli-logo-new.png';
 
 interface QRCodeDisplayProps {
