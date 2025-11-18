@@ -97,7 +97,9 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       }
       return res.json();
     } catch (error: any) {
-      if (error.message === 'invalid' || error.message === 'login_failed') {
+      // Re-throw errors that have specific error codes (like pending_approval, approval_denied)
+      // or known error messages, so they can be handled properly in handleLogin
+      if (error.message === 'invalid' || error.message === 'login_failed' || error.code) {
         throw error;
       }
       console.error('Login network error:', error);

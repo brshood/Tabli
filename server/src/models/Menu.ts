@@ -37,8 +37,7 @@ const menuSchema = new Schema<MenuDocument>(
   { timestamps: true }
 );
 
-// Index for faster queries (unique constraint already creates an index, but we keep this for clarity)
-menuSchema.index({ restaurantId: 1 }, { unique: true });
+// Note: The unique: true constraint on restaurantId already creates an index automatically
 
 export const Menu: Model<MenuDocument> =
   mongoose.models.Menu || mongoose.model<MenuDocument>('Menu', menuSchema);

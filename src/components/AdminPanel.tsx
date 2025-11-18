@@ -444,7 +444,7 @@ function RestaurantDetails({
                             : 'bg-yellow-100 text-yellow-800'
                       }
                     >
-                      {restaurant.approvalStatus.toUpperCase()}
+                      {(restaurant.approvalStatus || 'pending').toUpperCase()}
                     </Badge>
                   </div>
                   {restaurant.approvalNotes && (
