@@ -7,6 +7,7 @@ const restaurantSchema = new Schema({
     email: String,
     description: String,
     address: String,
+    locationUrl: String,
     openingHours: String,
     closingHours: String,
     priceRange: String,
@@ -40,5 +41,13 @@ const restaurantSchema = new Schema({
             isActive: { type: Boolean, required: true, default: true },
         },
     ],
+    approvalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'denied'],
+        required: true,
+        default: 'pending',
+        index: true,
+    },
+    approvalNotes: { type: String, required: false },
 }, { timestamps: true });
 export const Restaurant = mongoose.models.Restaurant || mongoose.model('Restaurant', restaurantSchema);

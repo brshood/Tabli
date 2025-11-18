@@ -14,6 +14,7 @@ export interface PasswordChange {
 export interface RestaurantInfo {
   name: string;
   address: string;
+  locationUrl?: string | null;
   phone: string;
   email: string;
   city: 'Al Ain' | 'Abu Dhabi' | 'Dubai';
@@ -140,6 +141,25 @@ export async function getRestaurantInfo(
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch restaurant' }));
     throw new Error(error.error || 'Failed to fetch restaurant');
+  }
+
+  return response.json();
+}
+
+export async function deleteRestaurantAccount(
+  restaurantId: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_URL}/restaurants/${restaurantId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to delete restaurant' }));
+    throw new Error(error.error || 'Failed to delete restaurant');
   }
 
   return response.json();

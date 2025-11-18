@@ -8,10 +8,11 @@ import multer from 'multer';
 import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
+import { deleteRestaurantProfile } from '../services/restaurantCleanup';
 export const restaurantsRouter = express.Router();
 restaurantsRouter.get('/', async (_req, res, next) => {
     try {
-        const items = await Restaurant.find().lean();
+        const items = await Restaurant.find({ approvalStatus: 'approved' }).lean();
         const ids = items.map((r) => r._id);
         // Calculate date range for last 7 days
         const now = new Date();
@@ -109,8 +110,9 @@ restaurantsRouter.get('/', async (_req, res, next) => {
 restaurantsRouter.get('/:id', async (req, res, next) => {
     try {
         const item = await Restaurant.findById(req.params.id).lean();
-        if (!item)
+        if (!item || item.approvalStatus !== 'approved') {
             return res.status(404).json({ error: 'Not found' });
+        }
         // Helper function to get image file ID prioritizing profile pictures
         const getImageFileId = (r) => {
             // 1. First priority: profilePictureId (dedicated field for profile pictures)
@@ -166,6 +168,11 @@ const featuredMenuItemSchema = z.object({
     description: z.string().optional(),
     price: z.string().optional(),
 });
+const locationUrlSchema = z
+    .string()
+    .trim()
+    .url({ message: 'Location link must be a valid URL' })
+    .max(2048);
 const updateSchema = z.object({
     name: z.string().min(2).trim().optional(),
     city: z.enum(['Al Ain', 'Abu Dhabi', 'Dubai']).optional(),
@@ -174,6 +181,7 @@ const updateSchema = z.object({
     email: z.string().email().trim().optional(),
     description: z.string().trim().optional(),
     address: z.string().min(5).trim().optional(),
+    locationUrl: z.union([locationUrlSchema, z.null()]).optional(),
     openingHours: z.string().optional(),
     closingHours: z.string().optional(),
     priceRange: z.string().optional(),
@@ -187,6 +195,18 @@ restaurantsRouter.put('/:id', requireAuth, requireOwnRestaurant, async (req, res
         if (!item)
             return res.status(404).json({ error: 'Not found' });
         res.json({ item });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+restaurantsRouter.delete('/:id', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const restaurant = await deleteRestaurantProfile(req.params.id);
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        res.json({ success: true, message: 'Restaurant profile deleted' });
     }
     catch (err) {
         next(err);

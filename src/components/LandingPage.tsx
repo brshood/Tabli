@@ -8,9 +8,10 @@ import { LanguageToggle } from './LanguageToggle';
 
 interface LandingPageProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
+  onCtaNavigate?: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
 }
 
-export function LandingPage({ onNavigate }: LandingPageProps) {
+export function LandingPage({ onNavigate, onCtaNavigate }: LandingPageProps) {
   const { t, isRTL } = useLanguage();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const statsSectionRef = useRef<HTMLDivElement | null>(null);
@@ -18,6 +19,13 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
   const [displayStats, setDisplayStats] = useState({ reservations: 0, restaurants: 0, users: 0 });
   const [hasAnimated, setHasAnimated] = useState(false);
   const currentYear = new Date().getFullYear();
+  const handlePrimaryNavigate = (page: 'discover' | 'search') => {
+    if (onCtaNavigate) {
+      onCtaNavigate(page);
+    } else {
+      onNavigate(page);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +120,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               <Button
                 size="lg"
                 className={`pill-button cta-button text-lg sm:text-xl px-8 sm:px-12 py-4 sm:py-6 h-auto font-semibold ${isRTL ? 'font-arabic' : ''}`}
-                onClick={() => onNavigate('discover')}
+                onClick={() => handlePrimaryNavigate('discover')}
               >
                 {t('hero.cta')}
               </Button>
@@ -363,7 +371,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
             <Button
               size="lg"
               className={`pill-button cta-button text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 h-auto ${isRTL ? 'font-arabic' : ''}`}
-              onClick={() => onNavigate('search')}
+              onClick={() => handlePrimaryNavigate('search')}
             >
               {t('cta.find')}
             </Button>

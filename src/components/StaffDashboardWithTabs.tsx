@@ -11,7 +11,7 @@ import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarI
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { WaveBackground } from './WaveBackground';
 import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 import { Calendar } from './ui/calendar';
@@ -29,6 +29,7 @@ interface StaffDashboardProps {
   };
   onLogout: () => void;
   onUserUpdate: (user: any) => void;
+  onRestaurantDeleted: () => void;
 }
 
 // Analytics state (live)
@@ -43,7 +44,7 @@ const formatWaitBadge = (minutes: number | null | undefined): string => {
   return `≈${minutes} min`;
 };
 
-export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate }: StaffDashboardProps) {
+export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate, onRestaurantDeleted }: StaffDashboardProps) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   const { allRestaurants } = useRestaurant();
   const [waitlist, setWaitlist] = useState<any[]>([]);
@@ -1823,6 +1824,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 restaurantId={staffAuth.restaurantId}
                 token={staffAuth.token}
                 onUserUpdate={onUserUpdate}
+                onRestaurantDeleted={() => {
+                  toast.success('Your restaurant has been deleted. You have been signed out.');
+                  onRestaurantDeleted();
+                }}
               />
             ) : (
               <div className="text-center py-12">

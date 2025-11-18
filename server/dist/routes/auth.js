@@ -114,22 +114,22 @@ authRouter.post('/signup', upload.single('licenseFile'), async (req, res, next) 
             }
         }
         // Create user and link to restaurant
-        const user = await User.create({
+        await User.create({
             name,
             email,
             passwordHash,
             role: 'staff',
             restaurantId: restaurant._id,
         });
-        const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
-        res.json({
-            token,
-            user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role },
+        res.status(201).json({
+            success: true,
+            message: 'Thanks for signing up! Please wait for an administrator to review your license. You will receive an email once your restaurant is approved.',
             restaurant: {
                 id: restaurant._id.toString(),
                 name: restaurant.name,
                 city: restaurant.city,
                 cuisine: restaurant.cuisine,
+                approvalStatus: restaurant.approvalStatus,
                 licenseUploaded: !!licenseFileRef
             },
         });
@@ -174,6 +174,29 @@ authRouter.post('/login', async (req, res, next) => {
         }
         if (!ok)
             return res.status(401).json({ error: 'Invalid credentials' });
+        let restaurantDoc = null;
+        if (user.role === 'staff') {
+            if (!user.restaurantId) {
+                return res.status(403).json({ error: 'missing_restaurant', message: 'Your account is not attached to a restaurant. Please contact support.' });
+            }
+            restaurantDoc = await Restaurant.findById(user.restaurantId).select('approvalStatus approvalNotes name');
+            if (!restaurantDoc) {
+                return res.status(403).json({ error: 'missing_restaurant', message: 'We could not find your restaurant profile. Please contact support.' });
+            }
+            if (restaurantDoc.approvalStatus === 'pending') {
+                return res.status(403).json({
+                    error: 'pending_approval',
+                    message: `Thanks for joining Tabli! ${restaurantDoc.name} is still under review. We'll email you when you're approved.`,
+                });
+            }
+            if (restaurantDoc.approvalStatus === 'denied') {
+                return res.status(403).json({
+                    error: 'approval_denied',
+                    message: 'Your submission was denied. Please review the requirements, gather your documents, and sign up again with the correct information.',
+                    notes: restaurantDoc.approvalNotes || null,
+                });
+            }
+        }
         const token = signJwt({ sub: user._id.toString(), email: user.email, role: user.role });
         res.json({
             token,
@@ -183,7 +206,10 @@ authRouter.post('/login', async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 restaurantId: user.restaurantId?.toString()
-            }
+            },
+            restaurant: restaurantDoc
+                ? { id: restaurantDoc._id.toString(), approvalStatus: restaurantDoc.approvalStatus }
+                : undefined,
         });
     }
     catch (err) {

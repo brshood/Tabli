@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { FileText, Upload, Trash2, ChevronDown, ChevronUp, FileImage, Eye, Plus, Edit2, Camera, QrCode } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import {
   fetchRestaurantDocuments,
   uploadDocument,

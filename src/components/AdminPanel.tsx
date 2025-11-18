@@ -12,10 +12,12 @@ import {
   getRestaurantDetails, 
   isAdminAuthenticated, 
   logoutAdmin,
+  updateRestaurantApproval,
+  deleteRestaurant as deleteRestaurantApi,
   type AdminRestaurant,
   type AdminRestaurantDetails
 } from '../services/adminApi';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { 
   LogOut, 
   Search, 
@@ -86,6 +88,49 @@ export function AdminPanel() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApprovalChange = async (id: string, status: 'pending' | 'approved' | 'denied') => {
+    let notes: string | undefined;
+    if (status === 'denied') {
+      const input = window.prompt('Share a short note for the restaurant (optional):');
+      if (input === null) {
+        return;
+      }
+      notes = input;
+    }
+    try {
+      await updateRestaurantApproval(id, status, notes);
+      toast.success(`Restaurant marked as ${status}.`);
+      await loadRestaurants();
+      if (expandedRestaurantId === id) {
+        setLoadingDetails(id);
+        try {
+          const details = await getRestaurantDetails(id);
+          setSelectedRestaurant(details);
+        } finally {
+          setLoadingDetails(null);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update approval status');
+    }
+  };
+
+  const handleDeleteRestaurant = async (id: string) => {
+    const confirmed = window.confirm('This will permanently delete the restaurant, staff logins, reservations, and uploads. Continue?');
+    if (!confirmed) return;
+    try {
+      await deleteRestaurantApi(id);
+      toast.success('Restaurant deleted');
+      await loadRestaurants();
+      if (expandedRestaurantId === id) {
+        setExpandedRestaurantId(null);
+        setSelectedRestaurant(null);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete restaurant');
     }
   };
 
@@ -267,7 +312,12 @@ export function AdminPanel() {
                   <CollapsibleContent>
                     <CardContent className="pt-0">
                       {selectedRestaurant && selectedRestaurant.restaurant.id === restaurant.id ? (
-                        <RestaurantDetails details={selectedRestaurant} getFileUrl={getFileUrl} />
+                        <RestaurantDetails
+                          details={selectedRestaurant}
+                          getFileUrl={getFileUrl}
+                          onApprovalChange={handleApprovalChange}
+                          onDelete={handleDeleteRestaurant}
+                        />
                       ) : (
                         <div className="p-4 text-center text-gray-500">Loading details...</div>
                       )}
@@ -285,10 +335,14 @@ export function AdminPanel() {
 
 function RestaurantDetails({ 
   details, 
-  getFileUrl 
+  getFileUrl,
+  onApprovalChange,
+  onDelete,
 }: { 
   details: AdminRestaurantDetails; 
   getFileUrl: (fileId: string) => string;
+  onApprovalChange: (id: string, status: 'pending' | 'approved' | 'denied') => void;
+  onDelete: (id: string) => void;
 }) {
   const restaurant = details.restaurant;
 
@@ -374,6 +428,53 @@ function RestaurantDetails({
               <div>
                 <Label className="text-sm font-semibold">Updated</Label>
                 <p className="text-sm">{new Date(restaurant.updatedAt).toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <Label className="text-sm font-semibold">Approval status</Label>
+                  <div className="flex items-center gap-3 mt-2">
+                    <Badge
+                      className={
+                        restaurant.approvalStatus === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : restaurant.approvalStatus === 'denied'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                      }
+                    >
+                      {(restaurant.approvalStatus || 'pending').toUpperCase()}
+                    </Badge>
+                  </div>
+                  {restaurant.approvalNotes && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Latest note: {restaurant.approvalNotes}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onApprovalChange(restaurant.id, 'approved')}>
+                    Approve
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => onApprovalChange(restaurant.id, 'pending')}>
+                    Mark pending
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => onApprovalChange(restaurant.id, 'denied')}>
+                    Deny
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-4 flex-wrap border-t pt-4">
+                <div>
+                  <Label className="text-sm font-semibold text-red-600">Delete restaurant</Label>
+                  <p className="text-xs text-gray-600">
+                    Permanently remove this restaurant, its staff, reservations, and files.
+                  </p>
+                </div>
+                <Button variant="destructive" size="sm" onClick={() => onDelete(restaurant.id)}>
+                  Delete
+                </Button>
               </div>
             </div>
 
