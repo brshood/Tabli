@@ -54,6 +54,7 @@ reservationSchema.index({ tableId: 1 }); // For lookups by table
 reservationSchema.index({ seatedAt: 1 }); // For analytics queries on seated time
 reservationSchema.index({ requestedAt: 1 }); // For analytics queries on request time
 reservationSchema.index({ restaurantId: 1, mode: 1, status: 1 }); // For waitlist queries
+reservationSchema.index({ restaurantId: 1, requestedAt: -1 }); // For quick chronological lookups per restaurant
 
 export const Reservation: Model<ReservationDocument> =
   mongoose.models.Reservation || mongoose.model<ReservationDocument>('Reservation', reservationSchema);

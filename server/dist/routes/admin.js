@@ -76,48 +76,81 @@ adminRouter.delete('/restaurants/:id', requireAdmin, async (req, res, next) => {
         next(err);
     }
 });
-// GET /admin/restaurants - Fetch all restaurants with aggregated counts
+const listQuerySchema = z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(50).default(10),
+    search: z.string().trim().optional(),
+});
+const paginatedQuerySchema = z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(25),
+});
+const reservationQuerySchema = paginatedQuerySchema.extend({
+    status: z.enum(['pending', 'confirmed', 'seated', 'cancelled', 'no_show']).optional(),
+    mode: z.enum(['reserve', 'waitlist']).optional(),
+});
+const ratingQuerySchema = paginatedQuerySchema.extend({
+    minValue: z.coerce.number().min(1).max(5).optional(),
+});
+const tableQuerySchema = paginatedQuerySchema.extend({
+    status: z.enum(['available', 'occupied', 'cleaning']).optional(),
+});
+const userQuerySchema = paginatedQuerySchema.extend({
+    role: z.enum(['staff']).optional(),
+});
+// GET /admin/restaurants - Fetch paginated restaurants with aggregated counts
 adminRouter.get('/restaurants', requireAdmin, async (req, res, next) => {
     try {
-        const restaurants = await Restaurant.find().lean();
-        const restaurantIds = restaurants.map((r) => r._id);
-        // Get aggregated counts for each restaurant
-        const [reservationCounts, ratingCounts, tableCounts, userCounts] = await Promise.all([
-            Reservation.aggregate([
-                { $match: { restaurantId: { $in: restaurantIds } } },
-                { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
-            ]),
-            Rating.aggregate([
-                { $match: { restaurantId: { $in: restaurantIds } } },
-                { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
-            ]),
-            Table.aggregate([
-                { $match: { restaurantId: { $in: restaurantIds } } },
-                { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
-            ]),
-            User.aggregate([
-                { $match: { restaurantId: { $in: restaurantIds } } },
-                { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
-            ]),
+        const { page, limit, search } = listQuerySchema.parse(req.query);
+        const filter = {};
+        if (search) {
+            const regex = new RegExp(search, 'i');
+            filter.$or = [
+                { name: regex },
+                { city: regex },
+                { cuisine: regex },
+                { email: regex },
+                { phone: regex },
+            ];
+        }
+        const [restaurants, total] = await Promise.all([
+            Restaurant.find(filter)
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .select('name city cuisine email phone address description openingHours closingHours priceRange mediaRefs approvalStatus approvalNotes createdAt updatedAt')
+                .lean(),
+            Restaurant.countDocuments(filter),
         ]);
-        // Create maps for quick lookup
-        const reservationCountMap = new Map();
-        reservationCounts.forEach((item) => {
-            reservationCountMap.set(String(item._id), item.count);
-        });
-        const ratingCountMap = new Map();
-        ratingCounts.forEach((item) => {
-            ratingCountMap.set(String(item._id), item.count);
-        });
-        const tableCountMap = new Map();
-        tableCounts.forEach((item) => {
-            tableCountMap.set(String(item._id), item.count);
-        });
-        const userCountMap = new Map();
-        userCounts.forEach((item) => {
-            userCountMap.set(String(item._id), item.count);
-        });
-        // Enrich restaurants with counts
+        const restaurantIds = restaurants.map((r) => r._id);
+        let reservationCountMap = new Map();
+        let ratingCountMap = new Map();
+        let tableCountMap = new Map();
+        let userCountMap = new Map();
+        if (restaurantIds.length > 0) {
+            const [reservationCounts, ratingCounts, tableCounts, userCounts] = await Promise.all([
+                Reservation.aggregate([
+                    { $match: { restaurantId: { $in: restaurantIds } } },
+                    { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
+                ]),
+                Rating.aggregate([
+                    { $match: { restaurantId: { $in: restaurantIds } } },
+                    { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
+                ]),
+                Table.aggregate([
+                    { $match: { restaurantId: { $in: restaurantIds } } },
+                    { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
+                ]),
+                User.aggregate([
+                    { $match: { restaurantId: { $in: restaurantIds } } },
+                    { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
+                ]),
+            ]);
+            reservationCountMap = new Map(reservationCounts.map((item) => [String(item._id), item.count]));
+            ratingCountMap = new Map(ratingCounts.map((item) => [String(item._id), item.count]));
+            tableCountMap = new Map(tableCounts.map((item) => [String(item._id), item.count]));
+            userCountMap = new Map(userCounts.map((item) => [String(item._id), item.count]));
+        }
         const enriched = restaurants.map((r) => ({
             ...r,
             id: r._id.toString(),
@@ -127,7 +160,15 @@ adminRouter.get('/restaurants', requireAdmin, async (req, res, next) => {
             tableCount: tableCountMap.get(String(r._id)) || 0,
             userCount: userCountMap.get(String(r._id)) || 0,
         }));
-        res.json({ restaurants: enriched });
+        res.json({
+            restaurants: enriched,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / limit)),
+            },
+        });
     }
     catch (err) {
         next(err);
@@ -141,50 +182,142 @@ adminRouter.get('/restaurants/:id', requireAdmin, async (req, res, next) => {
         if (!restaurant) {
             return res.status(404).json({ error: 'Restaurant not found' });
         }
-        // Fetch all related data in parallel
-        const [reservations, ratings, tables, users] = await Promise.all([
-            Reservation.find({ restaurantId })
-                .sort({ requestedAt: -1 })
-                .limit(100)
-                .lean(),
-            Rating.find({ restaurantId })
-                .sort({ createdAt: -1 })
-                .lean(),
-            Table.find({ restaurantId })
-                .sort({ name: 1 })
-                .lean(),
-            User.find({ restaurantId })
-                .select('-passwordHash -resetToken -resetTokenExpiresAt')
-                .sort({ createdAt: -1 })
-                .lean(),
+        const [reservationTotal, ratingTotal, tableTotal, userTotal] = await Promise.all([
+            Reservation.countDocuments({ restaurantId }),
+            Rating.countDocuments({ restaurantId }),
+            Table.countDocuments({ restaurantId }),
+            User.countDocuments({ restaurantId }),
         ]);
         res.json({
             restaurant: {
                 ...restaurant,
                 id: restaurant._id.toString(),
             },
-            reservations: reservations.map((r) => ({
-                ...r,
-                id: r._id.toString(),
-            })),
-            ratings: ratings.map((r) => ({
-                ...r,
-                id: r._id.toString(),
-            })),
-            tables: tables.map((t) => ({
-                ...t,
-                id: t._id.toString(),
-            })),
-            users: users.map((u) => ({
-                ...u,
-                id: u._id.toString(),
-            })),
+            stats: {
+                reservations: reservationTotal,
+                ratings: ratingTotal,
+                tables: tableTotal,
+                users: userTotal,
+            },
         });
     }
     catch (err) {
         if (err instanceof Error && err.message.includes('ObjectId')) {
             return res.status(400).json({ error: 'Invalid restaurant ID' });
         }
+        next(err);
+    }
+});
+const buildPaginationMeta = (total, page, limit) => ({
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+});
+adminRouter.get('/restaurants/:id/reservations', requireAdmin, async (req, res, next) => {
+    try {
+        const { page, limit, status, mode } = reservationQuerySchema.parse(req.query);
+        const restaurantId = new ObjectId(req.params.id);
+        const filter = { restaurantId };
+        if (status) {
+            filter.status = status;
+        }
+        if (mode) {
+            filter.mode = mode;
+        }
+        const [items, total] = await Promise.all([
+            Reservation.find(filter)
+                .sort({ requestedAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .select('name email phone partySize status requestedAt confirmedAt seatedAt leftAt cancelledAt mode reservationType queuePosition tableId createdAt')
+                .lean(),
+            Reservation.countDocuments(filter),
+        ]);
+        res.json({
+            items: items.map((r) => ({ ...r, id: r._id.toString() })),
+            pagination: buildPaginationMeta(total, page, limit),
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminRouter.get('/restaurants/:id/ratings', requireAdmin, async (req, res, next) => {
+    try {
+        const { page, limit, minValue } = ratingQuerySchema.parse(req.query);
+        const restaurantId = new ObjectId(req.params.id);
+        const filter = { restaurantId };
+        if (minValue) {
+            filter.value = { $gte: minValue };
+        }
+        const [items, total] = await Promise.all([
+            Rating.find(filter)
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .select('value comment name email phone showName createdAt')
+                .lean(),
+            Rating.countDocuments(filter),
+        ]);
+        res.json({
+            items: items.map((r) => ({ ...r, id: r._id.toString() })),
+            pagination: buildPaginationMeta(total, page, limit),
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminRouter.get('/restaurants/:id/tables', requireAdmin, async (req, res, next) => {
+    try {
+        const { page, limit, status } = tableQuerySchema.parse(req.query);
+        const restaurantId = new ObjectId(req.params.id);
+        const filter = { restaurantId };
+        if (status) {
+            filter.status = status;
+        }
+        const [items, total] = await Promise.all([
+            Table.find(filter)
+                .sort({ name: 1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .select('name capacity status currentReservationId createdAt')
+                .lean(),
+            Table.countDocuments(filter),
+        ]);
+        res.json({
+            items: items.map((t) => ({ ...t, id: t._id.toString() })),
+            pagination: buildPaginationMeta(total, page, limit),
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminRouter.get('/restaurants/:id/users', requireAdmin, async (req, res, next) => {
+    try {
+        const { page, limit, role } = userQuerySchema.parse(req.query);
+        const restaurantId = new ObjectId(req.params.id);
+        const filter = { restaurantId };
+        if (role) {
+            filter.role = role;
+        }
+        const [items, total] = await Promise.all([
+            User.find(filter)
+                .select('name email role createdAt')
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .lean(),
+            User.countDocuments(filter),
+        ]);
+        res.json({
+            items: items.map((u) => ({ ...u, id: u._id.toString() })),
+            pagination: buildPaginationMeta(total, page, limit),
+        });
+    }
+    catch (err) {
         next(err);
     }
 });

@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
+import type { JobsOptions } from 'bullmq';
 import { env } from '../config/env';
+import { emailQueue } from '../queues/emailQueue';
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -131,6 +133,10 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
     console.error('[EMAIL:ERROR]', error?.message || error);
     throw error;
   }
+}
+
+export async function enqueueEmail(opts: SendEmailOptions, options?: JobsOptions): Promise<void> {
+  await emailQueue.add('send', opts, options);
 }
 
 

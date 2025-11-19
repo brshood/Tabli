@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { enqueueEmail, buildEmailTemplate } from '../services/email';
 import { env } from '../config/env';
 
 export const tablesRouter = express.Router();
@@ -146,7 +146,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
         const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
         const ratingLink = `${base}/restaurant/${reservation.restaurantId.toString()}?qr=true`;
         const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
-        await sendEmail({
+        await enqueueEmail({
           to: reservation.email,
           subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
           text: thankYouMessage,

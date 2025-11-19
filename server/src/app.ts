@@ -50,6 +50,22 @@ const reservationsLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const queueLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { error: 'Queue actions are rate limited. Please try again shortly.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Admin API rate limit exceeded.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /**
  * Creates and configures the Express application with all middleware and routes.
  * Sets up security, CORS, compression, rate limiting, and error handling.
@@ -81,7 +97,7 @@ export function createApp(): Application {
   app.use('/restaurants', restaurantsRouter);
   app.use('/media', mediaRouter);
   app.use('/reservations', reservationsLimiter, reservationsRouter);
-  app.use('/queue', queueRouter);
+  app.use('/queue', queueLimiter, queueRouter);
   app.use('/qr', qrRouter);
   app.use('/analytics', analyticsRouter);
   app.use('/dashboard', dashboardRouter);
@@ -90,7 +106,7 @@ export function createApp(): Application {
   app.use('/notifications', notificationsRouter);
   app.use('/menus', menusRouter);
   app.use('/', tablesRouter);
-  app.use('/admin', adminRouter);
+  app.use('/admin', adminLimiter, adminRouter);
 
   // 404 handler
   app.use((req, res) => {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { enqueueEmail, buildEmailTemplate } from '../services/email';
 
 export const reservationsRouter = express.Router();
 
@@ -94,7 +94,7 @@ reservationsRouter.post('/', async (req, res, next) => {
             ? `${frontendUrl}/#cancel-queue?id=${doc._id}`
             : undefined;
           
-          await sendEmail({
+          await enqueueEmail({
             to: data.email,
             subject: `Reservation at ${restaurant.name}`,
             text: message,
@@ -218,7 +218,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const subject = req.body?.subject || 'Your table is ready';
     
     if (r.email) {
-      await sendEmail({
+      await enqueueEmail({
         to: r.email,
         subject,
         text: message,
@@ -402,7 +402,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
         const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
         const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
 
-        await sendEmail({
+        await enqueueEmail({
           to: reservation.email,
           subject: 'Your table is ready',
           text: notificationMessage,
