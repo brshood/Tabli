@@ -23,4 +23,5 @@ export const env = {
     TWILIO_WHATSAPP_NUMBER: process.env.TWILIO_WHATSAPP_NUMBER,
     ADMIN_USERNAME: required(process.env.ADMIN_USERNAME, 'ADMIN_USERNAME'),
     ADMIN_PASSWORD: required(process.env.ADMIN_PASSWORD, 'ADMIN_PASSWORD'),
+    REDIS_URL: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
 };

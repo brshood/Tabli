@@ -8,6 +8,8 @@ import { User } from '../models/User';
 import { ObjectId } from 'mongodb';
 import { env } from '../config/env';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { paginateModel } from '../services/pagination';
+import { cleanupQueue } from '../queues/maintenanceQueue';
 export const adminRouter = express.Router();
 // Simple middleware to check admin authentication
 const requireAdmin = (req, res, next) => {
@@ -66,6 +68,11 @@ adminRouter.patch('/restaurants/:id/approval', requireAdmin, async (req, res, ne
 });
 adminRouter.delete('/restaurants/:id', requireAdmin, async (req, res, next) => {
     try {
+        const runAsync = req.query.async === 'true';
+        if (runAsync) {
+            await cleanupQueue.add('restaurant-delete', { restaurantId: req.params.id });
+            return res.status(202).json({ queued: true });
+        }
         const restaurant = await deleteRestaurantProfile(req.params.id);
         if (!restaurant) {
             return res.status(404).json({ error: 'Restaurant not found' });
@@ -208,12 +215,6 @@ adminRouter.get('/restaurants/:id', requireAdmin, async (req, res, next) => {
         next(err);
     }
 });
-const buildPaginationMeta = (total, page, limit) => ({
-    page,
-    limit,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / limit)),
-});
 adminRouter.get('/restaurants/:id/reservations', requireAdmin, async (req, res, next) => {
     try {
         const { page, limit, status, mode } = reservationQuerySchema.parse(req.query);
@@ -225,18 +226,15 @@ adminRouter.get('/restaurants/:id/reservations', requireAdmin, async (req, res, 
         if (mode) {
             filter.mode = mode;
         }
-        const [items, total] = await Promise.all([
-            Reservation.find(filter)
-                .sort({ requestedAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .select('name email phone partySize status requestedAt confirmedAt seatedAt leftAt cancelledAt mode reservationType queuePosition tableId createdAt')
-                .lean(),
-            Reservation.countDocuments(filter),
-        ]);
+        const { items, pagination } = await paginateModel(Reservation, filter, {
+            page,
+            limit,
+            sort: { requestedAt: -1 },
+            select: 'name email phone partySize status requestedAt confirmedAt seatedAt leftAt cancelledAt mode reservationType queuePosition tableId createdAt',
+        });
         res.json({
             items: items.map((r) => ({ ...r, id: r._id.toString() })),
-            pagination: buildPaginationMeta(total, page, limit),
+            pagination,
         });
     }
     catch (err) {
@@ -251,18 +249,15 @@ adminRouter.get('/restaurants/:id/ratings', requireAdmin, async (req, res, next)
         if (minValue) {
             filter.value = { $gte: minValue };
         }
-        const [items, total] = await Promise.all([
-            Rating.find(filter)
-                .sort({ createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .select('value comment name email phone showName createdAt')
-                .lean(),
-            Rating.countDocuments(filter),
-        ]);
+        const { items, pagination } = await paginateModel(Rating, filter, {
+            page,
+            limit,
+            sort: { createdAt: -1 },
+            select: 'value comment name email phone showName createdAt',
+        });
         res.json({
             items: items.map((r) => ({ ...r, id: r._id.toString() })),
-            pagination: buildPaginationMeta(total, page, limit),
+            pagination,
         });
     }
     catch (err) {
@@ -277,18 +272,15 @@ adminRouter.get('/restaurants/:id/tables', requireAdmin, async (req, res, next) 
         if (status) {
             filter.status = status;
         }
-        const [items, total] = await Promise.all([
-            Table.find(filter)
-                .sort({ name: 1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .select('name capacity status currentReservationId createdAt')
-                .lean(),
-            Table.countDocuments(filter),
-        ]);
+        const { items, pagination } = await paginateModel(Table, filter, {
+            page,
+            limit,
+            sort: { name: 1 },
+            select: 'name capacity status currentReservationId createdAt',
+        });
         res.json({
             items: items.map((t) => ({ ...t, id: t._id.toString() })),
-            pagination: buildPaginationMeta(total, page, limit),
+            pagination,
         });
     }
     catch (err) {
@@ -303,18 +295,15 @@ adminRouter.get('/restaurants/:id/users', requireAdmin, async (req, res, next) =
         if (role) {
             filter.role = role;
         }
-        const [items, total] = await Promise.all([
-            User.find(filter)
-                .select('name email role createdAt')
-                .sort({ createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
-            User.countDocuments(filter),
-        ]);
+        const { items, pagination } = await paginateModel(User, filter, {
+            page,
+            limit,
+            sort: { createdAt: -1 },
+            select: 'name email role createdAt',
+        });
         res.json({
             items: items.map((u) => ({ ...u, id: u._id.toString() })),
-            pagination: buildPaginationMeta(total, page, limit),
+            pagination,
         });
     }
     catch (err) {

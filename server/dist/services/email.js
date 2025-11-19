@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
+import { emailQueue } from '../queues/emailQueue';
 let transporter = null;
 const baseEmailStyles = {
     body: 'margin:0;padding:0;font-family:\'Segoe UI\',Tahoma,sans-serif;background-color:#f7f5ed;color:#2d2d2b;',
@@ -94,4 +95,7 @@ export async function sendEmail(opts) {
         console.error('[EMAIL:ERROR]', error?.message || error);
         throw error;
     }
+}
+export async function enqueueEmail(opts, options) {
+    await emailQueue.add('send', opts, options);
 }

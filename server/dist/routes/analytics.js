@@ -4,6 +4,7 @@ import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
 import { Restaurant } from '../models/Restaurant';
 import { DailySummary } from '../models/DailySummary';
+import { reportQueue } from '../queues/reportQueue';
 export const analyticsRouter = express.Router();
 analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
     try {
@@ -49,7 +50,7 @@ analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
  * @returns Date object set to midnight in local timezone
  * @throws Error if date format is invalid
  */
-function parseDateString(dateStr) {
+export function parseDateString(dateStr) {
     if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
         // YYYY-MM-DD format - parse as local date to avoid timezone issues
         const [year, month, day] = dateStr.split('-').map(Number);
@@ -73,7 +74,7 @@ function parseDateString(dateStr) {
  * @param targetDate - The date to check for data
  * @returns Promise resolving to an object with exists flag and optional message
  */
-async function checkDataExists(restaurantId, targetDate) {
+export async function checkDataExists(restaurantId, targetDate) {
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
         return { exists: false, message: 'Restaurant not found' };
@@ -571,7 +572,7 @@ analyticsRouter.get('/daily', async (req, res, next) => {
  *   - avgGuestsPerTable: Average number of guests per table
  *   - tableStats: Array of statistics for each table
  */
-async function calculateDailySummaryMetrics(restaurantId, date) {
+export async function calculateDailySummaryMetrics(restaurantId, date) {
     // Calculate date range (start and end of day)
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
@@ -766,6 +767,16 @@ async function calculateDailySummaryMetrics(restaurantId, date) {
         tableStats: tableStats.filter(ts => ts.tableId !== null && ts.tableId !== undefined) // Filter out invalid tableIds
     };
 }
+export async function generateDailySummaryReport(restaurantId, targetDate) {
+    const dataCheck = await checkDataExists(restaurantId, targetDate);
+    if (!dataCheck.exists) {
+        const error = new Error(dataCheck.message || 'No data available for this date');
+        error.statusCode = 404;
+        throw error;
+    }
+    const metrics = await calculateDailySummaryMetrics(restaurantId, targetDate);
+    return DailySummary.findOneAndUpdate({ restaurantId, date: targetDate }, { metrics }, { upsert: true, new: true });
+}
 /**
  * POST /analytics/daily-summary
  * Generate and store a daily summary for a specific date.
@@ -795,36 +806,22 @@ analyticsRouter.post('/daily-summary', async (req, res, next) => {
         catch (parseError) {
             return res.status(400).json({ error: parseError.message });
         }
-        // Check if data exists for this date
-        const dataCheck = await checkDataExists(restaurantId, targetDate);
-        if (!dataCheck.exists) {
-            return res.status(404).json({
-                error: 'No data available',
-                message: dataCheck.message || 'No data found for this date'
+        const runAsync = req.query.async === 'true' || req.body?.async === true;
+        if (runAsync) {
+            await reportQueue.add('daily-summary', {
+                restaurantId,
+                date: targetDate.toISOString(),
             });
+            return res.status(202).json({ queued: true });
         }
-        // Calculate metrics with error handling
-        let metrics;
         try {
-            metrics = await calculateDailySummaryMetrics(restaurantId, targetDate);
-        }
-        catch (calcError) {
-            console.error('Error calculating daily summary metrics:', calcError);
-            return res.status(500).json({
-                error: 'Failed to calculate metrics',
-                details: calcError.message
-            });
-        }
-        // Store or update summary
-        try {
-            const summary = await DailySummary.findOneAndUpdate({ restaurantId, date: targetDate }, { metrics }, { upsert: true, new: true });
+            const summary = await generateDailySummaryReport(restaurantId, targetDate);
             res.json({ summary });
         }
-        catch (saveError) {
-            console.error('Error saving daily summary:', saveError);
-            return res.status(500).json({
-                error: 'Failed to save summary',
-                details: saveError.message
+        catch (err) {
+            const status = err?.statusCode || 500;
+            res.status(status).json({
+                error: err?.message || 'Failed to generate summary',
             });
         }
     }

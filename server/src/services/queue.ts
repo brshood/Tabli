@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler, type JobsOptions, type Processor } from 'bullmq';
+import { Queue, Worker, type JobsOptions, type Processor } from 'bullmq';
 import { env } from '../config/env';
 
 const connection = {
@@ -9,13 +9,10 @@ const connection = {
 };
 
 export function createQueue<T = any>(name: string, defaultJobOptions?: JobsOptions) {
-  const queue = new Queue<T>(name, {
+  return new Queue<T>(name, {
     ...connection,
     defaultJobOptions,
   });
-  // Ensure delayed jobs are processed
-  new QueueScheduler(name, connection);
-  return queue;
 }
 
 export function createWorker<T = any>(name: string, processor: Processor<T>) {

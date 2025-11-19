@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { connectMongo } from './db/mongo';
 import { createApp } from './app';
 import { env } from './config/env';
+import './jobs';
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);

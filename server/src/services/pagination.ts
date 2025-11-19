@@ -1,4 +1,4 @@
-import type { Document, FilterQuery, LeanDocument, Model, ProjectionType, SortOrder } from 'mongoose';
+import type { Document, FilterQuery, Model, ProjectionType, SortOrder } from 'mongoose';
 
 export interface PaginationMeta {
   page: number;
@@ -7,8 +7,8 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
-export interface PaginatedResult<T> {
-  items: Array<LeanDocument<T>>;
+export interface PaginatedResult<T = any> {
+  items: T[];
   pagination: PaginationMeta;
 }
 
@@ -17,7 +17,6 @@ interface PaginateOptions<T extends Document> {
   limit: number;
   sort?: Record<string, SortOrder>;
   select?: ProjectionType<T>;
-  lean?: boolean;
 }
 
 export function buildPaginationMeta(total: number, page: number, limit: number): PaginationMeta {
@@ -32,7 +31,7 @@ export function buildPaginationMeta(total: number, page: number, limit: number):
 export async function paginateModel<T extends Document>(
   model: Model<T>,
   filter: FilterQuery<T>,
-  { page, limit, sort, select, lean = true }: PaginateOptions<T>
+  { page, limit, sort, select }: PaginateOptions<T>
 ): Promise<PaginatedResult<T>> {
   const skip = (page - 1) * limit;
   let query = model.find(filter).skip(skip).limit(limit);
@@ -43,14 +42,11 @@ export async function paginateModel<T extends Document>(
   if (select) {
     query = query.select(select);
   }
-  if (lean) {
-    query = query.lean();
-  }
 
   const [items, total] = await Promise.all([query, model.countDocuments(filter)]);
 
   return {
-    items: items as Array<LeanDocument<T>>,
+    items: items as T[],
     pagination: buildPaginationMeta(total, page, limit),
   };
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { enqueueEmail, buildEmailTemplate } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 export const queueRouter = express.Router();
 const joinSchema = z.object({
@@ -35,7 +35,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
         const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
         try {
             if (data.email) {
-                await sendEmail({
+                await enqueueEmail({
                     to: data.email,
                     subject: `Queue at ${restaurant.name}`,
                     text: message,
@@ -69,7 +69,7 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
         const restaurant = await Restaurant.findById(r.restaurantId);
         const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 10 minutes.`;
         if (r.email) {
-            await sendEmail({
+            await enqueueEmail({
                 to: r.email,
                 subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
                 text: message,
@@ -107,7 +107,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         try {
             if (r.email) {
                 const message = `We weren't able to hold your spot at ${restaurant?.name || 'the restaurant'} any longer. Reply if you still plan to join us.`;
-                await sendEmail({
+                await enqueueEmail({
                     to: r.email,
                     subject: restaurant?.name ? `${restaurant.name} queue update` : 'Queue update',
                     text: message,
