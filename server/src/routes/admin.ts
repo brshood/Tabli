@@ -8,6 +8,7 @@ import { User } from '../models/User';
 import { ObjectId } from 'mongodb';
 import { env } from '../config/env';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 
 export const adminRouter = express.Router();
 
@@ -68,6 +69,32 @@ adminRouter.patch('/restaurants/:id/approval', requireAdmin, async (req, res, ne
 
     if (!restaurant) {
       return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // #9 - Send email when restaurant is denied
+    if (status === 'denied' && restaurant.email) {
+      try {
+        await sendEmail({
+          to: restaurant.email,
+          subject: 'Tabli Application Status Update',
+          text: `Your application to join Tabli has been reviewed. ${notes ? `Reason: ${notes}` : ''}`,
+          html: buildEmailTemplate({
+            heading: 'Application Update',
+            intro: `Dear ${restaurant.name},`,
+            lines: [
+              'Thank you for your interest in joining Tabli.',
+              'After reviewing your application, we are unable to approve it at this time.',
+              ...(notes ? [`Reason: ${notes}`] : []),
+              'If you have any questions or would like to reapply in the future, please contact us at tabli.team@gmail.com.'
+            ],
+            footer: 'Best regards, The Tabli Team'
+          })
+        });
+        console.log(`[ADMIN] Denial email sent to ${restaurant.email}`);
+      } catch (emailError) {
+        console.error('[ADMIN] Failed to send denial email:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     res.json({ restaurant });

@@ -7,10 +7,30 @@ import { DailySummary, DailySummaryMetrics, TableStat, BusiestTableInfo } from '
 
 export const analyticsRouter = express.Router();
 
+/**
+ * Helper function to build filter that includes daily_reset cancellations in analytics
+ * but excludes user-cancelled, no-shows, etc.
+ * Daily reset cancellations represent customers who were waiting - valid historical data
+ */
+function buildAnalyticsStatusFilter() {
+  return {
+    $or: [
+      { status: { $ne: 'cancelled' } }, // Include all non-cancelled
+      { status: 'cancelled', cancellationReason: 'daily_reset' } // Include daily reset cancellations
+    ]
+  };
+}
+
 analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
   try {
     const [reservationsTotal, restaurantsTotal, rawPhones, rawEmails, bothContactCount] = await Promise.all([
-      Reservation.countDocuments({ status: { $ne: 'cancelled' } }),
+      // Exclude cancelled reservations, but include those cancelled by daily reset for historical data
+      Reservation.countDocuments({ 
+        $or: [
+          { status: { $ne: 'cancelled' } },
+          { status: 'cancelled', cancellationReason: 'daily_reset' }
+        ]
+      }),
       Restaurant.countDocuments({}),
       Reservation.distinct('phone', { phone: { $exists: true, $nin: [null, ''] } }),
       Reservation.distinct('email', { email: { $exists: true, $nin: [null, ''] } }),

@@ -5,11 +5,15 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Minus, Users, Clock } from 'lucide-react';
+import { Plus, Minus, Users, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 import type { Restaurant } from './RestaurantContext';
+import { saveActiveReservation, type ActiveReservation } from '../services/reservationStorage';
+import { addReservationToHistory, type ReservationHistoryItem } from '../services/reservationHistory';
+import { startReservationSSE } from '../services/reservationSSE';
+import { showInAppNotification } from './InAppNotificationSystem';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -32,6 +36,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [liveQueueCount, setLiveQueueCount] = useState<number | null>(restaurant?.waitingInLine ?? null);
   const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<number | null>(null);
   const [estimateStatus, setEstimateStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [isSubmitting, setIsSubmitting] = useState(false); // #10 - Loading state
   const { t } = useLanguage();
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
@@ -141,6 +146,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
+    setIsSubmitting(true); // #10 - Start loading
     try {
       const res = await fetch(`${API_URL}/reservations`, {
         method: 'POST',
@@ -159,9 +165,63 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
         })
       });
+      
+      if (res.status === 409) {
+        toast.error('You already have an active reservation at this restaurant');
+        return;
+      }
+      
       if (!res.ok) throw new Error('reservation_failed');
       const data = await res.json().catch(() => ({}));
-      const position = data?.reservation?.queuePosition;
+      const reservation = data?.reservation;
+      const position = reservation?.queuePosition;
+      
+      // #13 - Save reservation to localStorage for tracking
+      if (reservation) {
+        const activeReservation: ActiveReservation = {
+          reservationId: reservation._id,
+          restaurantId: reservation.restaurantId,
+          restaurantName: restaurant?.name || 'Restaurant',
+          mode: reservation.mode,
+          queuePosition: reservation.queuePosition,
+          status: reservation.status,
+          contactMethod: reservation.contactMethod,
+          email: reservation.email,
+          phone: reservation.phone,
+          partySize: reservation.partySize,
+          name: reservation.name,
+          timestamp: Date.now(),
+          holdUntil: reservation.holdUntil,
+          holdStatus: reservation.holdStatus,
+        };
+        saveActiveReservation(activeReservation);
+        
+        // Also add to history for viewing all reservations
+        const historyItem: ReservationHistoryItem = {
+          ...activeReservation,
+          bookedAt: Date.now(),
+        };
+        addReservationToHistory(historyItem);
+        
+        // Start SSE connection for real-time updates
+        startReservationSSE(activeReservation);
+        
+        // Show in-app notification
+        showInAppNotification({
+          type: 'success',
+          title: mode === 'reserve' ? 'Reservation Submitted!' : 'Added to Queue!',
+          message: mode === 'reserve'
+            ? `Your reservation at ${restaurant?.name || 'the restaurant'} has been submitted. We'll notify you with updates.`
+            : `You're at position #${position || '?'} in the queue at ${restaurant?.name || 'the restaurant'}.`,
+          persistent: true,
+          actionLabel: 'View Status',
+          onAction: () => {
+            // This will be handled by the notification system
+            window.dispatchEvent(new CustomEvent('tabli:open-status-modal'));
+          }
+        });
+      }
+      
       const successMessage = mode === 'reserve'
         ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
         : (typeof position === 'number'
@@ -171,6 +231,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       if (onSuccess) onSuccess(); else onClose();
     } catch (_e) {
       toast.error('Could not submit request. Please try again.');
+    } finally {
+      setIsSubmitting(false); // #10 - End loading
     }
   };
 
@@ -223,10 +285,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4">
           {/* Optional Customer Name */}
           <div className="space-y-2">
-            <Label htmlFor="custName" style={{color: 'var(--where2go-text)'}}>Your name (optional)</Label>
+            <Label htmlFor="custName" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Your name (optional)</Label>
             <Input
               id="custName"
               type="text"
@@ -239,7 +301,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           </div>
           {/* Party Size */}
           <div className="space-y-2">
-            <Label htmlFor="partySize" style={{color: 'var(--where2go-text)'}}>Number of party members</Label>
+            <Label htmlFor="partySize" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Number of party members</Label>
             <div className="flex items-center space-x-3">
               <Button
                 type="button"
@@ -272,12 +334,12 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
           {/* Seating Preference */}
           {(restaurant?.indoorSeating || restaurant?.outdoorSeating) && (
-            <div className="space-y-3">
-              <Label style={{color: 'var(--where2go-text)'}}>Seating preference</Label>
+            <div className="space-y-2 sm:space-y-3">
+              <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Seating preference</Label>
               <RadioGroup
                 value={seatingPreference}
                 onValueChange={(value: 'indoor' | 'outdoor' | 'no-preference') => setSeatingPreference(value)}
-                className="flex flex-col space-y-2"
+                className="flex flex-col space-y-2 sm:space-y-2"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="no-preference" id="no-preference" />
@@ -300,12 +362,12 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           )}
 
           {/* Contact Method */}
-          <div className="space-y-3">
-            <Label style={{color: 'var(--where2go-text)'}}>Contact method</Label>
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Contact method</Label>
             <RadioGroup
               value={contactMethod}
               onValueChange={(value: 'phone' | 'email') => setContactMethod(value)}
-              className="flex space-x-6"
+              className="flex flex-wrap gap-3 sm:gap-6"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="phone" id="phone" />
@@ -319,12 +381,12 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           </div>
 
           {/* Gender Selection (Optional) */}
-          <div className="space-y-3">
-            <Label style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
             <RadioGroup
               value={gender}
               onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
-              className="flex space-x-6"
+              className="flex flex-wrap gap-3 sm:gap-4"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="male" id="male" />
@@ -344,7 +406,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           {/* Contact Input */}
         {contactMethod === 'phone' && (
           <div className="space-y-2">
-            <Label htmlFor="phoneInput" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
+            <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
             <div className="flex gap-2">
               <Select value={countryCode} onValueChange={setCountryCode}>
                 <SelectTrigger className="w-[110px] bg-white" style={{borderColor: 'var(--where2go-border)'}}>
@@ -376,7 +438,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
           {contactMethod === 'email' && (
             <div className="space-y-2">
-              <Label htmlFor="emailInput" style={{color: 'var(--where2go-text)'}}>Email address</Label>
+              <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Email address</Label>
               <Input
                 id="emailInput"
                 type="email"
@@ -412,7 +474,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!isFormValid()}
+              disabled={!isFormValid() || isSubmitting}
               className="flex-1 pill-button cta-button"
               style={mode === 'waitlist' ? {
                 backgroundColor: '#000000',
@@ -420,7 +482,14 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 borderColor: '#000000'
               } : {}}
             >
-              {mode === 'reserve' ? 'Confirm Reservation' : t('action.standInQueue')}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Processing...
+                </>
+              ) : (
+                mode === 'reserve' ? 'Confirm Reservation' : t('action.standInQueue')
+              )}
             </Button>
           </div>
         </div>

@@ -256,6 +256,28 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Toast notification styles - make them more opaque */
+  [data-sonner-toast] {
+    background-color: white !important;
+    border: 1px solid rgba(45, 45, 43, 0.1) !important;
+    box-shadow: 0 8px 30px rgba(90, 94, 62, 0.25) !important;
+  }
+
+  [data-sonner-toast][data-type="success"] {
+    background-color: #f0fdf4 !important;
+    border-color: #86efac !important;
+  }
+
+  [data-sonner-toast][data-type="error"] {
+    background-color: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+  }
+
+  [data-sonner-toast][data-type="info"] {
+    background-color: #eff6ff !important;
+    border-color: #93c5fd !important;
+  }
 }
 
 /**

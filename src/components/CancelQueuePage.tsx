@@ -24,7 +24,7 @@ export function CancelQueuePage() {
 
     const cancel = async () => {
       try {
-        const res = await fetch(`${API_URL}/queue/${reservationId}/leave`, {
+        const res = await fetch(`${API_URL}/reservations/${reservationId}/cancel`, {
           method: 'POST',
         });
         
@@ -40,7 +40,7 @@ export function CancelQueuePage() {
         }
         
         setStatus('success');
-        setMessage('Your queue position has been cancelled successfully.');
+        setMessage('Your reservation has been cancelled successfully.');
       } catch (error) {
         setStatus('error');
         setMessage('Failed to cancel. Please try again or contact the restaurant directly.');
