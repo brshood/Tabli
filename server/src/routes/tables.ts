@@ -173,7 +173,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
     notificationEmitter.notifyReservation(reservationId.toString(), {
       type: 'reservation_updated',
       reservation: {
-        _id: updatedReservation._id.toString(),
+        _id: (updatedReservation._id as any).toString(),
         status: updatedReservation.status,
         leftAt: updatedReservation.leftAt,
         seatedAt: updatedReservation.seatedAt,

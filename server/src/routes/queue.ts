@@ -175,10 +175,10 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     }
     
     // Emit SSE notification for real-time updates
-    notificationEmitter.notifyReservation(r._id.toString(), {
+    notificationEmitter.notifyReservation((r._id as any).toString(), {
       type: 'reservation_updated',
       reservation: {
-        _id: r._id.toString(),
+        _id: (r._id as any).toString(),
         status: r.status,
         queuePosition: r.queuePosition,
         leftAt: r.leftAt,
