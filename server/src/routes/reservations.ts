@@ -293,7 +293,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     if (!reservation) return res.status(404).json({ error: 'Not found' });
     
     // Emit SSE notification for real-time updates
-    notificationEmitter.notifyReservation(r._id, {
+    notificationEmitter.notifyReservation(r._id.toString(), {
       type: 'reservation_updated',
       reservation: {
         _id: r._id.toString(),
@@ -338,7 +338,7 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     // Update status to cancelled and clear queue position
     reservation.status = 'cancelled';
     reservation.leftAt = new Date();
-    reservation.queuePosition = null;
+    reservation.queuePosition = undefined;
     reservation.cancellationReason = 'user_cancelled'; // Track that user cancelled
     await reservation.save();
     
@@ -368,10 +368,10 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     // Send SMS notification if customer provided phone
     if (reservation.phone && reservation.contactMethod === 'phone') {
       try {
-        await sendNotification(
-          reservation.phone,
-          `Your ${reservation.reservationType === 'reserved' ? 'reservation' : 'waitlist position'} at ${restaurantName} has been cancelled. We hope to see you again soon!`
-        );
+        await sendNotification({
+          to: reservation.phone,
+          message: `Your ${reservation.reservationType === 'reserved' ? 'reservation' : 'waitlist position'} at ${restaurantName} has been cancelled. We hope to see you again soon!`
+        });
       } catch (smsError) {
         console.error('Failed to send cancellation SMS:', smsError);
         // Don't fail the cancellation if SMS fails
@@ -379,7 +379,7 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     }
     
     // Emit SSE notification for real-time updates
-    notificationEmitter.notifyReservation(reservation._id, {
+    notificationEmitter.notifyReservation(reservation._id.toString(), {
       type: 'reservation_updated',
       reservation: {
         _id: reservation._id.toString(),
@@ -581,7 +581,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
     });
     
     // 6. Emit SSE notification for real-time updates
-    notificationEmitter.notifyReservation(reservationId, {
+    notificationEmitter.notifyReservation(reservationId.toString(), {
       type: 'reservation_updated',
       reservation: {
         _id: updatedReservation._id.toString(),

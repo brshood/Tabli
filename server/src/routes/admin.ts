@@ -8,6 +8,7 @@ import { User } from '../models/User';
 import { ObjectId } from 'mongodb';
 import { env } from '../config/env';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { sendEmail, buildEmailTemplate } from '../services/email';
 
 export const adminRouter = express.Router();
 
