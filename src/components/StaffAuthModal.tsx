@@ -241,6 +241,9 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
       onAuthSuccess({ name: user.name, email: user.email, restaurantId: user.restaurantId } as any);
       onClose();
     } catch (error: any) {
+      // #6 - Clear password on error for security
+      setLoginPassword('');
+      
       if (error?.code === 'pending_approval') {
         toast.info(error?.message || 'Your application is still under review. Please wait for admin approval.');
       } else if (error?.code === 'approval_denied') {

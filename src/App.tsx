@@ -10,8 +10,9 @@ import { StaffAuthModal } from './components/StaffAuthModal';
 import { AdminPanel } from './components/AdminPanel';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Search, Compass, Users } from 'lucide-react';
+import { Search, Compass, Users, HelpCircle, Bell } from 'lucide-react';
 import tabliLogo from './assets/tabli-logo-new.png';
+import { HelpContactModal } from './components/HelpContactModal';
 import { Toaster } from './components/ui/sonner';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { toast } from 'sonner';
@@ -21,8 +22,13 @@ import { LanguageProvider, useLanguage } from './components/LanguageContext';
 import { LanguageToggle } from './components/LanguageToggle';
 import { parseQRCodeFromUrl, generateQRCodeDataUrl, parseRestaurantProfileFromUrl } from './utils/qrCodeGenerator';
 import { CancelQueuePage } from './components/CancelQueuePage';
+import { InAppNotificationSystem } from './components/InAppNotificationSystem';
+import { ReservationStatusModal } from './components/ReservationStatusModal';
+import { NotificationsPage } from './components/NotificationsPage';
+import { getActiveReservation, updateActiveReservation, clearActiveReservation, type ActiveReservation } from './services/reservationStorage';
+import { startReservationSSE, stopReservationSSE } from './services/reservationSSE';
 
-type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin' | 'cancel-queue';
+type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin' | 'cancel-queue' | 'cancel-reservation' | 'notifications';
 
 interface StaffUser {
   name: string;
@@ -63,7 +69,10 @@ function AppContent() {
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [activeReservation, setActiveReservation] = useState<ActiveReservation | null>(null);
+  const [reservationStatusModalOpen, setReservationStatusModalOpen] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -78,6 +87,33 @@ function AppContent() {
     () => new Date(LAUNCH_COUNTDOWN_TARGET).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
     []
   );
+
+  // #13 - Load active reservation and start SSE connection
+  useEffect(() => {
+    const reservation = getActiveReservation();
+    if (reservation) {
+      setActiveReservation(reservation);
+      startReservationSSE(reservation);
+    }
+
+    return () => {
+      stopReservationSSE();
+    };
+  }, []);
+
+  const handleReservationUpdate = (updates: Partial<ActiveReservation>) => {
+    if (activeReservation) {
+      const updated = { ...activeReservation, ...updates };
+      setActiveReservation(updated);
+      updateActiveReservation(updates);
+    }
+  };
+
+  const handleReservationComplete = () => {
+    setActiveReservation(null);
+    clearActiveReservation();
+    stopReservationSSE();
+  };
 
   // Initialize page from URL on mount (only once)
   useEffect(() => {
@@ -103,11 +139,11 @@ function AppContent() {
     if (hash) {
       // Parse hash to determine initial page
       const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue'].includes(pageFromHash)) {
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue', 'cancel-reservation'].includes(pageFromHash)) {
         setCurrentPage(pageFromHash);
         
-        // Admin, cancel-queue, and restaurant-profile need special handling
-        if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue') {
+        // Admin, cancel-queue, cancel-reservation, and restaurant-profile need special handling
+        if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue' || pageFromHash === 'cancel-reservation') {
           // These don't need restaurant data, set immediately
           window.history.replaceState({ page: pageFromHash }, '', hash);
         } else if (pageFromHash === 'restaurant-profile') {
@@ -265,7 +301,7 @@ function AppContent() {
                 return;
               }
             }
-          } else if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue') {
+          } else if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue' || pageFromHash === 'cancel-reservation') {
             setPreviousPage(currentPage);
             setCurrentPage(pageFromHash);
             setSelectedRestaurant(null);
@@ -584,6 +620,29 @@ function AppContent() {
             <CustomerSearchPage onNavigate={navigateToPage} />
           </motion.div>
         );
+      case 'notifications':
+        return (
+          <motion.div
+            key="notifications"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <NotificationsPage 
+              onNavigate={navigateToPage}
+              onRestaurantSelect={(restaurantId) => {
+                const restaurant = allRestaurants.find(r => r.id === restaurantId || (r as any)._id === restaurantId);
+                if (restaurant) {
+                  setSelectedRestaurant(restaurant);
+                  navigateToPage('restaurant-profile');
+                }
+              }}
+            />
+          </motion.div>
+        );
       case 'restaurant-profile':
         if (!selectedRestaurant) {
           const { restaurantId } = parseRestaurantProfileFromUrl();
@@ -746,6 +805,20 @@ function AppContent() {
             <CancelQueuePage />
           </motion.div>
         );
+      case 'cancel-reservation':
+        return (
+          <motion.div
+            key="cancel-reservation"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="absolute inset-0 w-full page-transition overflow-x-hidden"
+          >
+            <CancelQueuePage />
+          </motion.div>
+        );
       default:
         return (
           <motion.div
@@ -768,7 +841,7 @@ function AppContent() {
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (
-        <nav className="backdrop-blur-sm border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.4)', borderColor: 'rgba(235, 211, 162, 0.2)'}}>
+        <nav className="backdrop-blur-md border-b sticky top-0 z-50" style={{background: 'rgba(235, 211, 162, 0.95)', borderColor: 'rgba(235, 211, 162, 0.6)'}}>
           <div className="container mx-auto px-4 py-3" style={{paddingTop: '12px', paddingBottom: '12px'}}>
             <div className="flex items-center justify-between gap-3 sm:gap-4">
               {/* Logo - Percentage-based sizing for consistent proportion */}
@@ -802,6 +875,15 @@ function AppContent() {
                   <Search className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                   <span>{t('nav.search')}</span>
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setHelpModalOpen(true)}
+                  className="rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0"
+                  title="Help & Contact"
+                >
+                  <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
                 <LanguageToggle />
               </div>
             </div>
@@ -821,6 +903,12 @@ function AppContent() {
         isOpen={staffAuthModalOpen}
         onClose={() => setStaffAuthModalOpen(false)}
         onAuthSuccess={handleStaffAuthSuccess}
+      />
+
+      {/* Help Contact Modal */}
+      <HelpContactModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
       />
 
       {/* Toast notifications */}
@@ -870,6 +958,26 @@ function AppContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* #13 - Floating Notification Bell (only show after landing page, excluding staff) */}
+      {currentPage !== 'landing' && currentPage !== 'staff' && (
+        <InAppNotificationSystem 
+          onNotificationClick={() => {
+            navigateToPage('notifications');
+          }}
+        />
+      )}
+
+      {/* #13 - Reservation Status Modal */}
+      {activeReservation && (
+        <ReservationStatusModal
+          isOpen={reservationStatusModalOpen}
+          onClose={() => setReservationStatusModalOpen(false)}
+          reservation={activeReservation}
+          onReservationUpdate={handleReservationUpdate}
+          onReservationComplete={handleReservationComplete}
+        />
+      )}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export type ReservationMode = 'reserve' | 'waitlist';
 export type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'cancelled' | 'no_show';
 
+export type HoldStatus = 'active' | 'expired' | 'confirmed';
+
 export interface ReservationDocument extends Document {
   restaurantId: mongoose.Types.ObjectId;
   name?: string;
@@ -22,6 +24,10 @@ export interface ReservationDocument extends Document {
   seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
   calledAt?: Date;
   reservationType?: 'reserved' | 'waitlist';
+  emailSent?: boolean; // #3 - Track if confirmation email was sent
+  holdUntil?: Date; // #2 - When hold expires (15 min from check-in)
+  holdStatus?: HoldStatus; // #2 - Hold state tracking
+  cancellationReason?: 'user_cancelled' | 'daily_reset' | 'no_show' | 'hold_expired' | 'staff_removed'; // Track why reservation was cancelled
 }
 
 const reservationSchema = new Schema<ReservationDocument>(
@@ -44,6 +50,10 @@ const reservationSchema = new Schema<ReservationDocument>(
     seatingPreference: { type: String, enum: ['indoor', 'outdoor', 'no-preference'] },
     calledAt: Date,
     reservationType: { type: String, enum: ['reserved', 'waitlist'] },
+    emailSent: { type: Boolean, default: false }, // #3 - Track if confirmation email was sent
+    holdUntil: Date, // #2 - When hold expires (15 min from check-in)
+    holdStatus: { type: String, enum: ['active', 'expired', 'confirmed'] }, // #2 - Hold state tracking
+    cancellationReason: { type: String, enum: ['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed'] }, // Track why reservation was cancelled
   },
   { timestamps: true }
 );

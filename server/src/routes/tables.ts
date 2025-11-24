@@ -6,6 +6,7 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate } from '../services/email';
 import { env } from '../config/env';
+import { notificationEmitter } from '../services/notificationEmitter';
 
 export const tablesRouter = express.Router();
 
@@ -144,7 +145,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       try {
         const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
         const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
-        const ratingLink = `${base}/restaurant/${reservation.restaurantId.toString()}?qr=true`;
+        const ratingLink = `${base}/#restaurant-profile?id=${reservation.restaurantId.toString()}`;
         const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
         await sendEmail({
           to: reservation.email,
@@ -168,7 +169,18 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       }
     }
 
-    // 8. Return success with complete data
+    // 8. Emit SSE notification for real-time checkout update
+    notificationEmitter.notifyReservation(reservationId, {
+      type: 'reservation_updated',
+      reservation: {
+        _id: updatedReservation._id.toString(),
+        status: updatedReservation.status,
+        leftAt: updatedReservation.leftAt,
+        seatedAt: updatedReservation.seatedAt,
+      }
+    });
+
+    // 9. Return success with complete data
     res.json({
       success: true,
       table: updatedTable,

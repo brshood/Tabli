@@ -9,6 +9,7 @@ const CLEANING_BUFFER_MINUTES = 5;
 const MIN_WAIT_MINUTES = 0;
 const MIN_DWELL_MINUTES = 10;
 const MAX_DWELL_MINUTES = 180;
+const MAX_WAIT_TIME_MINUTES = 120; // #15 - Maximum wait time (2 hours)
 
 type DwellStats = {
   avgDwell: number;
@@ -234,9 +235,13 @@ export async function estimateWaitTimes(
       return;
     }
 
-    const waitMinutes = Math.max(
-      MIN_WAIT_MINUTES,
-      Math.ceil((nextAvailability - nowMs) / 60000),
+    // #15 - Cap wait time at 120 minutes
+    const waitMinutes = Math.min(
+      MAX_WAIT_TIME_MINUTES,
+      Math.max(
+        MIN_WAIT_MINUTES,
+        Math.ceil((nextAvailability - nowMs) / 60000),
+      )
     );
 
     queueEstimates.push({

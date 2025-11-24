@@ -19,7 +19,8 @@ import {
   ArrowLeft,
   Flame,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import type { Restaurant } from './RestaurantContext';
 import tabliLogo from '../assets/tabli-logo-new.png';
@@ -38,6 +39,46 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [menuItems, setMenuItems] = useState<Array<{name: string; category: string; description?: string; price: string}>>([]);
   const [menuLoading, setMenuLoading] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false); // #14 - Track image loading
+
+  // #14 - Detect when all images have loaded
+  useEffect(() => {
+    const imagesToLoad: string[] = [];
+    
+    // Collect all image URLs from restaurant
+    if (restaurant.photos && restaurant.photos.length > 0) {
+      imagesToLoad.push(...restaurant.photos);
+    }
+    
+    // If no images, consider loaded immediately
+    if (imagesToLoad.length === 0) {
+      setImagesLoaded(true);
+      return;
+    }
+    
+    let loadedCount = 0;
+    const totalImages = imagesToLoad.length;
+    
+    const checkAllLoaded = () => {
+      loadedCount++;
+      if (loadedCount >= totalImages) {
+        setImagesLoaded(true);
+      }
+    };
+    
+    // Preload all images
+    imagesToLoad.forEach((src) => {
+      const img = new Image();
+      img.onload = checkAllLoaded;
+      img.onerror = checkAllLoaded; // Count errors as "loaded" to not block forever
+      img.src = src;
+      
+      // If image is already cached, it might load synchronously
+      if (img.complete) {
+        checkAllLoaded();
+      }
+    });
+  }, [restaurant.photos]);
 
   // Load menu when component mounts
   useEffect(() => {
@@ -125,7 +166,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
       
-      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">
+      <div 
+        className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl"
+        style={{
+          opacity: imagesLoaded ? 1 : 0,
+          transform: imagesLoaded ? 'translateY(0)' : 'translateY(20px)',
+          transition: 'opacity 0.6s ease-out, transform 0.6s ease-out'
+        }}
+      >
         {/* Cover Section */}
         <Card className="mb-6 overflow-hidden border-0 card-shadow">
           <div 
@@ -481,7 +529,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                     }}
                     className="pill-button w-full sm:w-auto"
                   >
-                    Submit
+                    {ratingSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit'
+                    )}
                   </Button>
                 </div>
               </div>

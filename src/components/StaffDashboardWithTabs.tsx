@@ -98,7 +98,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       } catch {}
     };
     load();
-    timer = setInterval(load, 30000);
+    // Poll every 5 seconds to quickly reflect table status changes
+    timer = setInterval(load, 5000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -106,7 +107,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   useEffect(() => {
     let timer: any;
     loadReservationsFromDB();
-    timer = setInterval(loadReservationsFromDB, 30000);
+    // Poll every 5 seconds to quickly reflect customer cancellations and status changes
+    timer = setInterval(loadReservationsFromDB, 5000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
@@ -228,7 +230,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' })
+        body: JSON.stringify({ status: 'cancelled', cancellationReason: 'staff_removed' })
       });
       
       if (!response.ok) {
@@ -245,6 +247,43 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       toast.error(error.message || 'Failed to remove from waitlist');
       
       // Refresh data to ensure UI matches database state
+      await loadReservationsFromDB();
+    }
+  };
+
+  // Check in customer - starts 15-minute hold
+  const checkInCustomer = async (id: number) => {
+    const customer = waitlist.find(item => item.id === id);
+    if (!customer) return;
+    
+    const reservationId = (customer as any).reservationId;
+    if (!reservationId) {
+      toast.error('Invalid reservation data');
+      return;
+    }
+    
+    try {
+      // Update status to 'confirmed' which triggers the 15-minute hold
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'confirmed' })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to check in customer');
+      }
+      
+      // Refresh data
+      await loadReservationsFromDB();
+      
+      toast.success(`${customer.name} checked in! Table will be held for 15 minutes. Email notification sent.`, {
+        duration: 5000
+      });
+    } catch (error: any) {
+      console.error('Error checking in customer:', error);
+      toast.error(error.message || 'Failed to check in customer');
       await loadReservationsFromDB();
     }
   };
@@ -362,25 +401,55 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       }
       
       // Derive waitlist from database state
-      const wl = items
+      const filteredItems = items
         .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
-        .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))
-        .map((r, idx) => ({
-          id: idx + 1,
-          reservationId: r._id,
-          name: r.name || 'Queue Customer',
-          partySize: r.partySize || 2,
-          waitTime: '—',
-          phone: r.phone || '',
-          email: r.email || '',
-          joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          contactMethod: (r.contactMethod || 'phone') as any,
-          gender: r.gender,
-          seatingPreference: r.seatingPreference,
-          calledAt: r.calledAt ? new Date(r.calledAt) : null,
-          reservationType: r.reservationType,
-          holdTimeExpires: Date.now() + 10 * 60000,
-        }));
+        .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0));
+      
+      // #7 - Deduplicate by email/phone (keep most recent per unique contact)
+      const seenContacts = new Map<string, any>();
+      const deduplicatedItems = [];
+      
+      for (const r of filteredItems) {
+        const contactKey = r.email || r.phone || `unnamed-${r._id}`;
+        
+        if (!seenContacts.has(contactKey)) {
+          seenContacts.set(contactKey, r);
+          deduplicatedItems.push(r);
+        } else {
+          // Keep the most recent reservation
+          const existing = seenContacts.get(contactKey);
+          const existingTime = new Date(existing.requestedAt).getTime();
+          const currentTime = new Date(r.requestedAt).getTime();
+          
+          if (currentTime > existingTime) {
+            // Replace with more recent
+            const index = deduplicatedItems.findIndex(item => item._id === existing._id);
+            if (index !== -1) {
+              deduplicatedItems[index] = r;
+              seenContacts.set(contactKey, r);
+            }
+          }
+        }
+      }
+      
+      const wl = deduplicatedItems.map((r, idx) => ({
+        id: idx + 1,
+        reservationId: r._id,
+        name: r.name || 'Queue Customer',
+        partySize: r.partySize || 2,
+        waitTime: '—',
+        phone: r.phone || '',
+        email: r.email || '',
+        joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        contactMethod: (r.contactMethod || 'phone') as any,
+        gender: r.gender,
+        seatingPreference: r.seatingPreference,
+        calledAt: r.calledAt ? new Date(r.calledAt) : null,
+        reservationType: r.reservationType,
+        holdTimeExpires: Date.now() + 10 * 60000,
+        status: r.status, // Include status to show appropriate buttons
+        holdUntil: r.holdUntil ? new Date(r.holdUntil) : null,
+      }));
       setWaitlist(wl);
       
       // Derive seated tables from database state (reservations with leftAt === null)
@@ -1273,14 +1342,38 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                             </div>
                             
                             <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => seatCustomer(customer.id)}
-                                className="pill-button text-xs text-white"
-                                style={{backgroundColor: '#3F4427'}}
-                              >
-                                Seat Now
-                              </Button>
+                              {(customer as any).status === 'pending' ? (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => checkInCustomer(customer.id)}
+                                  className="pill-button text-xs text-white"
+                                  style={{backgroundColor: '#B8860B'}}
+                                  title="Check in customer - starts 15 minute hold"
+                                >
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Check In
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => seatCustomer(customer.id)}
+                                    className="pill-button text-xs text-white"
+                                    style={{backgroundColor: '#3F4427'}}
+                                    title="Customer checked in - assign table"
+                                  >
+                                    Seat Now
+                                  </Button>
+                                  {(customer as any).holdUntil && (
+                                    <Badge 
+                                      className="px-2 py-1 text-xs"
+                                      style={{backgroundColor: '#FEF3C7', color: '#92400E'}}
+                                    >
+                                      Hold: {new Date((customer as any).holdUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Badge>
+                                  )}
+                                </>
+                              )}
                               <Button 
                                 size="sm" 
                                 variant="outline"
