@@ -43,13 +43,18 @@ export function RestaurantProfilePage({ restaurant, onNavigate, onImagesLoaded }
   const [menuLoading, setMenuLoading] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState(false); // #14 - Track image loading
 
-  // #14 - Detect when all images have loaded
+  // #14 - Detect when all key images (including cover) have loaded
   useEffect(() => {
     const imagesToLoad: string[] = [];
     
-    // Collect all image URLs from restaurant
+    // Collect all image URLs from restaurant gallery
     if (restaurant.photos && restaurant.photos.length > 0) {
       imagesToLoad.push(...restaurant.photos);
+    }
+
+    // Also include the cover image so it is fully loaded before we fade in
+    if (restaurant.coverImage) {
+      imagesToLoad.push(restaurant.coverImage);
     }
     
     // If no images, consider loaded immediately
@@ -87,7 +92,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate, onImagesLoaded }
         checkAllLoaded();
       }
     });
-  }, [restaurant.photos]);
+  }, [restaurant.photos, restaurant.coverImage]);
 
   // Load menu when component mounts
   useEffect(() => {

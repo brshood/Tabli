@@ -368,7 +368,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
           {/* Contact Method */}
           <div className="space-y-2 sm:space-y-3">
-            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Contact method</Label>
+            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Preferred contact method</Label>
             <RadioGroup
               value={contactMethod}
               onValueChange={(value: 'phone' | 'email') => setContactMethod(value)}
@@ -385,33 +385,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             </RadioGroup>
           </div>
 
-          {/* Gender Selection (Optional) */}
-          <div className="space-y-2 sm:space-y-3">
-            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
-            <RadioGroup
-              value={gender}
-              onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
-              className="flex flex-wrap gap-3 sm:gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="male" id="male" />
-                <Label htmlFor="male" style={{color: 'var(--where2go-text)'}}>Male</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="female" id="female" />
-                <Label htmlFor="female" style={{color: 'var(--where2go-text)'}}>Female</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
-                <Label htmlFor="prefer-not-to-say" style={{color: 'var(--where2go-text)'}}>Prefer not to say</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Contact Input */}
-        {contactMethod === 'phone' && (
+          {/* Phone Number - Always Required */}
           <div className="space-y-2">
-            <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
+            <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Phone number <span className="text-red-500">*</span></Label>
             <div className="flex gap-2">
               <Select value={countryCode} onValueChange={setCountryCode}>
                 <SelectTrigger className="w-[110px] bg-white" style={{borderColor: 'var(--where2go-border)'}}>
@@ -439,25 +415,46 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               <p className="text-sm text-red-600">{errors.phone}</p>
             )}
           </div>
-        )}
 
-          {contactMethod === 'email' && (
-            <div className="space-y-2">
-              <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Email address</Label>
-              <Input
-                id="emailInput"
-                type="email"
-                placeholder="Enter your email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white"
-                style={{borderColor: 'var(--where2go-border)'}}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-600">{errors.email}</p>
-              )}
-            </div>
-          )}
+          {/* Email Address - Always Required */}
+          <div className="space-y-2">
+            <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Email address <span className="text-red-500">*</span></Label>
+            <Input
+              id="emailInput"
+              type="email"
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-white"
+              style={{borderColor: 'var(--where2go-border)'}}
+            />
+            {errors.email && (
+              <p className="text-sm text-red-600">{errors.email}</p>
+            )}
+          </div>
+
+          {/* Gender Selection (Optional) */}
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Gender (Optional)</Label>
+            <RadioGroup
+              value={gender}
+              onValueChange={(value: 'male' | 'female' | 'prefer-not-to-say') => setGender(value)}
+              className="flex flex-wrap gap-3 sm:gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="male" id="male" />
+                <Label htmlFor="male" style={{color: 'var(--where2go-text)'}}>Male</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="female" id="female" />
+                <Label htmlFor="female" style={{color: 'var(--where2go-text)'}}>Female</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
+                <Label htmlFor="prefer-not-to-say" style={{color: 'var(--where2go-text)'}}>Prefer not to say</Label>
+              </div>
+            </RadioGroup>
+          </div>
 
           {/* Disclaimer */}
           <div className="p-4 rounded-lg" style={{backgroundColor: 'var(--where2go-buff-light)', border: '1px solid var(--where2go-border)'}}>
