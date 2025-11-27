@@ -16,7 +16,21 @@ const joinSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   name: z.string().min(1).max(100).optional(),
-});
+}).refine(
+  (data) => {
+    // Validate that contact info matches contact method
+    if (data.contactMethod === 'email' && !data.email) {
+      return false;
+    }
+    if (data.contactMethod === 'phone' && !data.phone) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'Contact information must match the selected contact method'
+  }
+);
 
 // POST /queue/:restaurantId/join
 queueRouter.post('/:restaurantId/join', async (req, res, next) => {
@@ -26,16 +40,22 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
     // #4 - Prevent Duplicate Bookings: Check for existing active reservation
+    // Build query with required contact info (validated by schema)
     const duplicateQuery: any = {
       restaurantId: restaurant._id,
       status: { $in: ['pending', 'confirmed'] }
     };
     
-    // Check by email or phone depending on contact method
-    if (data.email) {
+    // Add contact info based on contact method (schema ensures these exist)
+    if (data.contactMethod === 'email' && data.email) {
       duplicateQuery.email = data.email;
-    } else if (data.phone) {
+    } else if (data.contactMethod === 'phone' && data.phone) {
       duplicateQuery.phone = data.phone;
+    } else {
+      // This should never happen due to schema validation, but be defensive
+      return res.status(400).json({ 
+        error: 'Contact information is required for the selected contact method' 
+      });
     }
     
     const existingReservation = await Reservation.findOne(duplicateQuery);
