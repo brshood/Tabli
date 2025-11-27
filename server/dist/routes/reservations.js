@@ -13,22 +13,11 @@ const createSchema = z.object({
     mode: z.enum(['reserve', 'waitlist']),
     name: z.string().min(1).max(100).optional(),
     partySize: z.number().min(1).max(20),
-    contactMethod: z.enum(['phone', 'email']),
-    phone: z.string().optional(),
-    email: z.string().email().optional(),
+    contactMethod: z.enum(['phone', 'email']), // Preferred contact method for primary communications
+    phone: z.string().min(10, 'Phone number is required'),
+    email: z.string().email('Valid email is required'),
     gender: z.enum(['male', 'female', 'prefer-not-to-say']).optional(),
     seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
-}).refine((data) => {
-    // Validate that contact info matches contact method
-    if (data.contactMethod === 'email' && !data.email) {
-        return false;
-    }
-    if (data.contactMethod === 'phone' && !data.phone) {
-        return false;
-    }
-    return true;
-}, {
-    message: 'Contact information must match the selected contact method'
 });
 reservationsRouter.post('/', async (req, res, next) => {
     try {
@@ -36,25 +25,15 @@ reservationsRouter.post('/', async (req, res, next) => {
         // #4 - Prevent Duplicate Bookings: Check for existing active reservation
         const isWalkIn = data.phone === '0000000000';
         if (!isWalkIn) {
-            // Build query with required contact info (validated by schema)
-            const duplicateQuery = {
+            // Check if user already has an active reservation (by phone OR email)
+            const existingReservation = await Reservation.findOne({
                 restaurantId: data.restaurantId,
-                status: { $in: ['pending', 'confirmed'] }
-            };
-            // Add contact info based on contact method (schema ensures these exist)
-            if (data.contactMethod === 'email' && data.email) {
-                duplicateQuery.email = data.email;
-            }
-            else if (data.contactMethod === 'phone' && data.phone) {
-                duplicateQuery.phone = data.phone;
-            }
-            else {
-                // This should never happen due to schema validation, but be defensive
-                return res.status(400).json({
-                    error: 'Contact information is required for the selected contact method'
-                });
-            }
-            const existingReservation = await Reservation.findOne(duplicateQuery);
+                status: { $in: ['pending', 'confirmed'] },
+                $or: [
+                    { phone: data.phone },
+                    { email: data.email }
+                ]
+            });
             if (existingReservation) {
                 return res.status(409).json({
                     error: 'You already have an active reservation at this restaurant'
@@ -99,8 +78,8 @@ reservationsRouter.post('/', async (req, res, next) => {
             mode: data.mode,
             partySize: data.partySize,
             contactMethod: data.contactMethod,
-            phone: data.contactMethod === 'phone' ? data.phone : undefined,
-            email: data.contactMethod === 'email' ? data.email : undefined,
+            phone: data.phone, // Both phone and email are now required
+            email: data.email,
             status,
             queuePosition,
             confirmedAt: status !== 'pending' ? new Date() : undefined,
@@ -111,65 +90,64 @@ reservationsRouter.post('/', async (req, res, next) => {
         });
         // #3 - Send confirmation notification and track emailSent
         const restaurant = await Restaurant.findById(data.restaurantId);
-        if (restaurant) {
+        // For walk-ins (created by staff with placeholder contact info), SKIP outbound notifications
+        // We still persist the reservation for analytics and table management.
+        if (restaurant && !isWalkIn) {
             const message = data.mode === 'waitlist'
                 ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready.`
                 : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
+            // Send email notification (both phone and email are now required)
             try {
-                if (data.email) {
-                    const introName = data.name ? `Hi ${data.name},` : 'Hello,';
-                    // #11 - Construct frontend URL for cancel link
-                    const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
-                    const cancelUrl = `${frontendUrl}/#cancel-reservation?id=${doc._id}`;
-                    await sendEmail({
-                        to: data.email,
-                        subject: `Reservation at ${restaurant.name}`,
-                        text: message,
-                        html: buildEmailTemplate({
-                            heading: data.mode === 'waitlist'
-                                ? `You're on the waitlist at ${restaurant.name}`
-                                : `We've received your reservation`,
-                            intro: introName,
-                            lines: data.mode === 'waitlist'
-                                ? [
-                                    `You're currently #${queuePosition} in line at ${restaurant.name}.`,
-                                    "We'll email you again when your table is ready.",
-                                    'Need to cancel? Click the button below.',
-                                ]
-                                : [
-                                    `Thanks for choosing ${restaurant.name}. We're reviewing your reservation request and will confirm shortly.`,
-                                    'Need to cancel? Click the button below.',
-                                ],
-                            actionText: 'Cancel Reservation',
-                            actionUrl: cancelUrl,
-                            footer: "Questions? Reply to this email and we'll get right back to you.",
-                        }),
-                    });
-                    // #3 - Mark email as sent on success
-                    doc.emailSent = true;
-                    await doc.save();
-                }
+                const introName = data.name ? `Hi ${data.name},` : 'Hello,';
+                // #11 - Construct frontend URL for cancel link
+                const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
+                const cancelUrl = `${frontendUrl}/#cancel-reservation?id=${doc._id}`;
+                await sendEmail({
+                    to: data.email,
+                    subject: `Reservation at ${restaurant.name}`,
+                    text: message,
+                    html: buildEmailTemplate({
+                        heading: data.mode === 'waitlist'
+                            ? `You're on the waitlist at ${restaurant.name}`
+                            : `We've received your reservation`,
+                        intro: introName,
+                        lines: data.mode === 'waitlist'
+                            ? [
+                                `You're currently #${queuePosition} in line at ${restaurant.name}.`,
+                                "We'll notify you again when your table is ready.",
+                                'Need to cancel? Click the button below.',
+                            ]
+                            : [
+                                `Thanks for choosing ${restaurant.name}. We're reviewing your reservation request and will confirm shortly.`,
+                                'Need to cancel? Click the button below.',
+                            ],
+                        actionText: 'Cancel Reservation',
+                        actionUrl: cancelUrl,
+                        footer: "Questions? Reply to this email and we'll get right back to you.",
+                    }),
+                });
+                // #3 - Mark email as sent on success
+                doc.emailSent = true;
+                await doc.save();
             }
             catch (err) {
                 // Log but don't fail reservation if notification fails
                 console.error('Failed to send confirmation email:', err);
                 // emailSent remains false if email failed
             }
-            // #1 - Send SMS notification if phone contact method
-            if (data.contactMethod === 'phone' && data.phone) {
-                try {
-                    const smsMessage = data.mode === 'reserve'
-                        ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 15 minutes. Please arrive promptly. We look forward to seeing you soon!`
-                        : `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
-                    await sendNotification({
-                        to: data.phone,
-                        message: smsMessage
-                    });
-                }
-                catch (smsError) {
-                    console.error('Failed to send SMS notification:', smsError);
-                    // Don't fail reservation if SMS fails
-                }
+            // Send SMS notification (both phone and email are now required)
+            try {
+                const smsMessage = data.mode === 'reserve'
+                    ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 15 minutes. Please arrive promptly. We look forward to seeing you soon!`
+                    : `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
+                await sendNotification({
+                    to: data.phone,
+                    message: smsMessage
+                });
+            }
+            catch (smsError) {
+                console.error('Failed to send SMS notification:', smsError);
+                // Don't fail reservation if SMS fails
             }
         }
         // Notify staff of new queue entry

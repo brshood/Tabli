@@ -1026,7 +1026,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           name: customerName,
           partySize: partySize,
           contactMethod: 'phone',
-          phone: '0000000000' // Placeholder for walk-ins
+          phone: '0000000000', // Placeholder for walk-ins (detected on backend)
+          // Provide a synthetic email so schema validation passes, but clearly mark as walk-in
+          email: `walkin+${Date.now()}@tabli.local`
         })
       });
       

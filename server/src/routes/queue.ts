@@ -12,25 +12,11 @@ export const queueRouter = express.Router();
 
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
-  contactMethod: z.enum(['phone', 'email']),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
+  contactMethod: z.enum(['phone', 'email']), // Preferred contact method for primary communications
+  phone: z.string().min(10, 'Phone number is required'),
+  email: z.string().email('Valid email is required'),
   name: z.string().min(1).max(100).optional(),
-}).refine(
-  (data) => {
-    // Validate that contact info matches contact method
-    if (data.contactMethod === 'email' && !data.email) {
-      return false;
-    }
-    if (data.contactMethod === 'phone' && !data.phone) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message: 'Contact information must match the selected contact method'
-  }
-);
+});
 
 // POST /queue/:restaurantId/join
 queueRouter.post('/:restaurantId/join', async (req, res, next) => {
@@ -40,25 +26,16 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
     // #4 - Prevent Duplicate Bookings: Check for existing active reservation
-    // Build query with required contact info (validated by schema)
-    const duplicateQuery: any = {
+    // Check if user already has an active reservation (by phone OR email)
+    const existingReservation = await Reservation.findOne({
       restaurantId: restaurant._id,
-      status: { $in: ['pending', 'confirmed'] }
-    };
+      status: { $in: ['pending', 'confirmed'] },
+      $or: [
+        { phone: data.phone },
+        { email: data.email }
+      ]
+    });
     
-    // Add contact info based on contact method (schema ensures these exist)
-    if (data.contactMethod === 'email' && data.email) {
-      duplicateQuery.email = data.email;
-    } else if (data.contactMethod === 'phone' && data.phone) {
-      duplicateQuery.phone = data.phone;
-    } else {
-      // This should never happen due to schema validation, but be defensive
-      return res.status(400).json({ 
-        error: 'Contact information is required for the selected contact method' 
-      });
-    }
-    
-    const existingReservation = await Reservation.findOne(duplicateQuery);
     if (existingReservation) {
       return res.status(409).json({ 
         error: 'You already have an active reservation at this restaurant' 
@@ -74,52 +51,50 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       name: data.name,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
-      phone: data.contactMethod === 'phone' ? data.phone : undefined,
-      email: data.contactMethod === 'email' ? data.email : undefined,
+      phone: data.phone, // Both phone and email are now required
+      email: data.email,
       status: 'pending',
       queuePosition,
     });
 
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
+    
+    // Send email notification (both phone and email are now required)
     try {
-      if (data.email) {
-        await sendEmail({
-          to: data.email,
-          subject: `Queue at ${restaurant.name}`,
-          text: message,
-          html: buildEmailTemplate({
-            heading: `Thanks for joining the queue at ${restaurant.name}`,
-            intro: doc.name ? `Hi ${doc.name},` : 'Hello,',
-            lines: [
-              `You're currently #${queuePosition} in line at ${restaurant.name}.`,
-              'We\'ll email you as soon as your table is ready.',
-            ],
-            footer: 'Need to make a change? Reply to this email and we\'ll help you out.',
-          }),
-        });
-        
-        // #3 - Mark email as sent on success
-        doc.emailSent = true;
-        await doc.save();
-      }
+      await sendEmail({
+        to: data.email,
+        subject: `Queue at ${restaurant.name}`,
+        text: message,
+        html: buildEmailTemplate({
+          heading: `Thanks for joining the queue at ${restaurant.name}`,
+          intro: doc.name ? `Hi ${doc.name},` : 'Hello,',
+          lines: [
+            `You're currently #${queuePosition} in line at ${restaurant.name}.`,
+            'We\'ll notify you as soon as your table is ready.',
+          ],
+          footer: 'Need to make a change? Reply to this email and we\'ll help you out.',
+        }),
+      });
+      
+      // #3 - Mark email as sent on success
+      doc.emailSent = true;
+      await doc.save();
     } catch (err) {
       console.error('Queue join notify failed:', (err as any)?.message);
       // emailSent remains false if email failed
     }
     
-    // #1 - Send SMS notification if phone contact method
-    if (data.contactMethod === 'phone' && data.phone) {
-      try {
-        const smsMessage = `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
-        
-        await sendNotification({
-          to: data.phone,
-          message: smsMessage
-        });
-      } catch (smsError) {
-        console.error('Failed to send SMS notification:', smsError);
-        // Don't fail reservation if SMS fails
-      }
+    // Send SMS notification (both phone and email are now required)
+    try {
+      const smsMessage = `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
+      
+      await sendNotification({
+        to: data.phone,
+        message: smsMessage
+      });
+    } catch (smsError) {
+      console.error('Failed to send SMS notification:', smsError);
+      // Don't fail reservation if SMS fails
     }
 
     res.status(201).json({ reservation: doc });

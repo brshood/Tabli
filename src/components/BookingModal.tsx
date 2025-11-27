@@ -127,16 +127,16 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       newErrors.partySize = 'Party size must be between 1 and 12';
     }
 
-    if (contactMethod === 'phone') {
-      const numericLocal = phoneLocal.replace(/\D/g, '');
-      if (!numericLocal || numericLocal.length < 5) {
-        newErrors.phone = 'Please enter a valid phone number';
-      }
-    } else if (contactMethod === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
-        newErrors.email = 'Please enter a valid email address';
-      }
+    // Both phone and email are now required
+    const numericLocal = phoneLocal.replace(/\D/g, '');
+    // Require at least 6 local digits so full number (country code + local) meets 10+ chars backend rule
+    if (!numericLocal || numericLocal.length < 6) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
 
     setErrors(newErrors);
@@ -157,10 +157,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           name: customerName || undefined,
           partySize,
           contactMethod,
-          phone: contactMethod === 'phone'
-            ? `${countryCode}${phoneLocal.replace(/\D/g, '')}`
-            : undefined,
-          email: contactMethod === 'email' ? email : undefined,
+          phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`, // Both phone and email are now required
+          email: email,
           gender: gender !== 'prefer-not-to-say' ? gender : undefined,
           seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
         })
@@ -238,8 +236,15 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
   const isFormValid = () => {
     if (partySize < 1 || partySize > 12) return false;
-    if (contactMethod === 'phone' && phoneLocal.replace(/\D/g, '').length < 5) return false;
-    if (contactMethod === 'email' && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return false;
+
+    // Frontend validation matches backend: BOTH phone and email are required
+    const numericLocal = phoneLocal.replace(/\D/g, '');
+    // Require at least 6 local digits so full number (country code + local) meets 10+ chars backend rule
+    if (!numericLocal || numericLocal.length < 6) return false;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) return false;
+
     return true;
   };
 
