@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { Reservation } from '../models/Reservation';
+import { Reservation, ReservationDocument } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate } from '../services/email';
@@ -85,7 +85,7 @@ reservationsRouter.post('/', async (req, res, next) => {
     // Only assign queue position for waitlist mode
     const queuePosition = (data.mode === 'waitlist') ? count + 1 : undefined;
 
-    const doc = await Reservation.create({
+    const doc: ReservationDocument = await Reservation.create({
       restaurantId: data.restaurantId,
       name: data.name,
       mode: data.mode,
@@ -175,7 +175,7 @@ reservationsRouter.post('/', async (req, res, next) => {
       notificationEmitter.notifyRestaurant(data.restaurantId, {
         type: 'new_queue_entry',
         reservation: {
-          id: doc._id.toString(),
+          id: doc._id!.toString(),
           name: doc.name,
           partySize: doc.partySize,
           queuePosition: doc.queuePosition,

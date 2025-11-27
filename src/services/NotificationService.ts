@@ -1,188 +1,137 @@
-// Notification service for customer alerts
-// This is a placeholder implementation - in production, integrate with Twilio, SendGrid, etc.
-
-export type NotificationType = 'sms' | 'phone' | 'email' | 'push';
-
-export interface NotificationPayload {
-  to: string; // phone number or email
-  message: string;
-  type: NotificationType;
-  restaurantName?: string;
-  queuePosition?: number;
-  estimatedWaitTime?: string;
-}
-
 /**
- * Send SMS notification to customer
+ * Browser Notification Service
+ * Handles requesting notification permission and showing browser notifications
  */
-export async function sendSMSNotification(payload: NotificationPayload): Promise<boolean> {
-  console.log('📱 [SMS NOTIFICATION]', {
-    to: payload.to,
-    message: payload.message,
-    restaurant: payload.restaurantName,
-    timestamp: new Date().toISOString(),
-  });
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // In production:
-  // const response = await fetch('/api/notifications/sms', {
-  //   method: 'POST',
-  //   body: JSON.stringify(payload),
-  // });
-  // return response.ok;
-  
-  return true;
-}
 
-/**
- * Initiate phone call notification to customer
- */
-export async function sendPhoneCallNotification(payload: NotificationPayload): Promise<boolean> {
-  console.log('📞 [PHONE CALL NOTIFICATION]', {
-    to: payload.to,
-    message: payload.message,
-    restaurant: payload.restaurantName,
-    timestamp: new Date().toISOString(),
-  });
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // In production:
-  // const response = await fetch('/api/notifications/call', {
-  //   method: 'POST',
-  //   body: JSON.stringify(payload),
-  // });
-  // return response.ok;
-  
-  return true;
-}
+export type NotificationPermission = 'default' | 'granted' | 'denied';
 
-/**
- * Send email notification to customer
- */
-export async function sendEmailNotification(payload: NotificationPayload): Promise<boolean> {
-  console.log('📧 [EMAIL NOTIFICATION]', {
-    to: payload.to,
-    message: payload.message,
-    restaurant: payload.restaurantName,
-    timestamp: new Date().toISOString(),
-  });
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // In production:
-  // const response = await fetch('/api/notifications/email', {
-  //   method: 'POST',
-  //   body: JSON.stringify(payload),
-  // });
-  // return response.ok;
-  
-  return true;
-}
+class BrowserNotificationService {
+  private permission: NotificationPermission = 'default';
 
-/**
- * Notify customer their table is ready
- */
-export async function notifyTableReady(
-  contactInfo: string,
-  contactMethod: 'phone' | 'email',
-  restaurantName: string
-): Promise<boolean> {
-  const message = `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
-  
-  if (contactMethod === 'phone') {
-    await sendSMSNotification({
-      to: contactInfo,
-      message,
-      type: 'sms',
-      restaurantName,
-    });
-    
-    // Also attempt phone call
-    await sendPhoneCallNotification({
-      to: contactInfo,
-      message: `This is an automated call from ${restaurantName}. Your table is now ready.`,
-      type: 'phone',
-      restaurantName,
-    });
-  } else {
-    await sendEmailNotification({
-      to: contactInfo,
-      message,
-      type: 'email',
-      restaurantName,
+  constructor() {
+    // Check if browser supports notifications
+    if ('Notification' in window) {
+      this.permission = Notification.permission;
+    }
+  }
+
+  /**
+   * Check if browser supports notifications
+   */
+  isSupported(): boolean {
+    return 'Notification' in window;
+  }
+
+  /**
+   * Get current permission status
+   */
+  getPermission(): NotificationPermission {
+    return this.permission;
+  }
+
+  /**
+   * Request notification permission from user
+   */
+  async requestPermission(): Promise<NotificationPermission> {
+    if (!this.isSupported()) {
+      console.warn('Browser does not support notifications');
+      return 'denied';
+    }
+
+    if (this.permission === 'granted') {
+      return 'granted';
+    }
+
+    try {
+      const result = await Notification.requestPermission();
+      this.permission = result;
+      return result;
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return 'denied';
+    }
+  }
+
+  /**
+   * Show a notification
+   */
+  async showNotification(title: string, options?: NotificationOptions): Promise<boolean> {
+    // Check permission first
+    if (this.permission !== 'granted') {
+      console.warn('Notification permission not granted');
+      return false;
+    }
+
+    try {
+      // Create notification
+      const notification = new Notification(title, {
+        icon: '/favicon.png',
+        badge: '/apple-touch-icon.png',
+        requireInteraction: false,
+        ...options,
+      });
+
+      // Auto-close after 10 seconds
+      setTimeout(() => {
+        notification.close();
+      }, 10000);
+
+      return true;
+    } catch (error) {
+      console.error('Error showing notification:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Show a reservation notification
+   */
+  async notifyReservation(type: 'confirmed' | 'ready' | 'cancelled' | 'updated', restaurantName: string, message: string) {
+    const titles = {
+      confirmed: '✅ Reservation Confirmed',
+      ready: '🍽️ Table Ready!',
+      cancelled: '❌ Reservation Cancelled',
+      updated: '🔔 Reservation Updated',
+    };
+
+    await this.showNotification(titles[type], {
+      body: `${restaurantName}: ${message}`,
+      tag: `reservation-${Date.now()}`, // Unique tag for each notification
     });
   }
-  
-  return true;
-}
 
-/**
- * Notify customer about queue position update
- */
-export async function notifyQueuePositionUpdate(
-  contactInfo: string,
-  contactMethod: 'phone' | 'email',
-  restaurantName: string,
-  newPosition: number,
-  estimatedWait: string
-): Promise<boolean> {
-  const message = `Update from ${restaurantName}: You're now #${newPosition} in line. Estimated wait: ${estimatedWait}.`;
-  
-  if (contactMethod === 'phone') {
-    await sendSMSNotification({
-      to: contactInfo,
-      message,
-      type: 'sms',
-      restaurantName,
-      queuePosition: newPosition,
-      estimatedWaitTime: estimatedWait,
-    });
-  } else {
-    await sendEmailNotification({
-      to: contactInfo,
-      message,
-      type: 'email',
-      restaurantName,
-      queuePosition: newPosition,
-      estimatedWaitTime: estimatedWait,
+  /**
+   * Show a queue notification
+   */
+  async notifyQueue(restaurantName: string, queuePosition: number, estimatedWait?: string) {
+    const message = estimatedWait
+      ? `You're #${queuePosition} in line. Estimated wait: ${estimatedWait}`
+      : `You're #${queuePosition} in line.`;
+
+    await this.showNotification('📋 Queue Update', {
+      body: `${restaurantName}: ${message}`,
+      tag: `queue-${Date.now()}`,
     });
   }
-  
-  return true;
-}
 
-/**
- * Send reminder before hold time expires
- */
-export async function sendHoldTimeReminder(
-  contactInfo: string,
-  contactMethod: 'phone' | 'email',
-  restaurantName: string,
-  minutesRemaining: number
-): Promise<boolean> {
-  const message = `Reminder: Your table at ${restaurantName} will only be held for ${minutesRemaining} more minutes. Please confirm you're on your way!`;
-  
-  if (contactMethod === 'phone') {
-    await sendSMSNotification({
-      to: contactInfo,
-      message,
-      type: 'sms',
-      restaurantName,
-    });
-  } else {
-    await sendEmailNotification({
-      to: contactInfo,
-      message,
-      type: 'email',
-      restaurantName,
+  /**
+   * Show a staff notification (for new queue entries, cancellations)
+   */
+  async notifyStaff(type: 'new_entry' | 'cancellation' | 'update', message: string) {
+    const titles = {
+      new_entry: '👥 New Queue Entry',
+      cancellation: '❌ Cancellation',
+      update: '🔔 Update',
+    };
+
+    await this.showNotification(titles[type], {
+      body: message,
+      tag: `staff-${Date.now()}`,
+      requireInteraction: true, // Staff notifications require interaction
     });
   }
-  
-  return true;
 }
+
+// Singleton instance
+export const notificationService = new BrowserNotificationService();
 

@@ -83,11 +83,7 @@ restaurantsRouter.get('/', async (_req, res, next) => {
                 if (profilePic) {
                     return profilePic.fileId.toString();
                 }
-                // 4. Last resort: fall back to any active image
-                const activeImg = r.mediaRefs.find((m) => m.isActive && m.type === 'image');
-                if (activeImg) {
-                    return activeImg.fileId.toString();
-                }
+                // 4. NO fallback to license or other categories - only show dedicated profile pictures
             }
             return null;
         };
@@ -131,11 +127,7 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
                 if (profilePic) {
                     return profilePic.fileId.toString();
                 }
-                // 4. Last resort: fall back to any active image
-                const activeImg = r.mediaRefs.find((m) => m.isActive && m.type === 'image');
-                if (activeImg) {
-                    return activeImg.fileId.toString();
-                }
+                // 4. NO fallback to license or other categories - only show dedicated profile pictures
             }
             return null;
         };

@@ -2,7 +2,7 @@
 import { ActiveReservation, updateActiveReservation, clearActiveReservation } from './reservationStorage';
 import { updateReservationInHistory } from './reservationHistory';
 import { showInAppNotification } from '../components/InAppNotificationSystem';
-import { notificationService } from './notificationService';
+import { notificationService } from './NotificationService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 

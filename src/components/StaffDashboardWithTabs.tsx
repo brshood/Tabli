@@ -13,7 +13,6 @@ import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
 import { toast } from 'sonner';
 import { WaveBackground } from './WaveBackground';
-import { notifyTableReady, notifyQueuePositionUpdate } from '../services/NotificationService';
 import { Calendar } from './ui/calendar';
 import { openDailySummaryPdf, generateDailySummary } from '../services/analyticsApi';
 import { useRestaurant } from './RestaurantContext';
@@ -321,16 +320,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       
       const data = await response.json();
       
-      // Notify customer
-      try {
-        await notifyTableReady(
-          customer.phone,
-          customer.contactMethod,
-          'Spice Route'
-        );
-      } catch (notifyError) {
-        console.log('Notification failed but table assigned:', notifyError);
-      }
+      // Backend handles customer notification via SMS/email
       
       // Success! Refresh data from database
       await Promise.all([

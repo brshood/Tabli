@@ -27,7 +27,7 @@ import { ReservationStatusModal } from './components/ReservationStatusModal';
 import { NotificationsPage } from './components/NotificationsPage';
 import { getActiveReservation, updateActiveReservation, clearActiveReservation, type ActiveReservation } from './services/reservationStorage';
 import { startReservationSSE, stopReservationSSE } from './services/reservationSSE';
-import { notificationService } from './services/notificationService';
+import { notificationService } from './services/NotificationService';
 
 type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin' | 'cancel-queue' | 'cancel-reservation' | 'notifications';
 
