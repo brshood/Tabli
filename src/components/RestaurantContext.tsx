@@ -87,7 +87,7 @@ const defaultRestaurant: Restaurant = {
   openingHours: "11:00",
   closingHours: "22:00",
   averageTableTurnTime: 45,
-  maxHoldTime: 10,
+  maxHoldTime: 15,
   address: "123 Downtown Street, Dubai Marina",
   indoorSeating: true,
   outdoorSeating: true
@@ -150,7 +150,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             openingHours: r.openingHours || '09:00',
             closingHours: r.closingHours || '22:00',
             averageTableTurnTime: 45,
-            maxHoldTime: 10,
+            maxHoldTime: 15,
             address: r.address || '',
             indoorSeating: true,
             outdoorSeating: true,

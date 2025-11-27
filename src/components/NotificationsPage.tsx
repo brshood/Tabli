@@ -33,6 +33,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const [liveCountdowns, setLiveCountdowns] = useState<Map<string, number>>(new Map());
 
   const loadData = async () => {
     setIsRefreshingAll(true);
@@ -137,6 +138,65 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+  // Fetch wait time estimates for waitlist reservations
+  useEffect(() => {
+    const fetchEstimates = async () => {
+      const waitlistReservations = reservations.filter(
+        r => r.mode === 'waitlist' && r.status === 'pending'
+      );
+      
+      for (const res of waitlistReservations) {
+        try {
+          const response = await fetch(
+            `${API_URL}/queue/${res.restaurantId}/estimate?partySize=${res.partySize}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            // Find estimate for this specific reservation
+            const estimate = data.estimates?.queueEstimates?.find(
+              (e: any) => e.reservationId === res.reservationId
+            );
+            if (estimate && estimate.estimatedWaitMinutes) {
+              // Set countdown in seconds
+              setLiveCountdowns(prev => {
+                const next = new Map(prev);
+                next.set(res.reservationId, estimate.estimatedWaitMinutes * 60);
+                return next;
+              });
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to fetch estimate for ${res.reservationId}:`, error);
+        }
+      }
+    };
+    
+    if (reservations.length > 0) {
+      fetchEstimates();
+    }
+  }, [reservations]);
+
+  // Live countdown ticker (every second)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLiveCountdowns(prev => {
+        const next = new Map(prev);
+        let hasChanges = false;
+        
+        next.forEach((seconds, id) => {
+          if (seconds > 0) {
+            next.set(id, seconds - 1);
+            hasChanges = true;
+          }
+        });
+        
+        return hasChanges ? next : prev;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   const handleRefresh = async (reservationId: string) => {
     setRefreshingIds(prev => new Set(prev).add(reservationId));
     try {
@@ -216,7 +276,8 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const handleDeleteFromHistory = (reservationId: string) => {
     if (confirm('Remove this reservation from history?')) {
       removeReservationFromHistory(reservationId);
-      loadData();
+      // Immediately update local state
+      setReservations(prev => prev.filter(r => r.reservationId !== reservationId));
       toast.success('Removed from history');
     }
   };
@@ -288,6 +349,13 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const formatCountdownTime = (totalSeconds: number) => {
+    if (totalSeconds <= 0) return 'Ready soon';
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   // Active = pending or confirmed (not yet seated/cancelled)
   const activeReservations = reservations.filter(r => r.status === 'pending' || r.status === 'confirmed');
   
@@ -302,8 +370,8 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     const isActive = reservation.status === 'pending' || reservation.status === 'confirmed';
 
     return (
-      <Card key={reservation.reservationId} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-        <CardContent className="p-5">
+      <Card key={reservation.reservationId} className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white">
+        <CardContent className="p-5 bg-white">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -323,10 +391,18 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           {/* Queue Position / Hold Timer */}
           {reservation.mode === 'waitlist' && reservation.queuePosition && reservation.status === 'pending' && (
             <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 mb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-blue-900">Queue Position</span>
                 <span className="text-xl font-bold text-blue-600">#{reservation.queuePosition}</span>
               </div>
+              {liveCountdowns.has(reservation.reservationId) && (
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-200">
+                  <span className="text-sm font-medium text-blue-900">Estimated Wait</span>
+                  <span className="text-lg font-bold text-blue-600 tabular-nums">
+                    {formatCountdownTime(liveCountdowns.get(reservation.reservationId)!)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -384,7 +460,14 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                   onClick={() => handleCancel(reservation)}
                   disabled={isRefreshing || isCancelling}
                 >
-                  {isCancelling ? 'Cancelling...' : 'Cancel'}
+                  {isCancelling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    'Cancel'
+                  )}
                 </Button>
               </>
             )}
@@ -491,7 +574,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
 
             {/* Right Column - Notifications */}
             <div className="lg:col-span-1">
-              <Card className="border-0 shadow-lg sticky top-24">
+              <Card className="border-0 shadow-lg sticky top-24 bg-white">
                 <CardHeader style={{ backgroundColor: '#EBD3A2', borderBottom: '1px solid #D4B896' }}>
                   <CardTitle className="flex items-center justify-between text-base">
                     <span className="flex items-center gap-2">
@@ -505,7 +588,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                     )}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <CardContent className="p-3 max-h-[calc(100vh-200px)] overflow-y-auto bg-white">
                   {notifications.length > 0 ? (
                     <div className="space-y-2">
                       {notifications.slice(0, 20).map((notification) => (

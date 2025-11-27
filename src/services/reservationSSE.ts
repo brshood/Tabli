@@ -2,6 +2,7 @@
 import { ActiveReservation, updateActiveReservation, clearActiveReservation } from './reservationStorage';
 import { updateReservationInHistory } from './reservationHistory';
 import { showInAppNotification } from '../components/InAppNotificationSystem';
+import { notificationService } from './notificationService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -226,6 +227,12 @@ function handleStatusChange(serverReservation: any): void {
         message: `Your table at ${activeReservation.restaurantName} is ready! You have 15 minutes to arrive.`,
         persistent: true,
       });
+      // Also show browser notification
+      notificationService.notifyReservation(
+        'ready',
+        activeReservation.restaurantName,
+        'Your table is ready! You have 15 minutes to arrive.'
+      );
       break;
 
     case 'seated':
@@ -317,6 +324,8 @@ function handleQueuePositionChange(oldPosition: number, newPosition: number): vo
       message: `You moved up! You're now #${newPosition} in line at ${activeReservation.restaurantName}.`,
       persistent: false,
     });
+    // Browser notification for position change
+    notificationService.notifyQueue(activeReservation.restaurantName, newPosition);
   }
 }
 

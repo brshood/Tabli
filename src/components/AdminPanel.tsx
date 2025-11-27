@@ -28,9 +28,11 @@ import {
   FileText,
   Mail,
   Phone,
-  Star
+  Star,
+  MessageCircle
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -44,6 +46,9 @@ export function AdminPanel() {
   const [expandedRestaurantId, setExpandedRestaurantId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<any[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isAdminAuthenticated()) {
@@ -91,6 +96,31 @@ export function AdminPanel() {
     }
   };
 
+  const loadFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      const token = localStorage.getItem('admin_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/admin/feedback`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load feedback');
+      }
+      
+      const data = await response.json();
+      setFeedback(data.items || []);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load feedback');
+      if (error.message.includes('Session expired') || error.message.includes('Not authenticated')) {
+        setAuthenticated(false);
+      }
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
   const handleApprovalChange = async (id: string, status: 'pending' | 'approved' | 'denied') => {
     let notes: string | undefined;
     if (status === 'denied') {
@@ -115,6 +145,7 @@ export function AdminPanel() {
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to update approval status');
+      throw error; // Re-throw so the button handler can catch it
     }
   };
 
@@ -131,6 +162,7 @@ export function AdminPanel() {
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete restaurant');
+      throw error; // Re-throw for button handler
     }
   };
 
@@ -218,10 +250,23 @@ export function AdminPanel() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl">Admin Dashboard</CardTitle>
-              <Button onClick={handleLogout} variant="outline" size="sm">
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => { 
+                    setFeedbackDialogOpen(true); 
+                    loadFeedback(); 
+                  }} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  View Feedback
+                </Button>
+                <Button onClick={handleLogout} variant="outline" size="sm">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -329,6 +374,68 @@ export function AdminPanel() {
           )}
         </div>
       </div>
+
+      {/* Feedback Dialog */}
+      <Dialog open={feedbackDialogOpen} onOpenChange={setFeedbackDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Customer Feedback</DialogTitle>
+          </DialogHeader>
+          
+          {feedbackLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading feedback...</p>
+            </div>
+          ) : feedback.length === 0 ? (
+            <div className="p-8 text-center text-gray-600">
+              No feedback submitted yet
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {feedback.map((item, index) => (
+                <Card key={index}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">{item.restaurantName}</h3>
+                        <p className="text-sm text-gray-500">
+                          {item.customerName} • Party of {item.partySize} • {new Date(item.submittedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium">How did you hear about us?</span>
+                        <p className="text-gray-700">{item.hearAboutUs}</p>
+                      </div>
+                      
+                      {item.specialRequirements && (
+                        <div>
+                          <span className="font-medium">Special Requirements:</span>
+                          <p className="text-gray-700">{item.specialRequirements}</p>
+                        </div>
+                      )}
+                      
+                      {item.improvements && (
+                        <div>
+                          <span className="font-medium">Suggestions for Improvement:</span>
+                          <p className="text-gray-700">{item.improvements}</p>
+                        </div>
+                      )}
+                      
+                      <div className="text-xs text-gray-500 mt-2">
+                        Contact: {item.email || item.phone}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -341,10 +448,12 @@ function RestaurantDetails({
 }: { 
   details: AdminRestaurantDetails; 
   getFileUrl: (fileId: string) => string;
-  onApprovalChange: (id: string, status: 'pending' | 'approved' | 'denied') => void;
-  onDelete: (id: string) => void;
+  onApprovalChange: (id: string, status: 'pending' | 'approved' | 'denied') => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const restaurant = details.restaurant;
+  const [approvingStatus, setApprovingStatus] = useState<'approved' | 'pending' | 'denied' | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Group files by category
   const filesByCategory = {
@@ -454,14 +563,71 @@ function RestaurantDetails({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onApprovalChange(restaurant.id, 'approved')}>
-                    Approve
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={approvingStatus !== null}
+                    onClick={async () => {
+                      setApprovingStatus('approved');
+                      try {
+                        await onApprovalChange(restaurant.id, 'approved');
+                      } finally {
+                        setApprovingStatus(null);
+                      }
+                    }}
+                  >
+                    {approvingStatus === 'approved' ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        Approving...
+                      </>
+                    ) : (
+                      'Approve'
+                    )}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => onApprovalChange(restaurant.id, 'pending')}>
-                    Mark pending
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={approvingStatus !== null}
+                    onClick={async () => {
+                      setApprovingStatus('pending');
+                      try {
+                        await onApprovalChange(restaurant.id, 'pending');
+                      } finally {
+                        setApprovingStatus(null);
+                      }
+                    }}
+                  >
+                    {approvingStatus === 'pending' ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        Updating...
+                      </>
+                    ) : (
+                      'Mark pending'
+                    )}
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => onApprovalChange(restaurant.id, 'denied')}>
-                    Deny
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    disabled={approvingStatus !== null}
+                    onClick={async () => {
+                      setApprovingStatus('denied');
+                      try {
+                        await onApprovalChange(restaurant.id, 'denied');
+                      } finally {
+                        setApprovingStatus(null);
+                      }
+                    }}
+                  >
+                    {approvingStatus === 'denied' ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        Denying...
+                      </>
+                    ) : (
+                      'Deny'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -472,8 +638,27 @@ function RestaurantDetails({
                     Permanently remove this restaurant, its staff, reservations, and files.
                   </p>
                 </div>
-                <Button variant="destructive" size="sm" onClick={() => onDelete(restaurant.id)}>
-                  Delete
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  disabled={deleting}
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      await onDelete(restaurant.id);
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                >
+                  {deleting ? (
+                    <>
+                      <span className="animate-spin mr-2">⏳</span>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
                 </Button>
               </div>
             </div>

@@ -20,7 +20,7 @@ interface BookingModalProps {
   onClose: () => void;
   mode: 'reserve' | 'waitlist';
   restaurant?: Restaurant;
-  onSuccess?: () => void;
+  onSuccess?: (reservationId?: string) => void;
 }
 
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
@@ -39,7 +39,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [isSubmitting, setIsSubmitting] = useState(false); // #10 - Loading state
   const { t } = useLanguage();
   
-  const maxHoldTime = restaurant?.maxHoldTime || 10;
+  const maxHoldTime = restaurant?.maxHoldTime || 15;
   const queuePosition = restaurant?.waitingInLine || 0;
 
   useEffect(() => {
@@ -228,7 +228,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
             : "You've been added to the queue! We'll notify you when your table is ready.");
       toast.success(successMessage);
-      if (onSuccess) onSuccess(); else onClose();
+      if (onSuccess) onSuccess(reservation?._id); else onClose();
     } catch (_e) {
       toast.error('Could not submit request. Please try again.');
     } finally {

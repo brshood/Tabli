@@ -8,8 +8,15 @@ interface SSEClient {
   response: Response;
 }
 
+interface RestaurantSSEClient {
+  id: string;
+  restaurantId: string;
+  response: Response;
+}
+
 class NotificationEmitter {
   private clients: Map<string, SSEClient[]> = new Map();
+  private restaurantClients: Map<string, RestaurantSSEClient[]> = new Map();
 
   /**
    * Register a new SSE client for a specific reservation
@@ -89,7 +96,73 @@ class NotificationEmitter {
   getTotalConnections(): number {
     let total = 0;
     this.clients.forEach(clients => total += clients.length);
+    this.restaurantClients.forEach(clients => total += clients.length);
     return total;
+  }
+
+  /**
+   * Register a new SSE client for a specific restaurant (for staff)
+   */
+  addRestaurantClient(restaurantId: string, response: Response): string {
+    const clientId = `restaurant-${restaurantId}-${Date.now()}-${Math.random()}`;
+    const client: RestaurantSSEClient = { id: clientId, restaurantId, response };
+
+    if (!this.restaurantClients.has(restaurantId)) {
+      this.restaurantClients.set(restaurantId, []);
+    }
+    this.restaurantClients.get(restaurantId)!.push(client);
+
+    console.log(`[SSE] Staff client ${clientId} connected for restaurant ${restaurantId}`);
+    console.log(`[SSE] Total staff clients for ${restaurantId}: ${this.restaurantClients.get(restaurantId)!.length}`);
+
+    return clientId;
+  }
+
+  /**
+   * Remove a restaurant client when they disconnect
+   */
+  removeRestaurantClient(restaurantId: string, clientId: string): void {
+    const clients = this.restaurantClients.get(restaurantId);
+    if (clients) {
+      const index = clients.findIndex(c => c.id === clientId);
+      if (index !== -1) {
+        clients.splice(index, 1);
+        console.log(`[SSE] Staff client ${clientId} disconnected from restaurant ${restaurantId}`);
+      }
+      if (clients.length === 0) {
+        this.restaurantClients.delete(restaurantId);
+        console.log(`[SSE] No more staff clients for restaurant ${restaurantId}`);
+      }
+    }
+  }
+
+  /**
+   * Send a notification to all staff clients listening to a specific restaurant
+   */
+  notifyRestaurant(restaurantId: string | Types.ObjectId, data: any): void {
+    const id = restaurantId.toString();
+    const clients = this.restaurantClients.get(id);
+    
+    if (!clients || clients.length === 0) {
+      console.log(`[SSE] No staff clients listening for restaurant ${id}`);
+      return;
+    }
+
+    console.log(`[SSE] Notifying ${clients.length} staff client(s) for restaurant ${id}`);
+    
+    const deadClients: string[] = [];
+    
+    clients.forEach(client => {
+      try {
+        client.response.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (error) {
+        console.error(`[SSE] Failed to send to staff client ${client.id}:`, error);
+        deadClients.push(client.id);
+      }
+    });
+
+    // Clean up dead connections
+    deadClients.forEach(clientId => this.removeRestaurantClient(id, clientId));
   }
 }
 

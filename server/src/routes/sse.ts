@@ -52,6 +52,42 @@ sseRouter.get('/reservations/:id', async (req, res) => {
 });
 
 /**
+ * GET /sse/restaurants/:id
+ * Establish SSE connection for restaurant staff real-time updates
+ */
+sseRouter.get('/restaurants/:id', async (req, res) => {
+  const restaurantId = req.params.id;
+
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable buffering in nginx
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Staff SSE connection established' })}\n\n`);
+
+  // Register client
+  const clientId = notificationEmitter.addRestaurantClient(restaurantId, res);
+
+  // Send heartbeat every 30 seconds to keep connection alive
+  const heartbeatInterval = setInterval(() => {
+    try {
+      res.write(`:heartbeat\n\n`);
+    } catch (error) {
+      clearInterval(heartbeatInterval);
+    }
+  }, 30000);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    clearInterval(heartbeatInterval);
+    notificationEmitter.removeRestaurantClient(restaurantId, clientId);
+    console.log(`[SSE] Staff connection closed for restaurant ${restaurantId}`);
+  });
+});
+
+/**
  * GET /sse/health
  * Health check endpoint to see active SSE connections
  */

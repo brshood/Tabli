@@ -5,6 +5,7 @@ import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate } from '../services/email';
 import { sendNotification } from '../services/sms';
+import { formatGSTTime, formatGSTDateTime } from '../utils/dateFormatter';
 import { notificationEmitter } from '../services/notificationEmitter';
 
 export const reservationsRouter = express.Router();
@@ -155,7 +156,7 @@ reservationsRouter.post('/', async (req, res, next) => {
       if (data.contactMethod === 'phone' && data.phone) {
         try {
           const smsMessage = data.mode === 'reserve'
-            ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 10 minutes. Please arrive promptly. We look forward to seeing you soon!`
+            ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 15 minutes. Please arrive promptly. We look forward to seeing you soon!`
             : `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
           
           await sendNotification({
@@ -167,6 +168,21 @@ reservationsRouter.post('/', async (req, res, next) => {
           // Don't fail reservation if SMS fails
         }
       }
+    }
+
+    // Notify staff of new queue entry
+    if (doc.mode === 'waitlist') {
+      notificationEmitter.notifyRestaurant(data.restaurantId, {
+        type: 'new_queue_entry',
+        reservation: {
+          id: doc._id.toString(),
+          name: doc.name,
+          partySize: doc.partySize,
+          queuePosition: doc.queuePosition,
+          status: doc.status,
+        },
+        message: `New queue entry: ${doc.name || 'Guest'} (Party of ${doc.partySize})`
+      });
     }
 
     res.status(201).json({ reservation: doc });
@@ -251,18 +267,18 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         if (r.email) {
           try {
             const restaurant = await Restaurant.findById(r.restaurantId).lean();
-            const holdTime = holdUntil.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const holdTime = formatGSTTime(holdUntil);
             
             await sendEmail({
               to: r.email,
               subject: `Your table is ready at ${restaurant?.name || 'your restaurant'}`,
-              text: `Your table is ready! Please arrive by ${holdTime} to secure your reservation.`,
+              text: `Your table is ready! Please arrive by ${holdTime} GST to secure your reservation.`,
               html: buildEmailTemplate({
                 heading: 'Your table is ready!',
                 intro: r.name ? `Hi ${r.name},` : 'Hello,',
                 lines: [
                   `Great news! Your table at ${restaurant?.name || 'the restaurant'} is ready.`,
-                  `Please arrive by ${holdTime} (within the next 15 minutes) to secure your reservation.`,
+                  `Please arrive by ${holdTime} GST (within the next 15 minutes) to secure your reservation.`,
                   `If you can't make it, please let us know as soon as possible.`
                 ],
                 footer: 'See you soon!'
@@ -389,6 +405,18 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
         cancellationReason: reservation.cancellationReason,
       }
     });
+
+    // Notify staff of cancellation
+    notificationEmitter.notifyRestaurant(reservation.restaurantId.toString(), {
+      type: 'reservation_cancelled',
+      reservation: {
+        id: (reservation._id as any).toString(),
+        name: reservation.name,
+        partySize: reservation.partySize,
+        status: reservation.status,
+      },
+      message: `Reservation cancelled: ${reservation.name || 'Guest'} (Party of ${reservation.partySize})`
+    });
     
     res.json({ success: true, message: 'Reservation cancelled successfully' });
   } catch (err) {
@@ -405,7 +433,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const restaurantName = restaurant?.name || 'the restaurant';
     
     // Use custom message/subject from request body if provided, otherwise use default
-    const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
+    const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 15 minutes to secure your reservation.`;
     const subject = req.body?.subject || 'Your table is ready';
     
     if (r.email) {
@@ -628,6 +656,44 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
     
   } catch (err) {
     console.error('Error in assign-table:', err);
+    next(err);
+  }
+});
+
+// POST /reservations/:id/feedback - Store post-booking survey feedback
+const feedbackSchema = z.object({
+  hearAboutUs: z.string().min(1),
+  specialRequirements: z.string().optional(),
+  improvements: z.string().optional(),
+});
+
+reservationsRouter.post('/:id/feedback', async (req, res, next) => {
+  try {
+    const reservationId = req.params.id;
+    const data = feedbackSchema.parse(req.body);
+    
+    const reservation = await Reservation.findByIdAndUpdate(
+      reservationId,
+      {
+        $set: {
+          postBookingSurvey: {
+            hearAboutUs: data.hearAboutUs,
+            specialRequirements: data.specialRequirements || undefined,
+            improvements: data.improvements || undefined,
+            submittedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+    
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+    
+    console.log(`[FEEDBACK] Survey submitted for reservation ${reservationId}`);
+    res.json({ success: true, reservation });
+  } catch (err) {
     next(err);
   }
 });

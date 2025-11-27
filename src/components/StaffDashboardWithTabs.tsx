@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2 } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -83,6 +83,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [tableEditName, setTableEditName] = useState('');
   const [tableEditCapacity, setTableEditCapacity] = useState(4);
   const [customerSearchFilter, setCustomerSearchFilter] = useState('');
+  const [checkingInIds, setCheckingInIds] = useState<Set<number>>(new Set());
+  const [checkingOutIds, setCheckingOutIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     let timer: any;
@@ -262,6 +264,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       return;
     }
     
+    setCheckingInIds(prev => new Set(prev).add(id));
     try {
       // Update status to 'confirmed' which triggers the 15-minute hold
       const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
@@ -285,6 +288,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       console.error('Error checking in customer:', error);
       toast.error(error.message || 'Failed to check in customer');
       await loadReservationsFromDB();
+    } finally {
+      setCheckingInIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -510,58 +519,58 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     if (!table) return;
     
     console.log('Checking out table:', table);
-    
-    let tableId = (table as any).tableId;
-    
-    // If tableId is missing, try to find it from the tables list using reservationId
-    if (!tableId && (table as any).reservationId) {
-      console.log('TableId missing, attempting fallback lookup by reservationId:', (table as any).reservationId);
-      
-      // Try to find the table by matching currentReservationId with our reservationId
-      const allCurrentTables = [...availableTables, ...seatedTables];
-      const matchingTableFromState = allCurrentTables.find(t => 
-        (t as any).currentReservationId === (table as any).reservationId
-      );
-      
-      if (matchingTableFromState) {
-        tableId = (matchingTableFromState as any).id || (matchingTableFromState as any).tableId;
-        console.log('Found tableId via fallback:', tableId);
-      }
-      
-      // If still not found, fetch from backend
-      if (!tableId) {
-        try {
-          const params = new URLSearchParams({ restaurantId: staffAuth?.restaurantId || '' });
-          const res = await fetch(`${API_URL}/tables?${params.toString()}`);
-          if (res.ok) {
-            const data = await res.json();
-            const matchingTable = (data.items || []).find((t: any) => 
-              t.currentReservationId === (table as any).reservationId
-            );
-            if (matchingTable) {
-              tableId = matchingTable._id;
-              console.log('Found tableId from backend:', tableId);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to lookup tableId from backend:', error);
-        }
-      }
-    }
-    
-    if (!tableId) {
-      console.error('Missing tableId in table object:', table);
-      toast.error(`Invalid table data: missing tableId. Reservation: ${(table as any).reservationId || 'unknown'}`);
-      
-      // Try to refresh data in case it's stale
-      await Promise.all([
-        loadReservationsFromDB(),
-        loadTablesFromDB()
-      ]);
-      return;
-    }
+    setCheckingOutIds(prev => new Set(prev).add(id));
     
     try {
+      let tableId = (table as any).tableId;
+      
+      // If tableId is missing, try to find it from the tables list using reservationId
+      if (!tableId && (table as any).reservationId) {
+        console.log('TableId missing, attempting fallback lookup by reservationId:', (table as any).reservationId);
+        
+        // Try to find the table by matching currentReservationId with our reservationId
+        const allCurrentTables = [...availableTables, ...seatedTables];
+        const matchingTableFromState = allCurrentTables.find(t => 
+          (t as any).currentReservationId === (table as any).reservationId
+        );
+        
+        if (matchingTableFromState) {
+          tableId = (matchingTableFromState as any).id || (matchingTableFromState as any).tableId;
+          console.log('Found tableId via fallback:', tableId);
+        }
+        
+        // If still not found, fetch from backend
+        if (!tableId) {
+          try {
+            const params = new URLSearchParams({ restaurantId: staffAuth?.restaurantId || '' });
+            const res = await fetch(`${API_URL}/tables?${params.toString()}`);
+            if (res.ok) {
+              const data = await res.json();
+              const matchingTable = (data.items || []).find((t: any) => 
+                t.currentReservationId === (table as any).reservationId
+              );
+              if (matchingTable) {
+                tableId = matchingTable._id;
+                console.log('Found tableId from backend:', tableId);
+              }
+            }
+          } catch (error) {
+            console.error('Failed to lookup tableId from backend:', error);
+          }
+        }
+      }
+      
+      if (!tableId) {
+        console.error('Missing tableId in table object:', table);
+        toast.error(`Invalid table data: missing tableId. Reservation: ${(table as any).reservationId || 'unknown'}`);
+        
+        // Try to refresh data in case it's stale
+        await Promise.all([
+          loadReservationsFromDB(),
+          loadTablesFromDB()
+        ]);
+        return; // Early return is now inside try block, so finally will still execute
+      }
       // Use the enhanced checkout endpoint for atomic database updates
       const response = await fetch(`${API_URL}/tables/${tableId}/checkout`, {
         method: 'POST',
@@ -591,6 +600,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         loadReservationsFromDB(),
         loadTablesFromDB()
       ]);
+    } finally {
+      // Always cleanup loading state, even on early returns
+      setCheckingOutIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -1346,12 +1362,22 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                 <Button 
                                   size="sm" 
                                   onClick={() => checkInCustomer(customer.id)}
+                                  disabled={checkingInIds.has(customer.id)}
                                   className="pill-button text-xs text-white"
                                   style={{backgroundColor: '#B8860B'}}
                                   title="Check in customer - starts 15 minute hold"
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Check In
+                                  {checkingInIds.has(customer.id) ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      Checking In...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Check In
+                                    </>
+                                  )}
                                 </Button>
                               ) : (
                                 <>
@@ -1477,10 +1503,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <Button 
                                 size="sm" 
                                 onClick={() => checkOutTable(table.id)}
+                                disabled={checkingOutIds.has(table.id)}
                                 className="pill-button text-xs text-white"
                                 style={{backgroundColor: '#3F4427'}}
                               >
-                                Check Out
+                                {checkingOutIds.has(table.id) ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    Checking Out...
+                                  </>
+                                ) : (
+                                  'Check Out'
+                                )}
                               </Button>
                             </div>
                           </div>

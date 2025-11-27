@@ -27,6 +27,7 @@ import { ReservationStatusModal } from './components/ReservationStatusModal';
 import { NotificationsPage } from './components/NotificationsPage';
 import { getActiveReservation, updateActiveReservation, clearActiveReservation, type ActiveReservation } from './services/reservationStorage';
 import { startReservationSSE, stopReservationSSE } from './services/reservationSSE';
+import { notificationService } from './services/notificationService';
 
 type Page = 'landing' | 'discover' | 'search' | 'staff' | 'restaurant-profile' | 'admin' | 'cancel-queue' | 'cancel-reservation' | 'notifications';
 
@@ -80,6 +81,7 @@ function AppContent() {
   const [countdownVisible, setCountdownVisible] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState(0);
   const [countdownFinished, setCountdownFinished] = useState<boolean>(() => Date.now() >= LAUNCH_COUNTDOWN_TARGET);
+  const [restaurantProfileImagesLoaded, setRestaurantProfileImagesLoaded] = useState(false);
   const countdownIntervalRef = useRef<number | null>(null);
   const countdownAnimationRef = useRef<number | null>(null);
   const pendingRouteRef = useRef<Page | null>(null);
@@ -94,6 +96,14 @@ function AppContent() {
     if (reservation) {
       setActiveReservation(reservation);
       startReservationSSE(reservation);
+    }
+
+    // Request notification permission on app load (non-intrusive)
+    if (notificationService.isSupported() && notificationService.getPermission() === 'default') {
+      // Request permission after a short delay to not be annoying
+      setTimeout(() => {
+        notificationService.requestPermission();
+      }, 3000);
     }
 
     return () => {
@@ -139,7 +149,7 @@ function AppContent() {
     if (hash) {
       // Parse hash to determine initial page
       const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue', 'cancel-reservation'].includes(pageFromHash)) {
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue', 'cancel-reservation', 'notifications'].includes(pageFromHash)) {
         setCurrentPage(pageFromHash);
         
         // Admin, cancel-queue, cancel-reservation, and restaurant-profile need special handling
@@ -327,11 +337,18 @@ function AppContent() {
     setPreviousPage(currentPage);
     setCurrentPage(newPage);
     
+    // Reset restaurant profile images loaded flag when navigating
+    if (newPage !== 'restaurant-profile') {
+      setRestaurantProfileImagesLoaded(false);
+    }
+    
     // Update browser history
     const state: any = { page: newPage };
     
     if (newPage === 'restaurant-profile' && restaurant) {
       setSelectedRestaurant(restaurant);
+      // Reset images loaded for new restaurant
+      setRestaurantProfileImagesLoaded(false);
       state.restaurantId = restaurant.id;
       window.history.pushState(state, '', `#${newPage}?id=${restaurant.id}`);
     } else if (newPage !== 'restaurant-profile') {
@@ -712,9 +729,37 @@ function AppContent() {
           navigateToPage('search');
           return null;
         }
+        // Show loading state while images are loading to prevent animation stutter
+        if (!restaurantProfileImagesLoaded) {
+          return (
+            <motion.div
+              key="restaurant-profile-loading-images"
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={pageTransition}
+              className="absolute inset-0 w-full page-transition overflow-x-hidden flex items-center justify-center"
+            >
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading restaurant...</p>
+              </div>
+              {/* Hidden component to preload images */}
+              <div style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}>
+                <RestaurantProfilePage 
+                  restaurant={selectedRestaurant} 
+                  onNavigate={navigateToPage}
+                  onImagesLoaded={() => setRestaurantProfileImagesLoaded(true)}
+                />
+              </div>
+            </motion.div>
+          );
+        }
+        
         return (
           <motion.div
-            key="restaurant-profile"
+            key={`restaurant-profile-${selectedRestaurant.id}`}
             variants={pageVariants}
             initial="initial"
             animate="animate"
@@ -724,7 +769,8 @@ function AppContent() {
           >
             <RestaurantProfilePage 
               restaurant={selectedRestaurant} 
-              onNavigate={navigateToPage} 
+              onNavigate={navigateToPage}
+              onImagesLoaded={() => setRestaurantProfileImagesLoaded(true)}
             />
           </motion.div>
         );

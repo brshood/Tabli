@@ -6,6 +6,7 @@ import { sendEmail, buildEmailTemplate } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
+import { formatGSTTime, formatGSTDateTime } from '../utils/dateFormatter';
 
 export const queueRouter = express.Router();
 
@@ -111,7 +112,7 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     const r = await Reservation.findById(req.params.reservationId);
     if (!r) return res.status(404).json({ error: 'Not found' });
     const restaurant = await Restaurant.findById(r.restaurantId);
-    const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 10 minutes.`;
+    const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
     if (r.email) {
       await sendEmail({
         to: r.email,
@@ -122,8 +123,8 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
           intro: `Hi${r.name ? ` ${r.name}` : ''},`,
           lines: [
             restaurant?.name
-              ? `Your table at ${restaurant.name} is ready. Please arrive within 10 minutes so we can keep it for you.`
-              : 'Your table is ready. Please arrive within 10 minutes so we can keep it for you.',
+              ? `Your table at ${restaurant.name} is ready. Please arrive within 15 minutes so we can keep it for you.`
+              : 'Your table is ready. Please arrive within 15 minutes so we can keep it for you.',
             'If you’re on your way, no action is needed. Otherwise, reply to this email to let us know.',
           ],
         }),
