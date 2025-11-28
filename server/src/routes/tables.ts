@@ -198,6 +198,154 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
   }
 });
 
+// POST /tables/checkout-by-reservation/:reservationId
+// Alternative checkout endpoint using reservation ID instead of table ID
+// Useful when table was deleted but reservation still exists
+tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, res, next) => {
+  try {
+    const reservationId = req.params.reservationId;
+    
+    // 1. Load the reservation
+    const reservation = await Reservation.findById(reservationId);
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+    
+    if (reservation.status !== 'seated' || reservation.leftAt) {
+      return res.status(400).json({ 
+        error: 'Reservation is not currently seated',
+        currentStatus: reservation.status 
+      });
+    }
+    
+    // 2. Find the table using currentReservationId
+    const table = await Table.findOne({ 
+      currentReservationId: reservationId,
+      restaurantId: reservation.restaurantId
+    });
+    
+    // 3. Calculate metrics (do this before checking for table so we can use it even if table is missing)
+    const now = new Date();
+    let dwellTimeMinutes = 0;
+    if (reservation.seatedAt) {
+      const dwellMs = now.getTime() - new Date(reservation.seatedAt).getTime();
+      dwellTimeMinutes = Math.round(dwellMs / 60000);
+    }
+    
+    if (!table) {
+      // Reservation exists but no table is linked - mark reservation as checked out
+      const updatedReservation = await Reservation.findByIdAndUpdate(reservationId, {
+        $set: { leftAt: now }
+      }, { new: true });
+      
+      return res.json({ 
+        success: true,
+        message: 'Reservation checked out. No table was linked.',
+        reservation: updatedReservation,
+        table: null,
+        dwellTimeMinutes: dwellTimeMinutes // Use calculated dwell time instead of 0
+      });
+    }
+    
+    // 4. Atomic update - both table and reservation
+    const [updatedTable, updatedReservation] = await Promise.all([
+      Table.findByIdAndUpdate(
+        table._id,
+        {
+          $set: {
+            status: 'available',
+            currentReservationId: null
+          }
+        },
+        { new: true }
+      ),
+      Reservation.findByIdAndUpdate(
+        reservationId,
+        {
+          $set: {
+            leftAt: now
+          }
+        },
+        { new: true }
+      )
+    ]);
+    
+    // 5. Verify both updates succeeded
+    if (!updatedTable || !updatedReservation) {
+      return res.status(500).json({ error: 'Failed to checkout table. Please try again.' });
+    }
+    
+    // 6. Log the action
+    console.log({
+      action: 'CHECKOUT_TABLE_BY_RESERVATION',
+      tableId: (table._id as any).toString(),
+      tableName: table.name,
+      reservationId: reservationId,
+      customerName: reservation.name,
+      partySize: reservation.partySize,
+      dwellTimeMinutes: dwellTimeMinutes,
+      seatedAt: reservation.seatedAt?.toISOString(),
+      leftAt: now.toISOString(),
+      timestamp: now.toISOString(),
+      restaurantId: table.restaurantId.toString()
+    });
+    
+    // 7. Skip email for walk-ins
+    const isWalkIn = reservation.phone === '0000000000' || reservation.email === 'walkin@tabli.app';
+    if (reservation.email && !isWalkIn) {
+      try {
+        const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+        const ratingLink = `${base}/#restaurant-profile?id=${reservation.restaurantId.toString()}`;
+        const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
+        await sendEmail({
+          to: reservation.email,
+          subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
+          text: thankYouMessage,
+          html: buildEmailTemplate({
+            heading: 'Thank you for dining with us!',
+            intro: reservation.name ? `Hi ${reservation.name},` : 'Hello,',
+            lines: [
+              restaurant?.name
+                ? `We hope you enjoyed your time at ${restaurant.name}.`
+                : 'We hope you enjoyed your dining experience.',
+              "We'd love to hear how everything went - share your thoughts with us!",
+            ],
+            actionText: 'Leave a quick rating',
+            actionUrl: ratingLink,
+          }),
+        });
+      } catch (notificationError) {
+        console.error('Failed to send thank-you email:', notificationError);
+      }
+    }
+    
+    // 8. Emit SSE notification
+    notificationEmitter.notifyReservation(reservationId.toString(), {
+      type: 'reservation_updated',
+      reservation: {
+        _id: (updatedReservation._id as any).toString(),
+        status: updatedReservation.status,
+        leftAt: updatedReservation.leftAt,
+        seatedAt: updatedReservation.seatedAt,
+      }
+    });
+    
+    // 9. Return success
+    res.json({
+      success: true,
+      table: updatedTable,
+      reservation: updatedReservation,
+      dwellTimeMinutes: dwellTimeMinutes,
+      message: `${table.name} is now available`
+    });
+    
+  } catch (err) {
+    console.error('Error in checkout by reservation:', err);
+    next(err);
+  }
+});
+
 tablesRouter.delete('/tables/:id', async (req, res, next) => {
   try {
     await Table.findByIdAndDelete(req.params.id);
