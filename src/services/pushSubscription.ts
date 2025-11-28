@@ -109,15 +109,16 @@ export async function subscribeToPush(options?: {
       return null;
     }
 
-    // Request permission
+    // CRITICAL for iOS: Register and wait for service worker to be ready BEFORE requesting permission
+    const registration = await getServiceWorkerRegistration();
+    await navigator.serviceWorker.ready; // Wait for service worker to be fully active
+    
+    // NOW request permission (must be after user gesture for iOS)
     const permission = await requestNotificationPermission();
     if (permission !== 'granted') {
       console.warn('[PUSH] Notification permission denied');
       return null;
     }
-
-    // Register service worker
-    const registration = await getServiceWorkerRegistration();
 
     // Check if already subscribed
     const existingSubscription = await registration.pushManager.getSubscription();
