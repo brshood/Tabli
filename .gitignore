@@ -21,6 +21,9 @@ server/.env*
 .env.test.local
 .env.production.local
 
+# Sensitive keys and secrets
+VAPID_KEYS.md
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

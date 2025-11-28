@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 const pushSubscriptionSchema = new Schema({
-    userId: { type: String, index: true }, // Index for finding by user - for user notifications
-    reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation', index: true }, // For user notifications
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', index: true }, // For staff notifications
+    userId: { type: String }, // For user notifications - indexed below
+    reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation' }, // For user notifications - indexed below
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant' }, // For staff notifications - indexed below
     endpoint: { type: String, required: true, unique: true, index: true },
     keys: {
         p256dh: { type: String, required: true },
