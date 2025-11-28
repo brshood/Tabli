@@ -459,24 +459,22 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
       }
     });
     
-    // Send push notification if removed by staff
-    if (reservation.cancellationReason === 'staff_removed') {
-      try {
-        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
-        
-        await sendPushToReservation((reservation._id as any).toString(), {
-          title: 'Removed from Queue',
-          body: `You've been removed from the queue at ${restaurantName}.`,
-          icon: '/favicon.png',
-          data: {
-            reservationId: (reservation._id as any).toString(),
-            restaurantId: reservation.restaurantId.toString(),
-            url: `${base}/#notifications`,
-          },
-        });
-      } catch (pushError) {
-        console.error('[PUSH] Failed to send removal notification:', pushError);
-      }
+    // Send push notification for user cancellation
+    try {
+      const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+      
+      await sendPushToReservation((reservation._id as any).toString(), {
+        title: 'Reservation Cancelled',
+        body: `Your reservation at ${restaurantName} has been cancelled.`,
+        icon: '/favicon.png',
+        data: {
+          reservationId: (reservation._id as any).toString(),
+          restaurantId: reservation.restaurantId.toString(),
+          url: `${base}/#notifications`,
+        },
+      });
+    } catch (pushError) {
+      console.error('[PUSH] Failed to send cancellation push notification:', pushError);
     }
     
     res.json({ success: true, message: 'Reservation cancelled successfully' });

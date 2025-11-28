@@ -70,11 +70,13 @@ export function QueueCountdownTimer({
             const now = Date.now();
             const secondsRemaining = Math.max(0, Math.floor((seatTime - now) / 1000));
             setCountdownSeconds(secondsRemaining);
+            // Reset ref when setting new countdown value
             hasReachedZeroRef.current = secondsRemaining === 0;
           } else {
             // Fallback to minutes * 60
             const totalSeconds = waitMinutes * 60;
             setCountdownSeconds(totalSeconds);
+            // Reset ref when setting new countdown value
             hasReachedZeroRef.current = totalSeconds === 0;
           }
           
@@ -94,10 +96,12 @@ export function QueueCountdownTimer({
               const now = Date.now();
               const secondsRemaining = Math.max(0, Math.floor((seatTime - now) / 1000));
               setCountdownSeconds(secondsRemaining);
+              // Reset ref when setting new countdown value
               hasReachedZeroRef.current = secondsRemaining === 0;
             } else {
               const totalSeconds = waitMinutes * 60;
               setCountdownSeconds(totalSeconds);
+              // Reset ref when setting new countdown value
               hasReachedZeroRef.current = totalSeconds === 0;
             }
           }
@@ -131,18 +135,19 @@ export function QueueCountdownTimer({
   // Countdown timer - updates every second
   useEffect(() => {
     if (countdownSeconds === null || countdownSeconds <= 0) {
-      if (countdownSeconds === 0 && !hasReachedZeroRef.current) {
-        hasReachedZeroRef.current = true;
-        // When countdown reaches 0, fetch new estimate to see if more time is needed
-        fetchEstimate(true);
-      }
       return;
     }
 
     const timer = setInterval(() => {
       setCountdownSeconds(prev => {
         if (prev === null || prev <= 1) {
-          hasReachedZeroRef.current = true;
+          // When countdown reaches 0, check if we need to fetch new estimate
+          const wasNotZero = prev !== null && prev > 0;
+          if (wasNotZero && !hasReachedZeroRef.current) {
+            hasReachedZeroRef.current = true;
+            // Immediately fetch new estimate when countdown reaches zero
+            fetchEstimate(true);
+          }
           return 0;
         }
         return prev - 1;
