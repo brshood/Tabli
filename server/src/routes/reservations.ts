@@ -301,13 +301,13 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         }
         
         // Send email notification about hold
-        if (isValidEmailForSending(r.email)) {
+        if (r.email && isValidEmailForSending(r.email)) {
           try {
             const restaurant = await Restaurant.findById(r.restaurantId).lean();
             const holdTime = formatUaeTime(holdUntil);
             
             await sendEmail({
-              to: r.email,
+              to: r.email as string,
               subject: `Your table is ready at ${restaurant?.name || 'your restaurant'}`,
               text: `Your table is ready! Please arrive by ${holdTime} to secure your reservation.`,
               html: buildEmailTemplate({
@@ -441,10 +441,10 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     await reservation.save();
     
     // Send cancellation confirmation email if customer provided email
-    if (isValidEmailForSending(reservation.email)) {
+    if (reservation.email && isValidEmailForSending(reservation.email)) {
       try {
         await sendEmail({
-          to: reservation.email,
+          to: reservation.email as string,
           subject: `Reservation Cancelled - ${restaurantName}`,
           html: buildEmailTemplate({
             heading: 'Reservation Cancelled',
@@ -525,10 +525,10 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 15 minutes to secure your reservation.`;
     const subject = req.body?.subject || 'Your table is ready';
     
-    if (isValidEmailForSending(r.email)) {
+    if (r.email && isValidEmailForSending(r.email)) {
       try {
         await sendEmail({
-          to: r.email,
+          to: r.email as string,
           subject,
           text: message,
           html: buildEmailTemplate({
@@ -790,13 +790,13 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
     });
 
     // 7. Notify guest if applicable (queue to table promotion)
-    if (isValidEmailForSending(reservation.email)) {
+    if (reservation.email && isValidEmailForSending(reservation.email)) {
       try {
         const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
         const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;
 
         await sendEmail({
-          to: reservation.email,
+          to: reservation.email as string,
           subject: 'Your table is ready',
           text: notificationMessage,
           html: buildEmailTemplate({

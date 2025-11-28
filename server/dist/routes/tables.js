@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { env } from '../config/env';
 import { notificationEmitter } from '../services/notificationEmitter';
 export const tablesRouter = express.Router();
@@ -128,8 +128,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
             restaurantId: table.restaurantId.toString()
         });
         // 7. Send thank-you email with rating link if applicable (skip for walk-ins)
-        const isWalkIn = reservation.phone === '0000000000' || reservation.email === 'walkin@tabli.app';
-        if (reservation.email && !isWalkIn) {
+        if (reservation.email && isValidEmailForSending(reservation.email)) {
             try {
                 const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
                 const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
@@ -257,9 +256,8 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
             timestamp: now.toISOString(),
             restaurantId: table.restaurantId.toString()
         });
-        // 7. Skip email for walk-ins
-        const isWalkIn = reservation.phone === '0000000000' || reservation.email === 'walkin@tabli.app';
-        if (reservation.email && !isWalkIn) {
+        // 7. Send thank-you email with rating link if applicable (skip for walk-ins)
+        if (reservation.email && isValidEmailForSending(reservation.email)) {
             try {
                 const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
                 const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');

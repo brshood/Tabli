@@ -141,14 +141,14 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
     });
     
     // 7. Send thank-you email with rating link if applicable (skip for walk-ins)
-    if (isValidEmailForSending(reservation.email)) {
+    if (reservation.email && isValidEmailForSending(reservation.email)) {
       try {
         const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
         const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
         const ratingLink = `${base}/#restaurant-profile?id=${reservation.restaurantId.toString()}`;
         const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
         await sendEmail({
-          to: reservation.email,
+          to: reservation.email as string,
           subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
           text: thankYouMessage,
           html: buildEmailTemplate({
@@ -291,14 +291,14 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
     });
     
     // 7. Send thank-you email with rating link if applicable (skip for walk-ins)
-    if (isValidEmailForSending(reservation.email)) {
+    if (reservation.email && isValidEmailForSending(reservation.email)) {
       try {
         const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
         const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
         const ratingLink = `${base}/#restaurant-profile?id=${reservation.restaurantId.toString()}`;
         const thankYouMessage = `Thank you for dining with ${restaurant?.name || 'us'}! Share your experience: ${ratingLink}`;
         await sendEmail({
-          to: reservation.email,
+          to: reservation.email as string,
           subject: `Thank you for visiting ${restaurant?.name || 'us'}`,
           text: thankYouMessage,
           html: buildEmailTemplate({

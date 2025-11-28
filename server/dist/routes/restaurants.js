@@ -20,7 +20,7 @@ restaurantsRouter.get('/', async (_req, res, next) => {
         sevenDaysAgo.setDate(now.getDate() - 7);
         sevenDaysAgo.setHours(0, 0, 0, 0);
         // Batch all queries in parallel for better performance
-        const [summaries, tableCounts, waitTimeStats] = await Promise.all([
+        const [summaries, tableCounts, waitTimeStats, queueCounts] = await Promise.all([
             Rating.aggregate([
                 { $match: { restaurantId: { $in: ids } } },
                 { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
@@ -55,6 +55,22 @@ restaurantsRouter.get('/', async (_req, res, next) => {
                         avgWaitTime: { $avg: '$waitMinutes' }
                     }
                 }
+            ]),
+            // Count current queue (waitlist with pending or confirmed status)
+            Reservation.aggregate([
+                {
+                    $match: {
+                        restaurantId: { $in: ids },
+                        mode: 'waitlist',
+                        status: { $in: ['pending', 'confirmed'] }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$restaurantId',
+                        count: { $sum: 1 }
+                    }
+                }
             ])
         ]);
         const summaryById = new Map();
@@ -65,6 +81,8 @@ restaurantsRouter.get('/', async (_req, res, next) => {
         waitTimeStats.forEach((w) => {
             waitTimeById.set(String(w._id), Math.round(w.avgWaitTime));
         });
+        const queueCountById = new Map();
+        queueCounts.forEach((q) => queueCountById.set(String(q._id), q.count));
         // Helper function to get image file ID - ONLY returns profile pictures, no fallbacks
         // Only display cover photo if a restaurant profile picture exists
         const getImageFileId = (r) => {
@@ -96,7 +114,8 @@ restaurantsRouter.get('/', async (_req, res, next) => {
             const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
             const availableTables = tableCountById.get(String(r._id)) || 0;
             const avgWaitTime = waitTimeById.get(String(r._id)) || null;
-            return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime };
+            const waitingInLine = queueCountById.get(String(r._id)) || 0;
+            return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine };
         });
         res.json({ items: enriched });
     }
@@ -136,16 +155,21 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
         const imageFileId = getImageFileId(item);
         const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
         // Parallelize independent queries for better performance
-        const [availableTables, s] = await Promise.all([
+        const [availableTables, s, waitingInLine] = await Promise.all([
             Table.countDocuments({ restaurantId: item._id, status: 'available' }),
             Rating.aggregate([
                 { $match: { restaurantId: new ObjectId(req.params.id) } },
                 { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
                 { $limit: 1 },
-            ])
+            ]),
+            Reservation.countDocuments({
+                restaurantId: item._id,
+                mode: 'waitlist',
+                status: { $in: ['pending', 'confirmed'] }
+            })
         ]);
         const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
-        res.json({ item: { ...item, imageUrl, ratingSummary, availableTables } });
+        res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine } });
     }
     catch (err) {
         next(err);

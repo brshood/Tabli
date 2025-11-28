@@ -123,10 +123,10 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     if (!r) return res.status(404).json({ error: 'Not found' });
     const restaurant = await Restaurant.findById(r.restaurantId);
     const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
-    if (isValidEmailForSending(r.email)) {
+    if (r.email && isValidEmailForSending(r.email)) {
       try {
         await sendEmail({
-        to: r.email,
+        to: r.email as string,
         subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
         text: message,
         html: buildEmailTemplate({
@@ -162,10 +162,10 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     (r as any).cancellationReason = 'staff_removed'; // Track that staff removed them
     await r.save();
     try {
-      if (isValidEmailForSending(r.email)) {
+      if (r.email && isValidEmailForSending(r.email)) {
         const message = `We weren't able to hold your spot at ${restaurant?.name || 'the restaurant'} any longer. Reply if you still plan to join us.`;
         await sendEmail({
-          to: r.email,
+          to: r.email as string,
           subject: restaurant?.name ? `${restaurant.name} queue update` : 'Queue update',
           text: message,
           html: buildEmailTemplate({
