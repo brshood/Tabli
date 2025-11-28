@@ -163,6 +163,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
             ],
             actionText: 'Leave a quick rating',
             actionUrl: ratingLink,
+            includeNotificationsLink: true,
           }),
         });
       } catch (notificationError) {
@@ -313,6 +314,7 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
             ],
             actionText: 'Leave a quick rating',
             actionUrl: ratingLink,
+            includeNotificationsLink: true,
           }),
         });
       } catch (notificationError) {

@@ -30,22 +30,22 @@ import { pushRouter } from './routes/push';
 const STRESS_TEST_MODE = process.env.STRESS_TEST_MODE === 'true';
 
 // Global rate limiter: 
-// - Normal: 1000 requests per 15 minutes
+// - Normal: 10000 requests per 15 minutes (increased 10x from 1000)
 // - Stress Test: 50000 requests per 15 minutes (50x increase)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: STRESS_TEST_MODE ? 50000 : 1000,
+  max: STRESS_TEST_MODE ? 50000 : 10000,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // Staff limiter for frequently polled routes:
-// - Normal: 2000 requests per 15 minutes
+// - Normal: 20000 requests per 15 minutes (increased 10x from 2000)
 // - Stress Test: 100000 requests per 15 minutes (50x increase)
 const staffLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: STRESS_TEST_MODE ? 100000 : 2000,
+  max: STRESS_TEST_MODE ? 100000 : 20000,
   message: { error: 'Too many requests to staff dashboard, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -62,11 +62,11 @@ const authLimiter = rateLimit({
 });
 
 // Reservations limiter:
-// - Normal: 500 requests per 5 minutes
+// - Normal: 5000 requests per 5 minutes (increased 10x from 500)
 // - Stress Test: 25000 requests per 5 minutes (50x increase)
 const reservationsLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: STRESS_TEST_MODE ? 25000 : 500,
+  max: STRESS_TEST_MODE ? 25000 : 5000,
   message: { error: 'Too many reservation actions, please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,

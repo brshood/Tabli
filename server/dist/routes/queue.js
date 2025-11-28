@@ -75,6 +75,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
                             'We\'ll email you as soon as your table is ready.',
                         ],
                         footer: 'Need to make a change? Reply to this email and we\'ll help you out.',
+                        includeNotificationsLink: true,
                     }),
                 });
                 // #3 - Mark email as sent on success
@@ -127,8 +128,9 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
                         restaurant?.name
                             ? `Your table at ${restaurant.name} is ready. Please arrive within 15 minutes so we can keep it for you.`
                             : 'Your table is ready. Please arrive within 15 minutes so we can keep it for you.',
-                        'If you’re on your way, no action is needed. Otherwise, reply to this email to let us know.',
+                        "If you're on your way, no action is needed. Otherwise, reply to this email to let us know.",
                     ],
+                    includeNotificationsLink: true,
                 }),
             });
         }
@@ -166,8 +168,9 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
                             restaurant?.name
                                 ? `We tried to reach you, but we need to release your place in line at ${restaurant.name}.`
                                 : 'We tried to reach you, but we need to release your place in line.',
-                            'If you’re still planning to dine with us, reply to this email and we’ll do our best to help.',
+                            "If you're still planning to dine with us, reply to this email and we'll do our best to help.",
                         ],
+                        includeNotificationsLink: true,
                     }),
                 });
             }
