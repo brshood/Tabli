@@ -139,23 +139,25 @@ function AppContent() {
     if (hash) {
       // Parse hash to determine initial page
       const pageFromHash = hash.split('?')[0].replace('#', '') as Page;
-      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue', 'cancel-reservation'].includes(pageFromHash)) {
+      if (['landing', 'discover', 'search', 'staff', 'restaurant-profile', 'admin', 'cancel-queue', 'cancel-reservation', 'notifications'].includes(pageFromHash)) {
         setCurrentPage(pageFromHash);
         
-        // Admin, cancel-queue, cancel-reservation, and restaurant-profile need special handling
-        if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue' || pageFromHash === 'cancel-reservation') {
-          // These don't need restaurant data, set immediately
+        // Admin, cancel-queue, cancel-reservation, and notifications don't need restaurant data, set immediately
+        if (pageFromHash === 'admin' || pageFromHash === 'cancel-queue' || pageFromHash === 'cancel-reservation' || pageFromHash === 'notifications') {
           window.history.replaceState({ page: pageFromHash }, '', hash);
+          setLastProcessedHash(hash);
         } else if (pageFromHash === 'restaurant-profile') {
           // Will be handled by restaurants-loaded effect
         } else {
           window.history.replaceState({ page: pageFromHash }, '', hash);
+          setLastProcessedHash(hash);
         }
       }
     } else {
       // No hash, set initial state for landing page
       setCurrentPage('landing');
       window.history.replaceState({ page: 'landing' }, '', '#landing');
+      setLastProcessedHash('#landing');
     }
     
     setHasInitialized(true);
@@ -167,8 +169,8 @@ function AppContent() {
     
     const hash = window.location.hash;
     
-    // Skip admin route - it doesn't need restaurant data
-    if (hash === '#admin' || currentPage === 'admin') return;
+    // Skip admin and notifications routes - they don't need restaurant data
+    if (hash === '#admin' || currentPage === 'admin' || hash === '#notifications' || currentPage === 'notifications') return;
     
     // Skip if we've already processed this exact hash
     if (lastProcessedHash === hash) return;

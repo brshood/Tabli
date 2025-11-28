@@ -1070,11 +1070,12 @@ analyticsRouter.get('/daily-summary/pdf/:date', async (req, res, next) => {
     const restaurant = await Restaurant.findById(restaurantId);
     const restaurantName = restaurant?.name || 'Restaurant';
 
-    // Generate markdown
+    // Generate markdown - format in UAE timezone
     const dateStr = targetDate.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric',
+      timeZone: 'Asia/Dubai'
     });
 
     const { metrics } = summary;
@@ -1125,7 +1126,7 @@ ${metrics.tableStats && metrics.tableStats.length > 0 ? metrics.tableStats
   }).join('\n') : 'No table data available for this day.'}
 
 ---
-*Generated on ${new Date().toLocaleString()}*
+*Generated on ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' })}*
 `;
 
     // Dynamically import pdfkit (CommonJS module in ES module context)

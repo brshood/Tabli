@@ -73,7 +73,8 @@ restaurantsRouter.get('/', async (_req, res, next) => {
       waitTimeById.set(String(w._id), Math.round(w.avgWaitTime));
     });
     
-    // Helper function to get image file ID prioritizing profile pictures
+    // Helper function to get image file ID - ONLY returns profile pictures, no fallbacks
+    // Only display cover photo if a restaurant profile picture exists
     const getImageFileId = (r: any): string | null => {
       // 1. First priority: profilePictureId (dedicated field for profile pictures)
       if (r.profilePictureId) {
@@ -95,18 +96,13 @@ restaurantsRouter.get('/', async (_req, res, next) => {
         if (profilePic) {
           return profilePic.fileId.toString();
         }
-        
-        // 4. Last resort: fall back to any active image
-        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
-        if (activeImg) {
-          return activeImg.fileId.toString();
-        }
       }
       
+      // No fallback - return null if no profile picture exists
       return null;
     };
     
-    // Enrich with imageUrl prioritizing profile pictures
+    // Enrich with imageUrl - only if profile picture exists
     const enriched = items.map((r: any) => {
       const imageFileId = getImageFileId(r);
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
@@ -128,7 +124,8 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Not found' });
     }
     
-    // Helper function to get image file ID prioritizing profile pictures
+    // Helper function to get image file ID - ONLY returns profile pictures, no fallbacks
+    // Only display cover photo if a restaurant profile picture exists
     const getImageFileId = (r: any): string | null => {
       // 1. First priority: profilePictureId (dedicated field for profile pictures)
       if (r.profilePictureId) {
@@ -150,14 +147,9 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
         if (profilePic) {
           return profilePic.fileId.toString();
         }
-        
-        // 4. Last resort: fall back to any active image
-        const activeImg = r.mediaRefs.find((m: any) => m.isActive && m.type === 'image');
-        if (activeImg) {
-          return activeImg.fileId.toString();
-        }
       }
       
+      // No fallback - return null if no profile picture exists
       return null;
     };
     

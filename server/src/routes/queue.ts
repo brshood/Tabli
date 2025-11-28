@@ -12,9 +12,15 @@ export const queueRouter = express.Router();
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
+  phone: z.string(),
+  email: z.string().email(),
   name: z.string().min(1).max(100).optional(),
+}).refine((data) => {
+  // Require both email and phone
+  return !!(data.email && data.phone);
+}, {
+  message: 'Both email and phone number are required',
+  path: ['email', 'phone']
 });
 
 // POST /queue/:restaurantId/join
@@ -53,8 +59,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       name: data.name,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
-      phone: data.contactMethod === 'phone' ? data.phone : undefined,
-      email: data.contactMethod === 'email' ? data.email : undefined,
+      phone: data.phone, // Always store phone
+      email: data.email, // Always store email
       status: 'pending',
       queuePosition,
     });

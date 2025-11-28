@@ -11,6 +11,7 @@ import { Bell, Clock, Users, MapPin, CheckCircle, XCircle, AlertCircle, RefreshC
 import { getReservationHistory, updateReservationInHistory, removeReservationFromHistory, type ReservationHistoryItem } from '../services/reservationHistory';
 import { forceRefreshReservation } from '../services/reservationPolling';
 import { toast } from 'sonner';
+import { QueueCountdownTimer } from './QueueCountdownTimer';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -36,6 +37,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [reservationToCancel, setReservationToCancel] = useState<ReservationHistoryItem | null>(null);
+  const [queueEstimates, setQueueEstimates] = useState<Record<string, { estimatedWaitMinutes: number; lastFetched: number }>>({});
 
   const loadData = async () => {
     setIsRefreshingAll(true);
@@ -119,6 +121,9 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     }
   };
 
+  // State to force re-render for live time updates
+  const [timeUpdateTick, setTimeUpdateTick] = useState(0);
+
   // Load data on mount and periodically
   useEffect(() => {
     loadData();
@@ -138,6 +143,38 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Listen for storage events to catch SSE updates
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Reload data when localStorage changes (SSE updates)
+      loadData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events from SSE updates
+    const handleReservationUpdate = () => {
+      loadData();
+      setTimeUpdateTick(prev => prev + 1); // Force re-render for time displays
+    };
+    
+    window.addEventListener('reservation:updated', handleReservationUpdate as any);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('reservation:updated', handleReservationUpdate as any);
+    };
+  }, []);
+
+  // Live time ticker - updates every second for countdown displays
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeUpdateTick(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = async (reservationId: string) => {
@@ -296,6 +333,9 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   };
 
   const formatHoldTime = (holdUntil: string) => {
+    // Use timeUpdateTick to force re-calculation on every tick
+    const _tick = timeUpdateTick;
+    
     const now = Date.now();
     const expiry = new Date(holdUntil).getTime();
     const diff = expiry - now;
@@ -341,12 +381,17 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
 
           {/* Queue Position / Hold Timer */}
           {reservation.mode === 'waitlist' && reservation.queuePosition && reservation.status === 'pending' && (
-            <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 mb-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-blue-900">Queue Position</span>
-                <span className="text-xl font-bold text-blue-600">#{reservation.queuePosition}</span>
-              </div>
-            </div>
+            <QueueCountdownTimer
+              reservationId={reservation.reservationId}
+              restaurantId={reservation.restaurantId}
+              queuePosition={reservation.queuePosition}
+              partySize={reservation.partySize}
+              onPositionUpdate={(newPosition) => {
+                updateReservationInHistory(reservation.reservationId, { queuePosition: newPosition });
+                // Reload data to reflect the update
+                loadData();
+              }}
+            />
           )}
 
           {reservation.status === 'confirmed' && reservation.holdUntil && reservation.holdStatus === 'active' && (

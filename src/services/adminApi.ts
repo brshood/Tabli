@@ -55,6 +55,12 @@ export interface AdminRestaurantDetails {
     seatedAt?: string;
     leftAt?: string;
     cancelledAt?: string;
+    surveyFeedback?: {
+      hearAboutUs?: string;
+      specialRequirements?: string;
+      improvements?: string;
+      submittedAt: string;
+    };
   }>;
   ratings: Array<{
     id: string;

@@ -383,7 +383,7 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
             )}
             {featuredItems.map((item, index) => (
               <div
-                key={`${index}-${item.name}`}
+                key={index}
                 className="p-4 rounded-xl border space-y-3"
                 style={{ borderColor: 'rgba(90, 94, 62, 0.2)', backgroundColor: '#FFFFFF' }}
               >

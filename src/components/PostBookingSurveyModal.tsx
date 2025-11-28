@@ -4,13 +4,17 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 interface PostBookingSurveyModalProps {
   isOpen: boolean;
   onClose: () => void;
   restaurantName: string;
+  reservationId?: string;
+  restaurantId?: string;
 }
 
 const hearAboutUsOptions = [
@@ -22,10 +26,11 @@ const hearAboutUsOptions = [
   'Other'
 ];
 
-export function PostBookingSurveyModal({ isOpen, onClose, restaurantName }: PostBookingSurveyModalProps) {
+export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reservationId, restaurantId }: PostBookingSurveyModalProps) {
   const [hearAboutUs, setHearAboutUs] = useState<string>('');
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [improvements, setImprovements] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -33,22 +38,49 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName }: Post
       setHearAboutUs('');
       setSpecialRequirements('');
       setImprovements('');
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 
-  const handleSubmit = () => {
-    const surveyData = {
-      restaurantName,
-      hearAboutUs,
-      specialRequirements: specialRequirements.trim() || null,
-      improvements: improvements.trim() || null,
-      timestamp: new Date().toISOString()
-    };
+  const handleSubmit = async () => {
+    if (!reservationId) {
+      // If no reservationId, just log and close (fallback behavior)
+      console.log('📋 [SURVEY SUBMISSION]', {
+        restaurantName,
+        hearAboutUs,
+        specialRequirements: specialRequirements.trim() || null,
+        improvements: improvements.trim() || null,
+        timestamp: new Date().toISOString()
+      });
+      toast.success('Thank you for your feedback!');
+      onClose();
+      return;
+    }
 
-    console.log('📋 [SURVEY SUBMISSION]', surveyData);
-    
-    toast.success('Thank you for your feedback!');
-    onClose();
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/reservations/${reservationId}/survey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hearAboutUs: hearAboutUs || undefined,
+          specialRequirements: specialRequirements.trim() || undefined,
+          improvements: improvements.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to submit survey');
+      }
+
+      toast.success('Thank you for your feedback!');
+      onClose();
+    } catch (error) {
+      console.error('Failed to submit survey:', error);
+      toast.error('Failed to submit feedback. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSkip = () => {
@@ -146,10 +178,17 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName }: Post
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!hearAboutUs}
+              disabled={!hearAboutUs || isSubmitting}
               className="flex-1 pill-button cta-button"
             >
-              Submit
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit'
+              )}
             </Button>
           </div>
         </div>

@@ -356,11 +356,12 @@ function RestaurantDetails({
 
   return (
     <Tabs defaultValue="basic" className="w-full">
-      <TabsList className="grid w-full grid-cols-6">
+      <TabsList className="grid w-full grid-cols-7">
         <TabsTrigger value="basic">Basic Info</TabsTrigger>
         <TabsTrigger value="files">Files</TabsTrigger>
         <TabsTrigger value="reservations">Reservations</TabsTrigger>
         <TabsTrigger value="ratings">Ratings</TabsTrigger>
+        <TabsTrigger value="feedback">Feedback</TabsTrigger>
         <TabsTrigger value="tables">Tables</TabsTrigger>
         <TabsTrigger value="users">Users</TabsTrigger>
       </TabsList>
@@ -713,6 +714,81 @@ function RestaurantDetails({
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="feedback" className="mt-4">
+        <Card>
+          <CardContent className="p-6">
+            {(() => {
+              const reservationsWithFeedback = details.reservations.filter(
+                (r: any) => r.surveyFeedback && r.surveyFeedback.submittedAt
+              );
+              return reservationsWithFeedback.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No survey feedback received yet</p>
+              ) : (
+                <div className="space-y-6">
+                  {reservationsWithFeedback.map((reservation: any) => (
+                    <Card key={reservation.id} className="border">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3 className="font-semibold text-lg">
+                              {reservation.name || 'Anonymous'}
+                            </h3>
+                            <div className="text-sm text-gray-600 mt-1">
+                              <div>Party Size: {reservation.partySize}</div>
+                              <div className="flex gap-4 mt-1">
+                                {reservation.email && (
+                                  <div className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {reservation.email}
+                                  </div>
+                                )}
+                                {reservation.phone && (
+                                  <div className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {reservation.phone}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-1">
+                                Submitted: {new Date(reservation.surveyFeedback.submittedAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="outline">
+                            {reservation.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-4 mt-4 pt-4 border-t">
+                          {reservation.surveyFeedback.hearAboutUs && (
+                            <div>
+                              <Label className="text-sm font-semibold">How did you hear about us?</Label>
+                              <p className="text-sm mt-1">{reservation.surveyFeedback.hearAboutUs}</p>
+                            </div>
+                          )}
+                          {reservation.surveyFeedback.specialRequirements && (
+                            <div>
+                              <Label className="text-sm font-semibold">Special Requirements</Label>
+                              <p className="text-sm mt-1">{reservation.surveyFeedback.specialRequirements}</p>
+                            </div>
+                          )}
+                          {reservation.surveyFeedback.improvements && (
+                            <div>
+                              <Label className="text-sm font-semibold">Improvements</Label>
+                              <p className="text-sm mt-1">{reservation.surveyFeedback.improvements}</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </TabsContent>

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2 } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -83,6 +83,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [tableEditName, setTableEditName] = useState('');
   const [tableEditCapacity, setTableEditCapacity] = useState(4);
   const [customerSearchFilter, setCustomerSearchFilter] = useState('');
+  const [checkingInIds, setCheckingInIds] = useState<Set<number>>(new Set());
+  const [seatingIds, setSeatingIds] = useState<Set<number>>(new Set());
+  const [checkingOutIds, setCheckingOutIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     let timer: any;
@@ -262,6 +265,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       return;
     }
     
+    // Set loading state
+    setCheckingInIds(prev => new Set(prev).add(id));
+    
     try {
       // Update status to 'confirmed' which triggers the 15-minute hold
       const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
@@ -285,6 +291,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       console.error('Error checking in customer:', error);
       toast.error(error.message || 'Failed to check in customer');
       await loadReservationsFromDB();
+    } finally {
+      // Clear loading state
+      setCheckingInIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -297,6 +310,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       toast.error('Invalid reservation data');
       return;
     }
+    
+    // Set loading state
+    setSeatingIds(prev => new Set(prev).add(id));
     
     try {
       // Use the new assign-table endpoint for atomic database updates
@@ -339,6 +355,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         loadReservationsFromDB(),
         loadTablesFromDB()
       ]);
+    } finally {
+      // Clear loading state
+      setSeatingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
   
@@ -561,6 +584,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       return;
     }
     
+    // Set loading state
+    setCheckingOutIds(prev => new Set(prev).add(id));
+    
     try {
       // Use the enhanced checkout endpoint for atomic database updates
       const response = await fetch(`${API_URL}/tables/${tableId}/checkout`, {
@@ -591,6 +617,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         loadReservationsFromDB(),
         loadTablesFromDB()
       ]);
+    } finally {
+      // Clear loading state
+      setCheckingOutIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -1346,23 +1379,41 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                 <Button 
                                   size="sm" 
                                   onClick={() => checkInCustomer(customer.id)}
+                                  disabled={checkingInIds.has(customer.id)}
                                   className="pill-button text-xs text-white"
                                   style={{backgroundColor: '#B8860B'}}
                                   title="Check in customer - starts 15 minute hold"
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Check In
+                                  {checkingInIds.has(customer.id) ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      Checking In...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Check In
+                                    </>
+                                  )}
                                 </Button>
                               ) : (
                                 <>
                                   <Button 
                                     size="sm" 
                                     onClick={() => seatCustomer(customer.id)}
+                                    disabled={seatingIds.has(customer.id)}
                                     className="pill-button text-xs text-white"
                                     style={{backgroundColor: '#3F4427'}}
                                     title="Customer checked in - assign table"
                                   >
-                                    Seat Now
+                                    {seatingIds.has(customer.id) ? (
+                                      <>
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                        Seating...
+                                      </>
+                                    ) : (
+                                      'Seat Now'
+                                    )}
                                   </Button>
                                   {(customer as any).holdUntil && (
                                     <Badge 
@@ -1477,10 +1528,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <Button 
                                 size="sm" 
                                 onClick={() => checkOutTable(table.id)}
+                                disabled={checkingOutIds.has(table.id)}
                                 className="pill-button text-xs text-white"
                                 style={{backgroundColor: '#3F4427'}}
                               >
-                                Check Out
+                                {checkingOutIds.has(table.id) ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    Checking Out...
+                                  </>
+                                ) : (
+                                  'Check Out'
+                                )}
                               </Button>
                             </div>
                           </div>
