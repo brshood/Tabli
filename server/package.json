@@ -11,7 +11,8 @@
     "build": "tsc -p .",
     "start": "tsx src/index.ts",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
-    "stress-test": "tsx scripts/stress-test.ts"
+    "stress-test": "tsx scripts/stress-test.ts",
+    "stress-test-comprehensive": "tsx scripts/comprehensive-stress-test.ts"
   },
   "dependencies": {
     "@types/web-push": "^3.6.4",
