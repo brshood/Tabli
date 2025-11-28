@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 let transporter = null;
+const NOTIFICATIONS_URL = 'https://tabliapp.com/#notifications';
 const baseEmailStyles = {
     body: 'margin:0;padding:0;font-family:\'Segoe UI\',Tahoma,sans-serif;background-color:#f7f5ed;color:#2d2d2b;',
     container: 'max-width:520px;margin:0 auto;padding:32px 24px;',
@@ -10,9 +11,10 @@ const baseEmailStyles = {
     buttonWrapper: 'text-align:center;margin:28px 0;',
     button: 'display:inline-block;padding:14px 28px;background-color:#b8860b;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;',
     footer: 'margin-top:24px;font-size:12px;color:#7a7870;text-align:center;',
+    link: 'color:#b8860b;text-decoration:none;font-weight:500;',
 };
 export function buildEmailTemplate(options) {
-    const { heading, intro, lines = [], actionText, actionUrl, footer, } = options;
+    const { heading, intro, lines = [], actionText, actionUrl, footer, includeNotificationsLink = false, } = options;
     const paragraphs = [
         intro,
         ...lines,
@@ -22,8 +24,16 @@ export function buildEmailTemplate(options) {
         <a href="${actionUrl}" style="${baseEmailStyles.button}">${actionText}</a>
        </div>`
         : '';
-    const footerBlock = footer
-        ? `<div style="${baseEmailStyles.footer}">${footer}</div>`
+    // Add notifications link to footer if requested
+    let footerText = footer || '';
+    if (includeNotificationsLink) {
+        const notificationsLinkText = `You can check up on your reservations at <a href="${NOTIFICATIONS_URL}" style="${baseEmailStyles.link}">${NOTIFICATIONS_URL}</a>.`;
+        footerText = footerText
+            ? `${footerText}<br><br>${notificationsLinkText}`
+            : notificationsLinkText;
+    }
+    const footerBlock = footerText
+        ? `<div style="${baseEmailStyles.footer}">${footerText}</div>`
         : '';
     return `
   <body style="${baseEmailStyles.body}">

@@ -133,6 +133,7 @@ reservationsRouter.post('/', async (req, res, next) => {
                             actionText: 'Cancel Reservation',
                             actionUrl: cancelUrl,
                             footer: "Questions? Reply to this email and we'll get right back to you.",
+                            includeNotificationsLink: true,
                         }),
                     });
                     // #3 - Mark email as sent on success
@@ -292,7 +293,8 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                                     `Please arrive by ${holdTime} (within the next 15 minutes) to secure your reservation.`,
                                     `If you can't make it, please let us know as soon as possible.`
                                 ],
-                                footer: 'See you soon!'
+                                footer: 'See you soon!',
+                                includeNotificationsLink: true,
                             })
                         });
                     }
@@ -428,6 +430,7 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
                             'Thank you for considering us!',
                         ],
                         footer: 'We hope to see you soon.',
+                        includeNotificationsLink: true,
                     }),
                 });
             }
@@ -502,6 +505,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
                     heading: subject,
                     intro: `Hi${r.name ? ` ${r.name}` : ''},`,
                     lines: [message],
+                    includeNotificationsLink: true,
                 }),
             });
         }
@@ -694,6 +698,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
                             notificationMessage,
                             'If you need a few more minutes, just reply to this email to let us know.',
                         ],
+                        includeNotificationsLink: true,
                     }),
                 });
             }
