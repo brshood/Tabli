@@ -12,6 +12,7 @@ const subscriptionSchema = z.object({
     }),
     reservationId: z.string().optional(),
     userId: z.string().optional(),
+    restaurantId: z.string().optional(), // For staff notifications
     userAgent: z.string().optional(),
 });
 /**
@@ -34,13 +35,17 @@ pushRouter.post('/subscribe', async (req, res, next) => {
         const data = subscriptionSchema.parse(req.body);
         // Check if subscription already exists
         const existing = await PushSubscription.findOne({ endpoint: data.endpoint });
+        const mongoose = require('mongoose');
         if (existing) {
             // Update existing subscription
             existing.keys = data.keys;
             existing.userId = data.userId || existing.userId;
             existing.reservationId = data.reservationId
-                ? new (require('mongoose').Types.ObjectId)(data.reservationId)
+                ? new mongoose.Types.ObjectId(data.reservationId)
                 : existing.reservationId;
+            existing.restaurantId = data.restaurantId
+                ? new mongoose.Types.ObjectId(data.restaurantId)
+                : existing.restaurantId;
             existing.userAgent = data.userAgent || existing.userAgent;
             await existing.save();
             return res.json({ success: true, message: 'Subscription updated' });
@@ -51,7 +56,10 @@ pushRouter.post('/subscribe', async (req, res, next) => {
             keys: data.keys,
             userId: data.userId,
             reservationId: data.reservationId
-                ? new (require('mongoose').Types.ObjectId)(data.reservationId)
+                ? new mongoose.Types.ObjectId(data.reservationId)
+                : undefined,
+            restaurantId: data.restaurantId
+                ? new mongoose.Types.ObjectId(data.restaurantId)
                 : undefined,
             userAgent: data.userAgent || req.get('user-agent'),
         });

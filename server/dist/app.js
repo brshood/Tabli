@@ -24,15 +24,23 @@ import { adminRouter } from './routes/admin';
 import { contactRouter } from './routes/contact';
 import { sseRouter } from './routes/sse';
 import { pushRouter } from './routes/push';
-// Global rate limiter: 500 requests per 15 minutes
+// Global rate limiter: 1000 requests per 15 minutes (increased from 500)
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: 1000,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Strict rate limiter for auth routes: 5 requests per 15 minutes
+// Staff limiter for frequently polled routes: 2000 requests per 15 minutes
+const staffLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 2000,
+    message: { error: 'Too many requests to staff dashboard, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+// Strict rate limiter for auth routes: 10 requests per 15 minutes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -41,10 +49,10 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Reservations limiter to prevent booking abuse
+// Reservations limiter to prevent booking abuse: 500 requests per 5 minutes (increased from 200)
 const reservationsLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 200,
+    max: 500,
     message: { error: 'Too many reservation actions, please slow down.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -76,16 +84,17 @@ export function createApp() {
     app.use('/auth', authLimiter, authRouter);
     app.use('/restaurants', restaurantsRouter);
     app.use('/media', mediaRouter);
-    app.use('/reservations', reservationsLimiter, reservationsRouter);
+    // Apply staff limiter to frequently polled routes
+    app.use('/reservations', staffLimiter, reservationsLimiter, reservationsRouter);
     app.use('/queue', queueRouter);
     app.use('/qr', qrRouter);
-    app.use('/analytics', analyticsRouter);
-    app.use('/dashboard', dashboardRouter);
+    app.use('/analytics', staffLimiter, analyticsRouter);
+    app.use('/dashboard', staffLimiter, dashboardRouter);
     app.use('/documents', documentsRouter);
     app.use('/maintenance', maintenanceRouter);
     app.use('/notifications', notificationsRouter);
     app.use('/menus', menusRouter);
-    app.use('/', tablesRouter);
+    app.use('/', staffLimiter, tablesRouter);
     app.use('/admin', adminRouter);
     app.use('/contact', contactRouter);
     app.use('/sse', sseRouter);

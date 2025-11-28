@@ -19,6 +19,7 @@ import { openDailySummaryPdf, generateDailySummary } from '../services/analytics
 import { useRestaurant } from './RestaurantContext';
 import { estimateWaitTimes } from '../utils/waitTimeEstimator';
 import { startStaffSSE, stopStaffSSE } from '../services/staffSSE';
+import { subscribeToPush } from '../services/pushSubscription';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -550,6 +551,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     return () => {
       stopStaffSSE();
     };
+  }, [staffAuth?.restaurantId]);
+
+  // Automatically subscribe to push notifications for staff
+  useEffect(() => {
+    if (!staffAuth?.restaurantId) return;
+
+    const subscribeStaffToPush = async () => {
+      try {
+        await subscribeToPush({ restaurantId: staffAuth.restaurantId });
+        console.log('[PUSH:STAFF] Successfully subscribed to push notifications for restaurant');
+      } catch (error) {
+        // Gracefully handle errors - don't block dashboard access
+        console.warn('[PUSH:STAFF] Failed to subscribe to push notifications:', error);
+        // Permission denied is expected if user hasn't granted permission yet
+        // This is fine - they'll be prompted next time or can enable it manually
+      }
+    };
+
+    subscribeStaffToPush();
   }, [staffAuth?.restaurantId]);
 
   const checkOutTable = async (id: number) => {

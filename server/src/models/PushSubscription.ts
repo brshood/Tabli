@@ -1,8 +1,9 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface PushSubscriptionDocument extends Document {
-  userId?: string; // Optional: user identifier (email or phone)
-  reservationId?: mongoose.Types.ObjectId; // Optional: linked to specific reservation
+  userId?: string; // Optional: user identifier (email or phone) - for user notifications
+  reservationId?: mongoose.Types.ObjectId; // Optional: linked to specific reservation - for user notifications
+  restaurantId?: mongoose.Types.ObjectId; // Optional: linked to restaurant - for staff notifications
   endpoint: string; // Push service endpoint URL
   keys: {
     p256dh: string; // P-256 ECDH public key
@@ -15,8 +16,9 @@ export interface PushSubscriptionDocument extends Document {
 
 const pushSubscriptionSchema = new Schema<PushSubscriptionDocument>(
   {
-    userId: { type: String, index: true }, // Index for finding by user
-    reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation', index: true },
+    userId: { type: String, index: true }, // Index for finding by user - for user notifications
+    reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation', index: true }, // For user notifications
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', index: true }, // For staff notifications
     endpoint: { type: String, required: true, unique: true, index: true },
     keys: {
       p256dh: { type: String, required: true },
@@ -27,9 +29,10 @@ const pushSubscriptionSchema = new Schema<PushSubscriptionDocument>(
   { timestamps: true }
 );
 
-// Index for efficient lookups by user or reservation
+// Index for efficient lookups by user, reservation, or restaurant
 pushSubscriptionSchema.index({ userId: 1, createdAt: -1 });
 pushSubscriptionSchema.index({ reservationId: 1 });
+pushSubscriptionSchema.index({ restaurantId: 1 });
 
 export const PushSubscription: Model<PushSubscriptionDocument> =
   mongoose.models.PushSubscription || mongoose.model<PushSubscriptionDocument>('PushSubscription', pushSubscriptionSchema);

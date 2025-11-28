@@ -7,7 +7,7 @@ import { sendEmail, buildEmailTemplate } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime } from '../utils/dateFormat';
-import { sendPushToReservation, sendPushToUser } from '../services/pushNotification';
+import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../services/pushNotification';
 import { env } from '../config/env';
 
 export const reservationsRouter = express.Router();
@@ -180,6 +180,7 @@ reservationsRouter.post('/', async (req, res, next) => {
 
     // Notify staff ONLY when a table is actually reserved (not waitlist)
     if (reservationType === 'reserved') {
+      // SSE notification for active browser connections (toast)
       notificationEmitter.notifyStaff(data.restaurantId, {
         type: 'table_reservation',
         event: 'new_table_reservation',
@@ -192,6 +193,25 @@ reservationsRouter.post('/', async (req, res, next) => {
         },
         timestamp: new Date().toISOString(),
       });
+
+      // Push notification for staff (works even when browser is closed)
+      try {
+        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+        await sendPushToRestaurant(data.restaurantId, {
+          title: 'New Table Reservation!',
+          body: `${doc.name || 'Guest'} reserved a table (Party of ${doc.partySize})`,
+          icon: '/favicon.png',
+          data: {
+            restaurantId: data.restaurantId,
+            reservationId: (doc._id as any).toString(),
+            url: `${base}/#staff`,
+          },
+        });
+        console.log('[PUSH:STAFF] Sent push notification for new table reservation');
+      } catch (pushError) {
+        console.error('[PUSH:STAFF] Failed to send push notification:', pushError);
+        // Don't fail reservation creation if push fails
+      }
     }
 
     res.status(201).json({ reservation: doc });

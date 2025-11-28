@@ -100,6 +100,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export async function subscribeToPush(options?: {
   reservationId?: string;
   userId?: string;
+  restaurantId?: string; // For staff notifications
 }): Promise<PushSubscription | null> {
   try {
     // Check support
@@ -152,7 +153,7 @@ export async function subscribeToPush(options?: {
  */
 async function sendSubscriptionToServer(
   subscription: PushSubscription,
-  options?: { reservationId?: string; userId?: string }
+  options?: { reservationId?: string; userId?: string; restaurantId?: string }
 ): Promise<void> {
   const subscriptionJSON = subscription.toJSON();
 
@@ -173,6 +174,7 @@ async function sendSubscriptionToServer(
       },
       reservationId: options?.reservationId,
       userId: options?.userId,
+      restaurantId: options?.restaurantId,
       userAgent: navigator.userAgent,
     }),
   });

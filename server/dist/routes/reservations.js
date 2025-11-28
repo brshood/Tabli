@@ -7,7 +7,7 @@ import { sendEmail, buildEmailTemplate } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime } from '../utils/dateFormat';
-import { sendPushToReservation } from '../services/pushNotification';
+import { sendPushToReservation, sendPushToRestaurant } from '../services/pushNotification';
 import { env } from '../config/env';
 export const reservationsRouter = express.Router();
 const createSchema = z.object({
@@ -164,6 +164,7 @@ reservationsRouter.post('/', async (req, res, next) => {
         }
         // Notify staff ONLY when a table is actually reserved (not waitlist)
         if (reservationType === 'reserved') {
+            // SSE notification for active browser connections (toast)
             notificationEmitter.notifyStaff(data.restaurantId, {
                 type: 'table_reservation',
                 event: 'new_table_reservation',
@@ -176,6 +177,25 @@ reservationsRouter.post('/', async (req, res, next) => {
                 },
                 timestamp: new Date().toISOString(),
             });
+            // Push notification for staff (works even when browser is closed)
+            try {
+                const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+                await sendPushToRestaurant(data.restaurantId, {
+                    title: 'New Table Reservation!',
+                    body: `${doc.name || 'Guest'} reserved a table (Party of ${doc.partySize})`,
+                    icon: '/favicon.png',
+                    data: {
+                        restaurantId: data.restaurantId,
+                        reservationId: doc._id.toString(),
+                        url: `${base}/#staff`,
+                    },
+                });
+                console.log('[PUSH:STAFF] Sent push notification for new table reservation');
+            }
+            catch (pushError) {
+                console.error('[PUSH:STAFF] Failed to send push notification:', pushError);
+                // Don't fail reservation creation if push fails
+            }
         }
         res.status(201).json({ reservation: doc });
     }
@@ -304,6 +324,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                 r.leftAt = new Date();
             r.status = data.status;
         }
+        const prevQueuePosition = r.queuePosition;
         if (typeof data.queuePosition === 'number')
             r.queuePosition = data.queuePosition;
         if (data.tableId)
@@ -323,6 +344,26 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         const reservation = r;
         if (!reservation)
             return res.status(404).json({ error: 'Not found' });
+        // Send push notification if user becomes #1 in queue
+        if (r.queuePosition === 1 && prevQueuePosition !== 1 && r.status === 'pending' && r.mode === 'waitlist') {
+            try {
+                const restaurant = await Restaurant.findById(r.restaurantId).lean();
+                const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+                await sendPushToReservation(r._id.toString(), {
+                    title: '🎉 You\'re Next!',
+                    body: `You're #1 in line at ${restaurant?.name || 'the restaurant'}! Your table will be ready soon.`,
+                    icon: '/favicon.png',
+                    data: {
+                        reservationId: r._id.toString(),
+                        restaurantId: r.restaurantId.toString(),
+                        url: `${base}/#notifications`,
+                    },
+                });
+            }
+            catch (pushError) {
+                console.error('[PUSH] Failed to send queue position 1 notification:', pushError);
+            }
+        }
         // Emit SSE notification for real-time updates (customer)
         notificationEmitter.notifyReservation(r._id.toString(), {
             type: 'reservation_updated',
@@ -419,6 +460,23 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
                 cancellationReason: reservation.cancellationReason,
             }
         });
+        // Send push notification for user cancellation
+        try {
+            const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+            await sendPushToReservation(reservation._id.toString(), {
+                title: 'Reservation Cancelled',
+                body: `Your reservation at ${restaurantName} has been cancelled.`,
+                icon: '/favicon.png',
+                data: {
+                    reservationId: reservation._id.toString(),
+                    restaurantId: reservation.restaurantId.toString(),
+                    url: `${base}/#notifications`,
+                },
+            });
+        }
+        catch (pushError) {
+            console.error('[PUSH] Failed to send cancellation push notification:', pushError);
+        }
         res.json({ success: true, message: 'Reservation cancelled successfully' });
     }
     catch (err) {
