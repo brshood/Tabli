@@ -1382,19 +1382,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         </div>
                         
                         <div className="space-y-2">
-                          {/* Contact Method */}
+                          {/* Contact Information */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center text-sm" style={{color: '#2D2D2B'}}>
-                              {customer.contactMethod === 'email' ? (
-                                <>
+                            <div className="flex flex-col gap-1 text-sm" style={{color: '#2D2D2B'}}>
+                              {customer.email && (
+                                <div className="flex items-center">
                                   <Mail className="h-4 w-4 mr-1" />
-                                  {customer.email || 'No email'}
-                                </>
-                              ) : (
-                                <>
+                                  {customer.email}
+                                </div>
+                              )}
+                              {customer.phone && (
+                                <div className="flex items-center">
                                   <Phone className="h-4 w-4 mr-1" />
-                                  {customer.phone || 'No phone'}
-                                </>
+                                  {customer.phone}
+                                </div>
+                              )}
+                              {!customer.email && !customer.phone && (
+                                <span className="text-gray-400">No contact info</span>
                               )}
                             </div>
                             
@@ -2248,17 +2252,21 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                       </div>
                       <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
                         <div>Party of {customer.partySize}</div>
-                        <div className="flex items-center gap-2">
-                          {customer.contactMethod === 'email' ? (
-                            <>
+                        <div className="flex flex-col gap-1">
+                          {customer.email && (
+                            <div className="flex items-center gap-2">
                               <Mail className="h-4 w-4" />
-                              <span>{customer.email || 'No email'}</span>
-                            </>
-                          ) : (
-                            <>
+                              <span>{customer.email}</span>
+                            </div>
+                          )}
+                          {customer.phone && (
+                            <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4" />
-                              <span>{customer.phone || 'No phone'}</span>
-                            </>
+                              <span>{customer.phone}</span>
+                            </div>
+                          )}
+                          {!customer.email && !customer.phone && (
+                            <span className="text-gray-400">No contact info</span>
                           )}
                         </div>
                         {customer.gender && (
@@ -2547,17 +2555,21 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         </div>
                         <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
                           <div>Party of {customer.partySize}</div>
-                          <div className="flex items-center gap-2">
-                            {customer.contactMethod === 'email' ? (
-                              <>
+                          <div className="flex flex-col gap-1">
+                            {customer.email && (
+                              <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4" />
-                                <span>{customer.email || 'No email'}</span>
-                              </>
-                            ) : (
-                              <>
+                                <span>{customer.email}</span>
+                              </div>
+                            )}
+                            {customer.phone && (
+                              <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4" />
-                                <span>{customer.phone || 'No phone'}</span>
-                              </>
+                                <span>{customer.phone}</span>
+                              </div>
+                            )}
+                            {!customer.email && !customer.phone && (
+                              <span className="text-gray-400">No contact info</span>
                             )}
                           </div>
                           <div className="text-xs" style={{color: '#9FA0A0'}}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Clock } from 'lucide-react';
 
 interface QueueCountdownTimerProps {
@@ -22,111 +22,140 @@ export function QueueCountdownTimer({
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(Date.now());
+  const hasReachedZeroRef = useRef(false);
+  const countdownRef = useRef<number | null>(null);
 
-  // Initial fetch and periodic refresh (every 60 seconds)
+  // Update ref when countdown changes
   useEffect(() => {
-    let cancelled = false;
+    countdownRef.current = countdownSeconds;
+  }, [countdownSeconds]);
 
-    const fetchEstimate = async () => {
-      if (cancelled) return;
+  // Function to fetch estimate and update countdown
+  const fetchEstimate = useCallback(async (forceRefresh: boolean = false) => {
+    // Only fetch if countdown is at 0/null OR if it's a forced refresh (initial load)
+    const currentCountdown = countdownRef.current;
+    if (!forceRefresh && currentCountdown !== null && currentCountdown > 0 && !hasReachedZeroRef.current) {
+      return; // Don't interrupt the countdown
+    }
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      const url = new URL(`${API_URL}/queue/${restaurantId}/estimate`);
+      url.searchParams.set('partySize', String(partySize));
+
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        throw new Error('Failed to fetch estimate');
+      }
+
+      const data = await res.json();
+      const estimates = data?.estimates;
       
-      try {
-        setIsLoading(true);
-        setError(null);
-        const url = new URL(`${API_URL}/queue/${restaurantId}/estimate`);
-        url.searchParams.set('partySize', String(partySize));
-
-        const res = await fetch(url.toString());
-        if (!res.ok) {
-          throw new Error('Failed to fetch estimate');
-        }
-
-        const data = await res.json();
-        const estimates = data?.estimates;
+      if (estimates?.queueEstimates) {
+        // Find estimate for this reservation
+        const reservationEstimate = estimates.queueEstimates.find(
+          (est: any) => est.reservationId === reservationId
+        );
         
-        if (cancelled) return;
-        
-        if (estimates?.queueEstimates) {
-          // Find estimate for this reservation
-          const reservationEstimate = estimates.queueEstimates.find(
-            (est: any) => est.reservationId === reservationId
-          );
+        if (reservationEstimate) {
+          const waitMinutes = reservationEstimate.estimatedWaitMinutes || 0;
+          const estimatedSeatTime = reservationEstimate.estimatedSeatTime;
           
-          if (reservationEstimate) {
-            const waitMinutes = reservationEstimate.estimatedWaitMinutes || 0;
-            const estimatedSeatTime = reservationEstimate.estimatedSeatTime;
-            
+          setEstimatedWaitMinutes(waitMinutes);
+          
+          // Calculate seconds remaining until estimated seat time
+          if (estimatedSeatTime) {
+            const seatTime = new Date(estimatedSeatTime).getTime();
+            const now = Date.now();
+            const secondsRemaining = Math.max(0, Math.floor((seatTime - now) / 1000));
+            setCountdownSeconds(secondsRemaining);
+            // Reset ref when setting new countdown value
+            hasReachedZeroRef.current = secondsRemaining === 0;
+          } else {
+            // Fallback to minutes * 60
+            const totalSeconds = waitMinutes * 60;
+            setCountdownSeconds(totalSeconds);
+            // Reset ref when setting new countdown value
+            hasReachedZeroRef.current = totalSeconds === 0;
+          }
+          
+          // Check if position changed
+          if (reservationEstimate.queuePosition !== queuePosition && onPositionUpdate) {
+            onPositionUpdate(reservationEstimate.queuePosition);
+          }
+        } else {
+          // Use nextPartyEstimate as fallback
+          const nextEstimate = estimates?.nextPartyEstimate;
+          if (nextEstimate?.estimatedWaitMinutes) {
+            const waitMinutes = nextEstimate.estimatedWaitMinutes || 0;
             setEstimatedWaitMinutes(waitMinutes);
             
-            // Calculate seconds remaining until estimated seat time
-            if (estimatedSeatTime) {
-              const seatTime = new Date(estimatedSeatTime).getTime();
+            if (nextEstimate.estimatedSeatTime) {
+              const seatTime = new Date(nextEstimate.estimatedSeatTime).getTime();
               const now = Date.now();
               const secondsRemaining = Math.max(0, Math.floor((seatTime - now) / 1000));
               setCountdownSeconds(secondsRemaining);
+              // Reset ref when setting new countdown value
+              hasReachedZeroRef.current = secondsRemaining === 0;
             } else {
-              // Fallback to minutes * 60
-              setCountdownSeconds(waitMinutes * 60);
-            }
-            
-            // Check if position changed
-            if (reservationEstimate.queuePosition !== queuePosition && onPositionUpdate) {
-              onPositionUpdate(reservationEstimate.queuePosition);
-            }
-          } else {
-            // Use nextPartyEstimate as fallback
-            const nextEstimate = estimates?.nextPartyEstimate;
-            if (nextEstimate?.estimatedWaitMinutes) {
-              const waitMinutes = nextEstimate.estimatedWaitMinutes || 0;
-              setEstimatedWaitMinutes(waitMinutes);
-              
-              if (nextEstimate.estimatedSeatTime) {
-                const seatTime = new Date(nextEstimate.estimatedSeatTime).getTime();
-                const now = Date.now();
-                const secondsRemaining = Math.max(0, Math.floor((seatTime - now) / 1000));
-                setCountdownSeconds(secondsRemaining);
-              } else {
-                setCountdownSeconds(waitMinutes * 60);
-              }
+              const totalSeconds = waitMinutes * 60;
+              setCountdownSeconds(totalSeconds);
+              // Reset ref when setting new countdown value
+              hasReachedZeroRef.current = totalSeconds === 0;
             }
           }
         }
-        
-        setLastFetchTime(Date.now());
-      } catch (err) {
-        if (cancelled) return;
-        console.error('Failed to fetch queue estimate:', err);
-        setError('Unable to calculate wait time');
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
       }
-    };
-
-    fetchEstimate();
-    const interval = setInterval(fetchEstimate, 60000); // Refresh estimate every minute
-    
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    } catch (err) {
+      console.error('Failed to fetch queue estimate:', err);
+      setError('Unable to calculate wait time');
+    } finally {
+      setIsLoading(false);
+    }
   }, [restaurantId, partySize, reservationId, queuePosition, onPositionUpdate]);
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchEstimate(true);
+  }, [fetchEstimate]);
+
+  // Periodic refresh - only when countdown is at 0
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only refresh if countdown has reached zero
+      if (countdownRef.current === null || countdownRef.current <= 0) {
+        fetchEstimate(true);
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [fetchEstimate]);
 
   // Countdown timer - updates every second
   useEffect(() => {
-    if (countdownSeconds === null || countdownSeconds <= 0) return;
+    if (countdownSeconds === null || countdownSeconds <= 0) {
+      return;
+    }
 
     const timer = setInterval(() => {
       setCountdownSeconds(prev => {
-        if (prev === null || prev <= 1) return 0;
+        if (prev === null || prev <= 1) {
+          // When countdown reaches 0, check if we need to fetch new estimate
+          const wasNotZero = prev !== null && prev > 0;
+          if (wasNotZero && !hasReachedZeroRef.current) {
+            hasReachedZeroRef.current = true;
+            // Immediately fetch new estimate when countdown reaches zero
+            fetchEstimate(true);
+          }
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [countdownSeconds]);
+  }, [countdownSeconds, fetchEstimate]);
 
   // Format countdown display
   const formatCountdown = () => {

@@ -14,6 +14,7 @@ import { saveActiveReservation, type ActiveReservation } from '../services/reser
 import { addReservationToHistory, type ReservationHistoryItem } from '../services/reservationHistory';
 import { startReservationSSE } from '../services/reservationSSE';
 import { showInAppNotification } from './InAppNotificationSystem';
+import { subscribeToPush } from '../services/pushSubscription';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -204,6 +205,18 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         // Start SSE connection for real-time updates
         startReservationSSE(activeReservation);
         
+        // Subscribe to push notifications for this reservation
+        try {
+          await subscribeToPush({
+            reservationId: reservation._id,
+            userId: undefined, // Add user ID if available
+          });
+          console.log('[PUSH] Subscribed to push notifications for reservation');
+        } catch (pushError) {
+          console.error('[PUSH] Failed to subscribe to push notifications:', pushError);
+          // Don't fail the booking if push subscription fails
+        }
+        
         // Show in-app notification
         showInAppNotification({
           type: 'success',
@@ -363,25 +376,6 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               </RadioGroup>
             </div>
           )}
-
-          {/* Contact Method */}
-          <div className="space-y-2 sm:space-y-3">
-            <Label className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Contact method</Label>
-            <RadioGroup
-              value={contactMethod}
-              onValueChange={(value: 'phone' | 'email') => setContactMethod(value)}
-              className="flex flex-wrap gap-3 sm:gap-6"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="phone" id="phone" />
-                <Label htmlFor="phone" style={{color: 'var(--where2go-text)'}}>Phone</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="email" id="email" />
-                <Label htmlFor="email" style={{color: 'var(--where2go-text)'}}>Email</Label>
-              </div>
-            </RadioGroup>
-          </div>
 
           {/* Gender Selection (Optional) */}
           <div className="space-y-2 sm:space-y-3">
