@@ -46,6 +46,9 @@ export function addReservationToHistory(reservation: ReservationHistoryItem): vo
     // Keep only MAX_HISTORY most recent
     const trimmed = history.slice(0, MAX_HISTORY);
     
+    // Get old value BEFORE setting new value
+    const oldValue = localStorage.getItem(STORAGE_KEY);
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
     
     // Dispatch storage event to sync across Safari/PWA contexts
@@ -53,7 +56,7 @@ export function addReservationToHistory(reservation: ReservationHistoryItem): vo
       window.dispatchEvent(new StorageEvent('storage', {
         key: STORAGE_KEY,
         newValue: JSON.stringify(trimmed),
-        oldValue: localStorage.getItem(STORAGE_KEY),
+        oldValue: oldValue,
         storageArea: localStorage,
       }));
       
@@ -107,6 +110,10 @@ export function updateReservationInHistory(reservationId: string, updates: Parti
     
     if (index >= 0) {
       history[index] = { ...history[index], ...updates };
+      
+      // Get old value BEFORE setting new value
+      const oldValue = localStorage.getItem(STORAGE_KEY);
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
       
       // Dispatch storage event to sync across Safari/PWA contexts
@@ -114,7 +121,7 @@ export function updateReservationInHistory(reservationId: string, updates: Parti
         window.dispatchEvent(new StorageEvent('storage', {
           key: STORAGE_KEY,
           newValue: JSON.stringify(history),
-          oldValue: localStorage.getItem(STORAGE_KEY),
+          oldValue: oldValue,
           storageArea: localStorage,
         }));
         
