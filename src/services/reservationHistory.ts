@@ -47,6 +47,22 @@ export function addReservationToHistory(reservation: ReservationHistoryItem): vo
     const trimmed = history.slice(0, MAX_HISTORY);
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    
+    // Dispatch storage event to sync across Safari/PWA contexts
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify(trimmed),
+        oldValue: localStorage.getItem(STORAGE_KEY),
+        storageArea: localStorage,
+      }));
+      
+      window.dispatchEvent(new CustomEvent('tabli:reservation-history-updated', {
+        detail: { reservation }
+      }));
+    } catch (eventError) {
+      console.warn('[SYNC] Failed to dispatch storage event:', eventError);
+    }
   } catch (error) {
     console.error('Failed to add reservation to history:', error);
   }
@@ -92,6 +108,22 @@ export function updateReservationInHistory(reservationId: string, updates: Parti
     if (index >= 0) {
       history[index] = { ...history[index], ...updates };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      
+      // Dispatch storage event to sync across Safari/PWA contexts
+      try {
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: STORAGE_KEY,
+          newValue: JSON.stringify(history),
+          oldValue: localStorage.getItem(STORAGE_KEY),
+          storageArea: localStorage,
+        }));
+        
+        window.dispatchEvent(new CustomEvent('tabli:reservation-history-updated', {
+          detail: { reservationId, updates }
+        }));
+      } catch (eventError) {
+        console.warn('[SYNC] Failed to dispatch storage event:', eventError);
+      }
     }
   } catch (error) {
     console.error('Failed to update reservation in history:', error);

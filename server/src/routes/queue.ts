@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
@@ -69,7 +69,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
 
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
     try {
-      if (data.email) {
+      if (isValidEmailForSending(data.email)) {
         await sendEmail({
           to: data.email,
           subject: `Queue at ${restaurant.name}`,
@@ -123,8 +123,9 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     if (!r) return res.status(404).json({ error: 'Not found' });
     const restaurant = await Restaurant.findById(r.restaurantId);
     const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
-    if (r.email) {
-      await sendEmail({
+    if (isValidEmailForSending(r.email)) {
+      try {
+        await sendEmail({
         to: r.email,
         subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
         text: message,
@@ -140,6 +141,9 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
           includeNotificationsLink: true,
         }),
       });
+      } catch (emailError) {
+        console.error('Failed to send queue notification email:', emailError);
+      }
     }
     res.json({ success: true });
   } catch (err) { next(err); }
@@ -158,7 +162,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     (r as any).cancellationReason = 'staff_removed'; // Track that staff removed them
     await r.save();
     try {
-      if (r.email) {
+      if (isValidEmailForSending(r.email)) {
         const message = `We weren't able to hold your spot at ${restaurant?.name || 'the restaurant'} any longer. Reply if you still plan to join us.`;
         await sendEmail({
           to: r.email,

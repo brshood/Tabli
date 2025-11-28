@@ -14,7 +14,7 @@ import { saveActiveReservation, type ActiveReservation } from '../services/reser
 import { addReservationToHistory, type ReservationHistoryItem } from '../services/reservationHistory';
 import { startReservationSSE } from '../services/reservationSSE';
 import { showInAppNotification } from './InAppNotificationSystem';
-import { subscribeToPush } from '../services/pushSubscription';
+import { subscribeToPush, requestPermissionAndPrepareSubscription, completeSubscription } from '../services/pushSubscription';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -148,6 +148,20 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     if (!validateForm()) return;
 
     setIsSubmitting(true); // #10 - Start loading
+    
+    // CRITICAL for iOS: Request notification permission BEFORE any async operations
+    // This must be in the direct user gesture handler
+    let permissionGranted = false;
+    try {
+      permissionGranted = await requestPermissionAndPrepareSubscription();
+      if (permissionGranted) {
+        console.log('[PUSH] Permission granted, will complete subscription after reservation is created');
+      }
+    } catch (permError) {
+      console.warn('[PUSH] Failed to request permission:', permError);
+      // Continue with booking even if permission request fails
+    }
+    
     try {
       const res = await fetch(`${API_URL}/reservations`, {
         method: 'POST',
@@ -205,16 +219,19 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         // Start SSE connection for real-time updates
         startReservationSSE(activeReservation);
         
-        // Subscribe to push notifications for this reservation
-        try {
-          await subscribeToPush({
-            reservationId: reservation._id,
-            userId: undefined, // Add user ID if available
-          });
-          console.log('[PUSH] Subscribed to push notifications for reservation');
-        } catch (pushError) {
-          console.error('[PUSH] Failed to subscribe to push notifications:', pushError);
-          // Don't fail the booking if push subscription fails
+        // Complete push notification subscription if permission was granted earlier
+        // (Permission was requested before async operations for iOS compatibility)
+        if (permissionGranted || Notification.permission === 'granted') {
+          try {
+            await completeSubscription({
+              reservationId: reservation._id,
+              userId: undefined, // Add user ID if available
+            });
+            console.log('[PUSH] Subscribed to push notifications for reservation');
+          } catch (pushError) {
+            console.error('[PUSH] Failed to complete push subscription:', pushError);
+            // Don't fail the booking if push subscription fails
+          }
         }
         
         // Show in-app notification
