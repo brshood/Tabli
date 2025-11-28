@@ -79,6 +79,30 @@ export async function sendPushToReservation(reservationId, payload) {
     return sentCount;
 }
 /**
+ * Send push notification to all subscriptions for a restaurant (staff notifications)
+ */
+export async function sendPushToRestaurant(restaurantId, payload) {
+    const id = typeof restaurantId === 'string'
+        ? new mongoose.Types.ObjectId(restaurantId)
+        : restaurantId;
+    const subscriptions = await PushSubscription.find({ restaurantId: id }).lean();
+    let sentCount = 0;
+    for (const sub of subscriptions) {
+        try {
+            await sendPushNotification({
+                endpoint: sub.endpoint,
+                keys: sub.keys,
+            }, payload);
+            sentCount++;
+        }
+        catch (error) {
+            console.error(`[PUSH] Failed to send to subscription ${sub.endpoint}:`, error);
+            // Continue with other subscriptions
+        }
+    }
+    return sentCount;
+}
+/**
  * Get VAPID public key for client-side subscription
  */
 export function getVapidPublicKey() {
