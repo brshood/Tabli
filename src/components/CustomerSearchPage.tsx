@@ -208,8 +208,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                   </div>
                   
                   <div className="flex items-center">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
                     <span className="text-sm font-medium">{restaurant.rating}</span>
+                    <Star className="h-4 w-4 text-yellow-400 fill-current ml-1" />
                   </div>
                 </div>
 

@@ -20,11 +20,7 @@ export function LandingPage({ onNavigate, onCtaNavigate }: LandingPageProps) {
   const [hasAnimated, setHasAnimated] = useState(false);
   const currentYear = new Date().getFullYear();
   const handlePrimaryNavigate = (page: 'discover' | 'search') => {
-    if (onCtaNavigate) {
-      onCtaNavigate(page);
-    } else {
-      onNavigate(page);
-    }
+    onNavigate(page);
   };
 
   useEffect(() => {
