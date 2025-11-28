@@ -71,28 +71,54 @@ adminRouter.patch('/restaurants/:id/approval', requireAdmin, async (req, res, ne
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 
-    // #9 - Send email when restaurant is denied
-    if (status === 'denied' && restaurant.email) {
+    // Send email when restaurant status changes
+    if (restaurant.email) {
       try {
-        await sendEmail({
-          to: restaurant.email,
-          subject: 'Tabli Application Status Update',
-          text: `Your application to join Tabli has been reviewed. ${notes ? `Reason: ${notes}` : ''}`,
-          html: buildEmailTemplate({
-            heading: 'Application Update',
-            intro: `Dear ${restaurant.name},`,
-            lines: [
-              'Thank you for your interest in joining Tabli.',
-              'After reviewing your application, we are unable to approve it at this time.',
-              ...(notes ? [`Reason: ${notes}`] : []),
-              'If you have any questions or would like to reapply in the future, please contact us at tabli.team@gmail.com.'
-            ],
-            footer: 'Best regards, The Tabli Team'
-          })
-        });
-        console.log(`[ADMIN] Denial email sent to ${restaurant.email}`);
+        if (status === 'approved') {
+          // Send approval email
+          const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+          const loginLink = `${base}/#staff`;
+          
+          await sendEmail({
+            to: restaurant.email,
+            subject: 'Welcome to Tabli! Your Application Has Been Approved',
+            text: `Congratulations! Your restaurant ${restaurant.name} has been approved to join Tabli. You can now log in to manage your restaurant.`,
+            html: buildEmailTemplate({
+              heading: 'Welcome to Tabli!',
+              intro: `Dear ${restaurant.name},`,
+              lines: [
+                'Congratulations! Your application to join Tabli has been approved.',
+                'You can now log in to your staff dashboard to manage your restaurant, update your menu, handle reservations, and more.',
+                'We\'re excited to have you as part of the Tabli community!'
+              ],
+              actionText: 'Access Your Dashboard',
+              actionUrl: loginLink,
+              footer: 'Best regards, The Tabli Team'
+            })
+          });
+          console.log(`[ADMIN] Approval email sent to ${restaurant.email}`);
+        } else if (status === 'denied') {
+          // Send denial email
+          await sendEmail({
+            to: restaurant.email,
+            subject: 'Tabli Application Status Update',
+            text: `Your application to join Tabli has been reviewed. ${notes ? `Reason: ${notes}` : ''}`,
+            html: buildEmailTemplate({
+              heading: 'Application Update',
+              intro: `Dear ${restaurant.name},`,
+              lines: [
+                'Thank you for your interest in joining Tabli.',
+                'After reviewing your application, we are unable to approve it at this time.',
+                ...(notes ? [`Reason: ${notes}`] : []),
+                'If you have any questions or would like to reapply in the future, please contact us at tabli.team@gmail.com.'
+              ],
+              footer: 'Best regards, The Tabli Team'
+            })
+          });
+          console.log(`[ADMIN] Denial email sent to ${restaurant.email}`);
+        }
       } catch (emailError) {
-        console.error('[ADMIN] Failed to send denial email:', emailError);
+        console.error(`[ADMIN] Failed to send ${status} email:`, emailError);
         // Don't fail the request if email fails
       }
     }

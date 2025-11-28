@@ -4,6 +4,8 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
+import { sendNotification } from '../services/sms';
+import { notificationEmitter } from '../services/notificationEmitter';
 export const queueRouter = express.Router();
 const joinSchema = z.object({
     partySize: z.number().min(1).max(20),
@@ -19,6 +21,24 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
         const restaurant = await Restaurant.findById(req.params.restaurantId);
         if (!restaurant)
             return res.status(404).json({ error: 'Restaurant not found' });
+        // #4 - Prevent Duplicate Bookings: Check for existing active reservation
+        const duplicateQuery = {
+            restaurantId: restaurant._id,
+            status: { $in: ['pending', 'confirmed'] }
+        };
+        // Check by email or phone depending on contact method
+        if (data.email) {
+            duplicateQuery.email = data.email;
+        }
+        else if (data.phone) {
+            duplicateQuery.phone = data.phone;
+        }
+        const existingReservation = await Reservation.findOne(duplicateQuery);
+        if (existingReservation) {
+            return res.status(409).json({
+                error: 'You already have an active reservation at this restaurant'
+            });
+        }
         const count = await Reservation.countDocuments({ restaurantId: restaurant._id, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
         const queuePosition = count + 1;
         const doc = await Reservation.create({
@@ -44,15 +64,33 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
                         intro: doc.name ? `Hi ${doc.name},` : 'Hello,',
                         lines: [
                             `You're currently #${queuePosition} in line at ${restaurant.name}.`,
-                            'We’ll email you as soon as your table is ready.',
+                            'We\'ll email you as soon as your table is ready.',
                         ],
-                        footer: 'Need to make a change? Reply to this email and we’ll help you out.',
+                        footer: 'Need to make a change? Reply to this email and we\'ll help you out.',
                     }),
                 });
+                // #3 - Mark email as sent on success
+                doc.emailSent = true;
+                await doc.save();
             }
         }
         catch (err) {
             console.error('Queue join notify failed:', err?.message);
+            // emailSent remains false if email failed
+        }
+        // #1 - Send SMS notification if phone contact method
+        if (data.contactMethod === 'phone' && data.phone) {
+            try {
+                const smsMessage = `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
+                await sendNotification({
+                    to: data.phone,
+                    message: smsMessage
+                });
+            }
+            catch (smsError) {
+                console.error('Failed to send SMS notification:', smsError);
+                // Don't fail reservation if SMS fails
+            }
         }
         res.status(201).json({ reservation: doc });
     }
@@ -67,7 +105,7 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
         if (!r)
             return res.status(404).json({ error: 'Not found' });
         const restaurant = await Restaurant.findById(r.restaurantId);
-        const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 10 minutes.`;
+        const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
         if (r.email) {
             await sendEmail({
                 to: r.email,
@@ -78,8 +116,8 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
                     intro: `Hi${r.name ? ` ${r.name}` : ''},`,
                     lines: [
                         restaurant?.name
-                            ? `Your table at ${restaurant.name} is ready. Please arrive within 10 minutes so we can keep it for you.`
-                            : 'Your table is ready. Please arrive within 10 minutes so we can keep it for you.',
+                            ? `Your table at ${restaurant.name} is ready. Please arrive within 15 minutes so we can keep it for you.`
+                            : 'Your table is ready. Please arrive within 15 minutes so we can keep it for you.',
                         'If you’re on your way, no action is needed. Otherwise, reply to this email to let us know.',
                     ],
                 }),
@@ -103,6 +141,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         const oldPos = r.queuePosition;
         r.status = 'cancelled';
         r.leftAt = new Date();
+        r.cancellationReason = 'staff_removed'; // Track that staff removed them
         await r.save();
         try {
             if (r.email) {
@@ -130,6 +169,17 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         if (typeof oldPos === 'number') {
             await Reservation.updateMany({ restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] }, queuePosition: { $gt: oldPos } }, { $inc: { queuePosition: -1 } });
         }
+        // Emit SSE notification for real-time updates
+        notificationEmitter.notifyReservation(r._id.toString(), {
+            type: 'reservation_updated',
+            reservation: {
+                _id: r._id.toString(),
+                status: r.status,
+                queuePosition: r.queuePosition,
+                leftAt: r.leftAt,
+                cancellationReason: r.cancellationReason,
+            }
+        });
         res.json({ success: true });
     }
     catch (err) {

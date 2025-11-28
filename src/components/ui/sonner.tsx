@@ -15,8 +15,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
+          opacity: 1,
         } as React.CSSProperties
       }
+      toastOptions={{
+        style: {
+          opacity: 1,
+          backgroundColor: '#FFFFFF',
+        },
+        className: 'toast-opaque',
+      }}
       {...props}
     />
   );

@@ -155,7 +155,7 @@ reservationsRouter.post('/', async (req, res, next) => {
       if (data.contactMethod === 'phone' && data.phone) {
         try {
           const smsMessage = data.mode === 'reserve'
-            ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 10 minutes. Please arrive promptly. We look forward to seeing you soon!`
+            ? `Hello! Your table at ${restaurant.name} is now reserved and will be held for you for the next 15 minutes. Please arrive promptly. We look forward to seeing you soon!`
             : `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
           
           await sendNotification({
@@ -405,7 +405,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const restaurantName = restaurant?.name || 'the restaurant';
     
     // Use custom message/subject from request body if provided, otherwise use default
-    const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 10 minutes to secure your reservation.`;
+    const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 15 minutes to secure your reservation.`;
     const subject = req.body?.subject || 'Your table is ready';
     
     if (r.email) {

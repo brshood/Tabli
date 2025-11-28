@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Bell, Clock, Users, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Loader2, Phone, Mail, ExternalLink, Trash2 } from 'lucide-react';
 import { getReservationHistory, updateReservationInHistory, removeReservationFromHistory, type ReservationHistoryItem } from '../services/reservationHistory';
 import { forceRefreshReservation } from '../services/reservationPolling';
@@ -33,6 +34,8 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [reservationToCancel, setReservationToCancel] = useState<ReservationHistoryItem | null>(null);
 
   const loadData = async () => {
     setIsRefreshingAll(true);
@@ -178,10 +181,17 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     }
   };
 
-  const handleCancel = async (reservation: ReservationHistoryItem) => {
-    if (!confirm(`Cancel reservation at ${reservation.restaurantName}?`)) {
-      return;
-    }
+  const handleCancelClick = (reservation: ReservationHistoryItem) => {
+    setReservationToCancel(reservation);
+    setCancelConfirmOpen(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!reservationToCancel) return;
+
+    setCancelConfirmOpen(false);
+    const reservation = reservationToCancel;
+    setReservationToCancel(null);
 
     setCancellingIds(prev => new Set(prev).add(reservation.reservationId));
     try {
@@ -189,13 +199,19 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
         method: 'POST',
       });
 
-      if (!res.ok) throw new Error('Failed to cancel');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to cancel' }));
+        throw new Error(errorData.error || 'Failed to cancel');
+      }
 
-      toast.success('Reservation cancelled');
+      const data = await res.json();
+      
+      toast.success(data.message || 'Reservation cancelled');
       updateReservationInHistory(reservation.reservationId, { status: 'cancelled' });
       await loadData();
-    } catch (error) {
-      toast.error('Failed to cancel reservation');
+    } catch (error: any) {
+      console.error('Cancel reservation error:', error);
+      toast.error(error.message || 'Failed to cancel reservation');
     } finally {
       setCancellingIds(prev => {
         const next = new Set(prev);
@@ -213,11 +229,14 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     window.location.hash = `#restaurant-profile?id=${restaurantId}`;
   };
 
-  const handleDeleteFromHistory = (reservationId: string) => {
-    if (confirm('Remove this reservation from history?')) {
+  const handleDeleteFromHistory = async (reservationId: string) => {
+    try {
       removeReservationFromHistory(reservationId);
-      loadData();
+      await loadData();
       toast.success('Removed from history');
+    } catch (error) {
+      console.error('Failed to remove reservation from history:', error);
+      toast.error('Failed to remove from history');
     }
   };
 
@@ -381,7 +400,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleCancel(reservation)}
+                  onClick={() => handleCancelClick(reservation)}
                   disabled={isRefreshing || isCancelling}
                 >
                   {isCancelling ? 'Cancelling...' : 'Cancel'}
@@ -512,6 +531,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                         <div
                           key={notification.id}
                           className="p-3 rounded-lg border bg-white text-sm"
+                          style={{ backgroundColor: '#FFFFFF', opacity: 1 }}
                         >
                           <div className="flex items-start gap-2">
                             {getNotificationIcon(notification.type)}
@@ -550,6 +570,44 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           </div>
         )}
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <DialogContent className="sm:max-w-md" style={{ backgroundColor: '#FFFFFF', opacity: 1 }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: '#1F2937' }}>Cancel Reservation?</DialogTitle>
+            <DialogDescription style={{ color: '#6B7280' }}>
+              {reservationToCancel && (
+                <>
+                  Are you sure you want to cancel your reservation at <strong>{reservationToCancel.restaurantName}</strong>?
+                  <br /><br />
+                  This action cannot be undone.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelConfirmOpen(false);
+                setReservationToCancel(null);
+              }}
+              style={{ borderColor: '#6B7280', color: '#4B5563' }}
+            >
+              Keep Reservation
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelConfirm}
+              disabled={!reservationToCancel || cancellingIds.has(reservationToCancel.reservationId)}
+              style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
+            >
+              {reservationToCancel && cancellingIds.has(reservationToCancel.reservationId) ? 'Cancelling...' : 'Yes, Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
