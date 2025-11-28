@@ -20,7 +20,7 @@ interface BookingModalProps {
   onClose: () => void;
   mode: 'reserve' | 'waitlist';
   restaurant?: Restaurant;
-  onSuccess?: () => void;
+  onSuccess?: (reservationId?: string, restaurantId?: string) => void;
 }
 
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
@@ -157,10 +157,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           name: customerName || undefined,
           partySize,
           contactMethod,
-          phone: contactMethod === 'phone'
-            ? `${countryCode}${phoneLocal.replace(/\D/g, '')}`
-            : undefined,
-          email: contactMethod === 'email' ? email : undefined,
+          phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`,
+          email: email,
           gender: gender !== 'prefer-not-to-say' ? gender : undefined,
           seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
         })
@@ -228,7 +226,11 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
             : "You've been added to the queue! We'll notify you when your table is ready.");
       toast.success(successMessage);
-      if (onSuccess) onSuccess(); else onClose();
+      if (onSuccess) {
+        onSuccess(reservation?._id, reservation?.restaurantId);
+      } else {
+        onClose();
+      }
     } catch (_e) {
       toast.error('Could not submit request. Please try again.');
     } finally {
@@ -238,8 +240,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
   const isFormValid = () => {
     if (partySize < 1 || partySize > 12) return false;
-    if (contactMethod === 'phone' && phoneLocal.replace(/\D/g, '').length < 5) return false;
-    if (contactMethod === 'email' && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return false;
+    // Require both phone and email
+    if (phoneLocal.replace(/\D/g, '').length < 5) return false;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
     return true;
   };
 
@@ -403,42 +406,46 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             </RadioGroup>
           </div>
 
-          {/* Contact Input */}
-        {contactMethod === 'phone' && (
-          <div className="space-y-2">
-            <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Phone number</Label>
-            <div className="flex gap-2">
-              <Select value={countryCode} onValueChange={setCountryCode}>
-                <SelectTrigger className="w-[110px] bg-white" style={{borderColor: 'var(--where2go-border)'}}>
-                  <SelectValue placeholder="+971" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="+971">UAE +971</SelectItem>
-                  <SelectItem value="+966">Saudi Arabia +966</SelectItem>
-                  <SelectItem value="+974">Qatar +974</SelectItem>
-                  <SelectItem value="+973">Bahrain +973</SelectItem>
-                  <SelectItem value="+968">Oman +968</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                id="phoneInput"
-                type="tel"
-                placeholder="Enter phone number"
-                value={phoneLocal}
-                onChange={(e) => setPhoneLocal(e.target.value)}
-                className="bg-white flex-1"
-                style={{borderColor: 'var(--where2go-border)'}}
-              />
-            </div>
-            {errors.phone && (
-              <p className="text-sm text-red-600">{errors.phone}</p>
-            )}
-          </div>
-        )}
-
-          {contactMethod === 'email' && (
+          {/* Contact Input - Require both email and phone */}
+          <div className="space-y-4">
+            {/* Phone number - Always required */}
             <div className="space-y-2">
-              <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Email address</Label>
+              <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>
+                Phone number <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Select value={countryCode} onValueChange={setCountryCode}>
+                  <SelectTrigger className="w-[110px] bg-white" style={{borderColor: 'var(--where2go-border)'}}>
+                    <SelectValue placeholder="+971" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+971">UAE +971</SelectItem>
+                    <SelectItem value="+966">Saudi Arabia +966</SelectItem>
+                    <SelectItem value="+974">Qatar +974</SelectItem>
+                    <SelectItem value="+973">Bahrain +973</SelectItem>
+                    <SelectItem value="+968">Oman +968</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phoneInput"
+                  type="tel"
+                  placeholder="Enter phone number"
+                  value={phoneLocal}
+                  onChange={(e) => setPhoneLocal(e.target.value)}
+                  className="bg-white flex-1"
+                  style={{borderColor: 'var(--where2go-border)'}}
+                />
+              </div>
+              {errors.phone && (
+                <p className="text-sm text-red-600">{errors.phone}</p>
+              )}
+            </div>
+
+            {/* Email - Always required */}
+            <div className="space-y-2">
+              <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>
+                Email address <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="emailInput"
                 type="email"
@@ -452,7 +459,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 <p className="text-sm text-red-600">{errors.email}</p>
               )}
             </div>
-          )}
+          </div>
 
           {/* Disclaimer */}
           <div className="p-4 rounded-lg" style={{backgroundColor: 'var(--where2go-buff-light)', border: '1px solid var(--where2go-border)'}}>

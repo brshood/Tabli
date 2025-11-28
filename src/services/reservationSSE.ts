@@ -97,6 +97,15 @@ function handleReservationUpdate(serverReservation: any): void {
     seatedAt: serverReservation.seatedAt,
   });
 
+  // Dispatch custom event to notify components of update
+  try {
+    window.dispatchEvent(new CustomEvent('reservation:updated', {
+      detail: { reservationId: activeReservation.reservationId }
+    }));
+  } catch (error) {
+    console.error('[SSE] Failed to dispatch update event:', error);
+  }
+
   // Detect changes and trigger notifications
   checkForChanges(serverReservation);
 

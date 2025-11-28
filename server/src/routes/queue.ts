@@ -12,9 +12,15 @@ export const queueRouter = express.Router();
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
+  phone: z.string(),
+  email: z.string().email(),
   name: z.string().min(1).max(100).optional(),
+}).refine((data) => {
+  // Require both email and phone
+  return !!(data.email && data.phone);
+}, {
+  message: 'Both email and phone number are required',
+  path: ['email', 'phone']
 });
 
 // POST /queue/:restaurantId/join
@@ -53,8 +59,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       name: data.name,
       partySize: data.partySize,
       contactMethod: data.contactMethod,
-      phone: data.contactMethod === 'phone' ? data.phone : undefined,
-      email: data.contactMethod === 'email' ? data.email : undefined,
+      phone: data.phone, // Always store phone
+      email: data.email, // Always store email
       status: 'pending',
       queuePosition,
     });
@@ -111,7 +117,7 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     const r = await Reservation.findById(req.params.reservationId);
     if (!r) return res.status(404).json({ error: 'Not found' });
     const restaurant = await Restaurant.findById(r.restaurantId);
-    const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 10 minutes.`;
+    const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
     if (r.email) {
       await sendEmail({
         to: r.email,
@@ -120,10 +126,10 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
         html: buildEmailTemplate({
           heading: 'Your table is ready!',
           intro: `Hi${r.name ? ` ${r.name}` : ''},`,
-          lines: [
-            restaurant?.name
-              ? `Your table at ${restaurant.name} is ready. Please arrive within 10 minutes so we can keep it for you.`
-              : 'Your table is ready. Please arrive within 10 minutes so we can keep it for you.',
+            lines: [
+              restaurant?.name
+                ? `Your table at ${restaurant.name} is ready. Please arrive within 15 minutes so we can keep it for you.`
+                : 'Your table is ready. Please arrive within 15 minutes so we can keep it for you.',
             'If you’re on your way, no action is needed. Otherwise, reply to this email to let us know.',
           ],
         }),

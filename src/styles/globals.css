@@ -257,26 +257,47 @@
     display: none;
   }
 
-  /* Toast notification styles - make them more opaque */
+  /* Toast notification styles - make them fully opaque */
   [data-sonner-toast] {
     background-color: white !important;
     border: 1px solid rgba(45, 45, 43, 0.1) !important;
     box-shadow: 0 8px 30px rgba(90, 94, 62, 0.25) !important;
+    opacity: 1 !important;
+  }
+
+  [data-sonner-toast] > * {
+    opacity: 1 !important;
   }
 
   [data-sonner-toast][data-type="success"] {
     background-color: #f0fdf4 !important;
     border-color: #86efac !important;
+    opacity: 1 !important;
   }
 
   [data-sonner-toast][data-type="error"] {
     background-color: #fef2f2 !important;
     border-color: #fca5a5 !important;
+    opacity: 1 !important;
   }
 
   [data-sonner-toast][data-type="info"] {
     background-color: #eff6ff !important;
     border-color: #93c5fd !important;
+    opacity: 1 !important;
+  }
+
+  [data-sonner-toast][data-type="warning"] {
+    background-color: #fffbeb !important;
+    border-color: #fcd34d !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure toast content is fully visible */
+  [data-sonner-toast] [data-title],
+  [data-sonner-toast] [data-description] {
+    opacity: 1 !important;
+    color: inherit !important;
   }
 }
 

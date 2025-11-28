@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { Menu } from '../models/Menu';
+import { Restaurant } from '../models/Restaurant';
 import { requireAuth, requireOwnRestaurant, AuthRequest } from '../middleware/auth';
 
 export const menusRouter = express.Router();
@@ -40,12 +41,25 @@ menusRouter.get('/:restaurantId', async (req, res, next) => {
       } as NonNullable<typeof menu>;
     }
 
+    // Also fetch menu documents (PDFs/images) from restaurant
+    const restaurant = await Restaurant.findById(restaurantId).lean();
+    const menuDocuments = (restaurant?.mediaRefs || [])
+      .filter((doc: any) => doc.category === 'menu' && doc.isActive)
+      .map((doc: any) => ({
+        fileId: doc.fileId.toString(),
+        filename: doc.filename,
+        contentType: doc.contentType,
+        type: doc.type,
+        menuType: doc.menuType || 'general',
+      }));
+
     // TypeScript now knows menu is not null
     res.json({ 
       menu: {
         restaurantId: menu.restaurantId.toString(),
         items: menu.items || [],
-      }
+      },
+      menuDocuments: menuDocuments,
     });
   } catch (err) {
     next(err);

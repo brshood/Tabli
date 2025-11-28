@@ -161,10 +161,10 @@ export function InAppNotificationSystem({ onNotificationClick }: InAppNotificati
         {isExpanded && (
           <div
             className="absolute bottom-16 right-0 w-96 max-w-[calc(100vw-2rem)] max-h-[32rem] overflow-y-auto bg-white rounded-lg shadow-2xl border"
-            style={{ borderColor: 'rgba(90, 94, 62, 0.2)' }}
+            style={{ borderColor: 'rgba(90, 94, 62, 0.2)', backgroundColor: '#FFFFFF', opacity: 1 }}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between" style={{ backgroundColor: '#FFFFFF', opacity: 1 }}>
               <h3 className="font-semibold text-lg" style={{ color: '#2D2D2B' }}>
                 Notifications
               </h3>
@@ -184,6 +184,7 @@ export function InAppNotificationSystem({ onNotificationClick }: InAppNotificati
                 <div
                   key={notification.id}
                   className={`p-4 ${getColorClasses(notification.type)} border-l-4`}
+                  style={{ opacity: 1 }}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 flex-1">

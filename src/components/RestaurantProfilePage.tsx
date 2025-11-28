@@ -41,11 +41,17 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   const [menuLoading, setMenuLoading] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState(false); // #14 - Track image loading
 
-  // #14 - Detect when all images have loaded
+  // #16 - Detect when all images have loaded (cover photo + all photos)
   useEffect(() => {
+    setImagesLoaded(false); // Reset loading state when restaurant changes
     const imagesToLoad: string[] = [];
     
-    // Collect all image URLs from restaurant
+    // Include cover image if present
+    if (restaurant.coverImage) {
+      imagesToLoad.push(restaurant.coverImage);
+    }
+    
+    // Collect all image URLs from restaurant photos
     if (restaurant.photos && restaurant.photos.length > 0) {
       imagesToLoad.push(...restaurant.photos);
     }
@@ -66,7 +72,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
       }
     };
     
-    // Preload all images
+    // Preload all images (including cover photo)
     imagesToLoad.forEach((src) => {
       const img = new Image();
       img.onload = checkAllLoaded;
@@ -78,7 +84,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         checkAllLoaded();
       }
     });
-  }, [restaurant.photos]);
+  }, [restaurant.coverImage, restaurant.photos, restaurant.id]);
 
   // Load menu when component mounts
   useEffect(() => {
@@ -155,8 +161,16 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleBookingSuccess = () => {
+  const [pendingReservationId, setPendingReservationId] = useState<string | null>(null);
+  const [pendingRestaurantId, setPendingRestaurantId] = useState<string | null>(null);
+
+  const handleBookingSuccess = (reservationId?: string, restaurantId?: string) => {
     setBookingModalOpen(false);
+    // Store reservation info for survey
+    if (reservationId) {
+      setPendingReservationId(reservationId);
+      setPendingRestaurantId(restaurantId || restaurant.id);
+    }
     // Show survey immediately after booking
     setSurveyModalOpen(true);
   };
@@ -165,13 +179,23 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
 
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
+      {/* Loading state - shown while images are loading */}
+      {!imagesLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{backgroundColor: '#FAFAFA'}}>
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" style={{color: '#5A5E3E'}} />
+            <p className="text-gray-600">Loading images...</p>
+          </div>
+        </div>
+      )}
       
       <div 
         className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl"
         style={{
           opacity: imagesLoaded ? 1 : 0,
           transform: imagesLoaded ? 'translateY(0)' : 'translateY(20px)',
-          transition: 'opacity 0.6s ease-out, transform 0.6s ease-out'
+          transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
+          visibility: imagesLoaded ? 'visible' : 'hidden'
         }}
       >
         {/* Cover Section */}
@@ -214,35 +238,6 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 </Badge>
               )}
             </div>
-
-            {featuredItems.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4" style={{color: '#1F2937'}}>Featured Menu Items</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {featuredItems.map((item, index) => (
-                    <div
-                      key={`${item.name}-${index}`}
-                      className="p-4 rounded-xl border"
-                      style={{borderColor: '#E5E7EB', backgroundColor: '#F9FAFB'}}
-                    >
-                      <h3 className="text-xl font-semibold mb-1" style={{color: '#1F2937'}}>
-                        {item.name}
-                      </h3>
-                      {item.description && (
-                        <p className="text-sm mb-2" style={{color: '#4B5563'}}>
-                          {item.description}
-                        </p>
-                      )}
-                      {item.price && (
-                        <span className="inline-block px-3 py-1 rounded-full text-sm font-medium" style={{backgroundColor: '#F3F4F6', color: '#1F2937'}}>
-                          {item.price}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
@@ -576,6 +571,37 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
         <Card className="border-0 card-shadow">
           <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
             <h2 className="text-2xl font-bold mb-4" style={{color: '#1F2937'}}>Menu Highlights</h2>
+            
+            {/* Featured Menu Items - Show first if available */}
+            {featuredItems.length > 0 && (
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {featuredItems.map((item, index) => (
+                    <div
+                      key={`${item.name}-${index}`}
+                      className="p-4 rounded-xl border"
+                      style={{borderColor: '#E5E7EB', backgroundColor: '#F9FAFB'}}
+                    >
+                      <h3 className="text-xl font-semibold mb-1" style={{color: '#1F2937'}}>
+                        {item.name}
+                      </h3>
+                      {item.description && (
+                        <p className="text-sm mb-2" style={{color: '#4B5563'}}>
+                          {item.description}
+                        </p>
+                      )}
+                      {item.price && (
+                        <span className="inline-block px-3 py-1 rounded-full text-sm font-medium" style={{backgroundColor: '#F3F4F6', color: '#1F2937'}}>
+                          {item.price}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Regular Menu Items */}
             <div className="grid gap-4">
               {menuLoading ? (
                 <p className="text-sm text-gray-500">Loading menu...</p>
@@ -594,9 +620,9 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                   </div>
                 </div>
                 ))
-              ) : (
+              ) : featuredItems.length === 0 ? (
                 <p className="text-sm text-gray-500 py-4">No menu items available</p>
-              )}
+              ) : null}
             </div>
             <Button 
               variant="outline" 
@@ -631,8 +657,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
       {/* Post-Booking Survey */}
       <PostBookingSurveyModal
         isOpen={surveyModalOpen}
-        onClose={() => setSurveyModalOpen(false)}
+        onClose={() => {
+          setSurveyModalOpen(false);
+          setPendingReservationId(null);
+          setPendingRestaurantId(null);
+        }}
         restaurantName={restaurant.name}
+        reservationId={pendingReservationId || undefined}
+        restaurantId={pendingRestaurantId || restaurant.id}
       />
 
       {/* Ratings Comments Modal (simple) */}

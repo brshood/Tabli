@@ -28,6 +28,13 @@ export interface ReservationDocument extends Document {
   holdUntil?: Date; // #2 - When hold expires (15 min from check-in)
   holdStatus?: HoldStatus; // #2 - Hold state tracking
   cancellationReason?: 'user_cancelled' | 'daily_reset' | 'no_show' | 'hold_expired' | 'staff_removed'; // Track why reservation was cancelled
+  // Survey feedback fields
+  surveyFeedback?: {
+    hearAboutUs?: string;
+    specialRequirements?: string;
+    improvements?: string;
+    submittedAt: Date;
+  };
 }
 
 const reservationSchema = new Schema<ReservationDocument>(
@@ -54,6 +61,13 @@ const reservationSchema = new Schema<ReservationDocument>(
     holdUntil: Date, // #2 - When hold expires (15 min from check-in)
     holdStatus: { type: String, enum: ['active', 'expired', 'confirmed'] }, // #2 - Hold state tracking
     cancellationReason: { type: String, enum: ['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed'] }, // Track why reservation was cancelled
+    // Survey feedback fields
+    surveyFeedback: {
+      hearAboutUs: String,
+      specialRequirements: String,
+      improvements: String,
+      submittedAt: Date,
+    },
   },
   { timestamps: true }
 );
