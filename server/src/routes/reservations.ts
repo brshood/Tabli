@@ -7,6 +7,8 @@ import { sendEmail, buildEmailTemplate } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime } from '../utils/dateFormat';
+import { sendPushToReservation, sendPushToUser } from '../services/pushNotification';
+import { env } from '../config/env';
 
 export const reservationsRouter = express.Router();
 
@@ -176,6 +178,22 @@ reservationsRouter.post('/', async (req, res, next) => {
       }
     }
 
+    // Notify staff ONLY when a table is actually reserved (not waitlist)
+    if (reservationType === 'reserved') {
+      notificationEmitter.notifyStaff(data.restaurantId, {
+        type: 'table_reservation',
+        event: 'new_table_reservation',
+        reservation: {
+          _id: (doc._id as any).toString(),
+          name: doc.name,
+          partySize: doc.partySize,
+          contactMethod: doc.contactMethod,
+          requestedAt: doc.requestedAt,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     res.status(201).json({ reservation: doc });
   } catch (err) { next(err); }
 });
@@ -299,7 +317,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
     
-    // Emit SSE notification for real-time updates
+    // Emit SSE notification for real-time updates (customer)
     notificationEmitter.notifyReservation((r._id as any).toString(), {
       type: 'reservation_updated',
       reservation: {
@@ -313,6 +331,31 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         cancellationReason: (r as any).cancellationReason,
       }
     });
+    
+    // Note: Staff notifications removed - they only get notified for actual table reservations
+
+    // Send push notification - table is ready
+      if (r.holdUntil) {
+        try {
+          const restaurant = await Restaurant.findById(r.restaurantId).lean();
+          const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+          const holdTime = formatUaeTime(r.holdUntil);
+          
+          await sendPushToReservation((r._id as any).toString(), {
+            title: '🎉 Table Ready!',
+            body: `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive by ${holdTime} (within 15 minutes).`,
+            icon: '/favicon.png',
+            data: {
+              reservationId: (r._id as any).toString(),
+              restaurantId: r.restaurantId.toString(),
+              url: `${base}/#notifications`,
+            },
+          });
+        } catch (pushError) {
+          console.error('[PUSH] Failed to send table ready notification:', pushError);
+        }
+      }
+    }
     
     res.json({ reservation });
   } catch (err) { next(err); }
@@ -587,7 +630,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
       restaurantId: reservation.restaurantId.toString()
     });
     
-    // 6. Emit SSE notification for real-time updates
+    // 6. Emit SSE notification for real-time updates (customer)
     notificationEmitter.notifyReservation(reservationId.toString(), {
       type: 'reservation_updated',
       reservation: {
@@ -600,6 +643,27 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
         seatedAt: updatedReservation.seatedAt,
       }
     });
+    
+    // Note: Staff notifications removed - they only get notified for actual table reservations
+
+    // Send push notification - customer seated
+    try {
+      const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+      const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+      
+      await sendPushToReservation(reservationId.toString(), {
+        title: '✅ You\'re Seated!',
+        body: `You've been seated at ${restaurant?.name || 'the restaurant'}. Enjoy your meal!`,
+        icon: '/favicon.png',
+        data: {
+          reservationId: reservationId.toString(),
+          restaurantId: reservation.restaurantId.toString(),
+          url: `${base}/#notifications`,
+        },
+      });
+    } catch (pushError) {
+      console.error('[PUSH] Failed to send seated notification:', pushError);
+    }
     
     // 7. Return success with complete data
     res.json({

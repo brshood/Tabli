@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -18,6 +18,7 @@ import { Calendar } from './ui/calendar';
 import { openDailySummaryPdf, generateDailySummary } from '../services/analyticsApi';
 import { useRestaurant } from './RestaurantContext';
 import { estimateWaitTimes } from '../utils/waitTimeEstimator';
+import { startStaffSSE, stopStaffSSE } from '../services/staffSSE';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -114,6 +115,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     timer = setInterval(loadReservationsFromDB, 5000);
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
+
+  // Setup SSE connection for real-time staff notifications
+  // Note: This must be after loadReservationsFromDB and loadTablesFromDB are defined
+  // We'll add this effect after those function definitions
 
   // Load tables list for totals and availability
   useEffect(() => {
@@ -527,6 +532,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       console.error('Failed to reload tables:', error);
     }
   };
+
+  // Setup SSE connection for real-time staff notifications
+  // Placed after loadReservationsFromDB and loadTablesFromDB are defined
+  useEffect(() => {
+    if (!staffAuth?.restaurantId) return;
+
+    // Helper to refresh all data
+    const refreshAllData = async () => {
+      await Promise.all([loadReservationsFromDB(), loadTablesFromDB()]);
+    };
+
+    // Start SSE connection with callback to refresh data on events
+    startStaffSSE(staffAuth.restaurantId, refreshAllData);
+
+    // Cleanup: stop SSE when component unmounts or restaurantId changes
+    return () => {
+      stopStaffSSE();
+    };
+  }, [staffAuth?.restaurantId]);
 
   const checkOutTable = async (id: number) => {
     const table = seatedTables.find(item => item.id === id);

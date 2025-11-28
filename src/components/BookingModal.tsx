@@ -477,7 +477,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               className="flex-1 pill-button"
               style={{borderColor: 'var(--where2go-border)', color: 'var(--where2go-text)'}}
             >
-              Cancel
+              {t('action.cancel')}
             </Button>
             <Button
               onClick={handleSubmit}
@@ -488,14 +488,14 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 color: '#FFFFFF',
                 borderColor: '#000000'
               } : {}}
-            >
+              >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Processing...
+                  {mode === 'reserve' ? t('action.confirm') : t('action.standInQueue')}
                 </>
               ) : (
-                mode === 'reserve' ? 'Confirm Reservation' : t('action.standInQueue')
+                mode === 'reserve' ? t('action.confirm') : t('action.standInQueue')
               )}
             </Button>
           </div>

@@ -64,7 +64,7 @@ const getCountdownParts = (totalSeconds: number): CountdownParts => {
 
 function AppContent() {
   const { updateRestaurantInList, allRestaurants } = useRestaurant();
-  const { t } = useLanguage();
+  const { t, direction } = useLanguage();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [previousPage, setPreviousPage] = useState<Page>('landing');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
@@ -839,7 +839,7 @@ function AppContent() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className={`relative min-h-screen overflow-hidden ${direction === 'rtl' ? 'rtl' : 'ltr'}`} dir={direction}>
       {currentPage === 'landing' && <WaveBackground />}
       {/* Navigation */}
       {currentPage !== 'landing' && (

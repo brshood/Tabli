@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
 import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
+import { getTodayStartGST, nowGST } from '../utils/dateFormat';
 
 const DEFAULT_DWELL_MINUTES = 45;
+const DEFAULT_SEED_WAIT_MINUTES = 20; // Default seed wait time when no history exists
 const HISTORY_WINDOW_DAYS = 30;
 const PREP_BUFFER_MINUTES = 2;
 const CLEANING_BUFFER_MINUTES = 5;
@@ -54,6 +56,71 @@ const createObjectId = (id: string): mongoose.Types.ObjectId | null => {
 };
 
 /**
+ * Get average wait time seed for a restaurant on a new day
+ * Looks up previous day's average wait time, or uses default if no history exists
+ * Returns 0 if today already has checkout data (signal to use actual data instead of seed)
+ */
+async function getWaitTimeSeed(restaurantId: mongoose.Types.ObjectId): Promise<number> {
+  const todayStart = getTodayStartGST();
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  
+  // Check if we have any checkout data for today (seated + leftAt)
+  // Once we have checkouts, we can calculate today's actual average, so don't use seed
+  const todayCheckouts = await Reservation.countDocuments({
+    restaurantId,
+    status: 'seated',
+    seatedAt: { $gte: todayStart, $lt: todayEnd },
+    leftAt: { $exists: true, $ne: null, $gte: todayStart, $lt: todayEnd },
+  });
+  
+  // If we have checkouts for today, return 0 (signal to use actual data, not seed)
+  if (todayCheckouts > 0) {
+    return 0; // Signal to use actual data instead of seed
+  }
+  
+  // Look for previous day's average wait time (time from requestedAt to seatedAt)
+  // Try yesterday first, then go back up to 7 days
+  for (let daysBack = 1; daysBack <= 7; daysBack++) {
+    const checkDateStart = new Date(todayStart);
+    checkDateStart.setDate(checkDateStart.getDate() - daysBack);
+    const checkDateEnd = new Date(checkDateStart.getTime() + 24 * 60 * 60 * 1000);
+    
+    // Get seated reservations from that day to calculate average wait time
+    const prevDaySeated = await Reservation.find({
+      restaurantId,
+      status: 'seated',
+      seatedAt: { $gte: checkDateStart, $lt: checkDateEnd },
+      requestedAt: { $exists: true },
+    })
+      .select({ requestedAt: 1, seatedAt: 1 })
+      .lean();
+    
+    if (prevDaySeated.length > 0) {
+      // Calculate average wait time: time from requestedAt to seatedAt
+      const waitTimes = prevDaySeated
+        .map((r: any) => {
+          if (!r.seatedAt || !r.requestedAt) return null;
+          const waitMs = new Date(r.seatedAt).getTime() - new Date(r.requestedAt).getTime();
+          return waitMs > 0 ? Math.round(waitMs / 60000) : null; // Convert to minutes
+        })
+        .filter((val): val is number => val !== null && val > 0);
+      
+      if (waitTimes.length > 0) {
+        const avgWaitMinutes = Math.round(
+          waitTimes.reduce((sum, time) => sum + time, 0) / waitTimes.length
+        );
+        if (avgWaitMinutes > 0) {
+          return avgWaitMinutes;
+        }
+      }
+    }
+  }
+  
+  // No historical data found, use default seed (20 minutes)
+  return DEFAULT_SEED_WAIT_MINUTES;
+}
+
+/**
  * Estimate wait times for the current queue in a restaurant by simulating table availability
  * using historical dwell times and the live state of occupied tables.
  */
@@ -66,10 +133,13 @@ export async function estimateWaitTimes(
     throw new Error('Invalid restaurant id');
   }
 
-  const now = new Date();
+  const now = nowGST();
   const nowMs = now.getTime();
   const historyWindowStart = new Date(now);
   historyWindowStart.setDate(historyWindowStart.getDate() - HISTORY_WINDOW_DAYS);
+  
+  // Get wait time seed for new day (if no checkouts today yet)
+  const waitTimeSeed = await getWaitTimeSeed(restaurantObjectId);
 
   const [waitlist, seatedReservations, tables, dwellAgg] = await Promise.all([
     Reservation.find({
@@ -205,8 +275,10 @@ export async function estimateWaitTimes(
   });
 
   // Without any table data, derive a fallback timeline so we can still return estimates
+  // Use wait time seed if available (for new days), otherwise use dwell time average
   if (availabilityTimeline.length === 0 && waitlist.length > 0) {
-    availabilityTimeline.push(nowMs + overallAvg * 60000);
+    const fallbackMinutes = waitTimeSeed > 0 ? waitTimeSeed : overallAvg;
+    availabilityTimeline.push(nowMs + fallbackMinutes * 60000);
   }
 
   availabilityTimeline.sort((a, b) => a - b);
@@ -283,7 +355,10 @@ export async function estimateWaitTimes(
       availabilityTimeline.push(nextMs);
       availabilityTimeline.sort((a, b) => a - b);
     } else {
-      const fallbackWait = waitlist.length === 0 ? 0 : safeOverallAvg;
+      // Use wait time seed for new days, otherwise use dwell average
+      const fallbackWait = waitlist.length === 0 
+        ? 0 
+        : (waitTimeSeed > 0 ? waitTimeSeed : safeOverallAvg);
       nextPartyEstimate = {
         partySize: size,
         estimatedWaitMinutes: Math.round(fallbackWait),

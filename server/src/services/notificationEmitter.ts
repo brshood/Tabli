@@ -8,8 +8,15 @@ interface SSEClient {
   response: Response;
 }
 
+interface StaffSSEClient {
+  id: string;
+  restaurantId: string;
+  response: Response;
+}
+
 class NotificationEmitter {
   private clients: Map<string, SSEClient[]> = new Map();
+  private staffClients: Map<string, StaffSSEClient[]> = new Map();
 
   /**
    * Register a new SSE client for a specific reservation
@@ -89,7 +96,82 @@ class NotificationEmitter {
   getTotalConnections(): number {
     let total = 0;
     this.clients.forEach(clients => total += clients.length);
+    this.staffClients.forEach(clients => total += clients.length);
     return total;
+  }
+
+  // ===== Staff SSE Methods =====
+
+  /**
+   * Register a new SSE client for a restaurant (for staff)
+   */
+  addStaffClient(restaurantId: string, response: Response): string {
+    const clientId = `staff-${restaurantId}-${Date.now()}-${Math.random()}`;
+    const client: StaffSSEClient = { id: clientId, restaurantId, response };
+
+    if (!this.staffClients.has(restaurantId)) {
+      this.staffClients.set(restaurantId, []);
+    }
+    this.staffClients.get(restaurantId)!.push(client);
+
+    console.log(`[SSE:STAFF] Client ${clientId} connected for restaurant ${restaurantId}`);
+    console.log(`[SSE:STAFF] Total staff clients for ${restaurantId}: ${this.staffClients.get(restaurantId)!.length}`);
+
+    return clientId;
+  }
+
+  /**
+   * Remove a staff client when they disconnect
+   */
+  removeStaffClient(restaurantId: string, clientId: string): void {
+    const clients = this.staffClients.get(restaurantId);
+    if (clients) {
+      const index = clients.findIndex(c => c.id === clientId);
+      if (index !== -1) {
+        clients.splice(index, 1);
+        console.log(`[SSE:STAFF] Client ${clientId} disconnected from restaurant ${restaurantId}`);
+      }
+      if (clients.length === 0) {
+        this.staffClients.delete(restaurantId);
+        console.log(`[SSE:STAFF] No more staff clients for restaurant ${restaurantId}`);
+      }
+    }
+  }
+
+  /**
+   * Send a notification to all staff clients for a restaurant
+   */
+  notifyStaff(restaurantId: string | Types.ObjectId, data: any): void {
+    const id = restaurantId.toString();
+    const clients = this.staffClients.get(id);
+    
+    if (!clients || clients.length === 0) {
+      console.log(`[SSE:STAFF] No staff clients listening for restaurant ${id}`);
+      return;
+    }
+
+    console.log(`[SSE:STAFF] Notifying ${clients.length} staff client(s) for restaurant ${id}`);
+    
+    const deadClients: string[] = [];
+    
+    clients.forEach(client => {
+      try {
+        client.response.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (error) {
+        console.error(`[SSE:STAFF] Failed to send to client ${client.id}:`, error);
+        deadClients.push(client.id);
+      }
+    });
+
+    // Clean up dead connections
+    deadClients.forEach(clientId => this.removeStaffClient(id, clientId));
+  }
+
+  /**
+   * Get count of active staff clients for a restaurant
+   */
+  getStaffClientCount(restaurantId: string): number {
+    return this.staffClients.get(restaurantId)?.length || 0;
   }
 }
 

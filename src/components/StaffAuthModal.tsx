@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Eye, EyeOff, Check, Upload, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
+import { useLanguage } from './LanguageContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -50,6 +51,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { t, isRTL } = useLanguage();
 
   // Reset forms when modal closes
   useEffect(() => {
@@ -382,9 +384,9 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg mx-4 max-h-[90vh] overflow-hidden" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
         <DialogHeader>
-          <DialogTitle style={{color: '#2D2D2B'}}>Staff Access</DialogTitle>
+          <DialogTitle style={{color: '#2D2D2B'}} className={isRTL ? 'font-arabic' : ''}>{t('staff.login.title')}</DialogTitle>
           <DialogDescription style={{color: '#2D2D2B'}}>
-            Log in to your staff account or create a new restaurant account to access the staff dashboard.
+            {t('staff.login.subtitle')}
           </DialogDescription>
         </DialogHeader>
 
@@ -392,8 +394,8 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
           <TabsList className={`grid w-full mb-6 ${activeTab === 'forgot' ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {activeTab !== 'forgot' && (
               <>
-                <TabsTrigger value="login" style={{color: '#5A5E3E'}}>Log in</TabsTrigger>
-                <TabsTrigger value="signup" style={{color: '#5A5E3E'}}>Sign up</TabsTrigger>
+                <TabsTrigger value="login" style={{color: '#5A5E3E'}}>{t('staff.login.button')}</TabsTrigger>
+                <TabsTrigger value="signup" style={{color: '#5A5E3E'}}>{t('staff.signup.title')}</TabsTrigger>
               </>
             )}
             {activeTab === 'forgot' && (
@@ -405,7 +407,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
 
           <TabsContent value="login" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="loginEmail" style={{color: '#2D2D2B'}}>Email</Label>
+              <Label htmlFor="loginEmail" style={{color: '#2D2D2B'}}>{t('staff.login.email')}</Label>
               <Input
                 id="loginEmail"
                 type="email"
@@ -421,7 +423,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="loginPassword" style={{color: '#2D2D2B'}}>Password</Label>
+              <Label htmlFor="loginPassword" style={{color: '#2D2D2B'}}>{t('staff.login.password')}</Label>
               <div className="relative">
                 <Input
                   id="loginPassword"
@@ -452,7 +454,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
               disabled={isLoading}
               className="w-full pill-button cta-button"
             >
-              {isLoading ? 'Logging in...' : 'Log in'}
+              {isLoading ? 'Logging in...' : t('staff.login.button')}
             </Button>
 
             <div className="text-center mt-4">
@@ -462,7 +464,7 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
                 className="text-sm px-0"
                 style={{color: '#5A5E3E'}}
               >
-                Forgot your password?
+                {t('staff.login.forgotPassword')}
               </Button>
             </div>
           </TabsContent>

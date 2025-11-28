@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from './LanguageContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -31,6 +32,7 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [improvements, setImprovements] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { t, isRTL } = useLanguage();
 
   // Reset form when modal closes
   useEffect(() => {
@@ -103,11 +105,11 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
               <MessageSquare className="h-5 w-5" style={{color: 'var(--where2go-accent)'}} />
             </div>
             <div>
-              <DialogTitle style={{color: 'var(--where2go-text)'}}>
-                Quick Feedback
+              <DialogTitle style={{color: 'var(--where2go-text)'}} className={isRTL ? 'font-arabic' : ''}>
+                {t('survey.title')}
               </DialogTitle>
-              <DialogDescription style={{color: 'var(--where2go-text)', opacity: 0.7}}>
-                Help us improve your experience
+              <DialogDescription style={{color: 'var(--where2go-text)', opacity: 0.7}} className={isRTL ? 'font-arabic' : ''}>
+                {t('survey.subtitle')}
               </DialogDescription>
             </div>
           </div>
@@ -116,8 +118,8 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
         <div className="space-y-4 mt-4">
           {/* How did you hear about us */}
           <div className="space-y-2">
-            <Label htmlFor="hearAboutUs" style={{color: 'var(--where2go-text)'}}>
-              How did you hear about {restaurantName}?
+            <Label htmlFor="hearAboutUs" style={{color: 'var(--where2go-text)'}} className={isRTL ? 'font-arabic' : ''}>
+              {t('survey.hearAboutUs').replace('{restaurant}', restaurantName)}
             </Label>
             <Select value={hearAboutUs} onValueChange={setHearAboutUs}>
               <SelectTrigger 
@@ -136,8 +138,8 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
 
           {/* Special Requirements (Optional) */}
           <div className="space-y-2">
-            <Label htmlFor="specialRequirements" style={{color: 'var(--where2go-text)'}}>
-              Any special requirements? <span className="text-sm opacity-60">(Optional)</span>
+            <Label htmlFor="specialRequirements" style={{color: 'var(--where2go-text)'}} className={isRTL ? 'font-arabic' : ''}>
+              {t('survey.specialRequirements')} <span className="text-sm opacity-60">(Optional)</span>
             </Label>
             <Textarea
               id="specialRequirements"
@@ -152,8 +154,8 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
 
           {/* What can we improve (Optional) */}
           <div className="space-y-2">
-            <Label htmlFor="improvements" style={{color: 'var(--where2go-text)'}}>
-              What can we improve? <span className="text-sm opacity-60">(Optional)</span>
+            <Label htmlFor="improvements" style={{color: 'var(--where2go-text)'}} className={isRTL ? 'font-arabic' : ''}>
+              {t('survey.improvements')} <span className="text-sm opacity-60">(Optional)</span>
             </Label>
             <Textarea
               id="improvements"
@@ -173,8 +175,8 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
               onClick={handleSkip}
               className="flex-1 pill-button"
               style={{borderColor: 'var(--where2go-border)', color: 'var(--where2go-text)'}}
-            >
-              Skip
+              >
+              {t('survey.skip')}
             </Button>
             <Button
               onClick={handleSubmit}
@@ -187,7 +189,7 @@ export function PostBookingSurveyModal({ isOpen, onClose, restaurantName, reserv
                   Submitting...
                 </>
               ) : (
-                'Submit'
+                t('survey.submit')
               )}
             </Button>
           </div>

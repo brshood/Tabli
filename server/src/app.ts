@@ -23,6 +23,7 @@ import { menusRouter } from './routes/menus';
 import { adminRouter } from './routes/admin';
 import { contactRouter } from './routes/contact';
 import { sseRouter } from './routes/sse';
+import { pushRouter } from './routes/push';
 
 // Global rate limiter: 500 requests per 15 minutes
 const globalLimiter = rateLimit({
@@ -95,6 +96,7 @@ export function createApp(): Application {
   app.use('/admin', adminRouter);
   app.use('/contact', contactRouter);
   app.use('/sse', sseRouter);
+  app.use('/push', pushRouter);
 
   // 404 handler
   app.use((req, res) => {
