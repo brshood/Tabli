@@ -1097,12 +1097,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           name: customerName,
           partySize: partySize,
           contactMethod: 'phone',
-          phone: '0000000000' // Placeholder for walk-ins
+          phone: '0000000000', // Placeholder for walk-ins
+          email: 'walkin@tabli.app' // Placeholder email for walk-ins (required by schema)
         })
       });
       
       if (!createResponse.ok) {
-        throw new Error('Failed to create reservation record');
+        const errorData = await createResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create reservation record');
       }
       
       const reservationData = await createResponse.json();
@@ -1118,8 +1120,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       });
       
       if (!assignResponse.ok) {
-        const errorData = await assignResponse.json();
-        throw new Error(errorData.error || 'Failed to assign table');
+        const errorData = await assignResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to assign table to reservation');
       }
       
       const assignData = await assignResponse.json();
