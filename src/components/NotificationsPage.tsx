@@ -13,6 +13,7 @@ import { forceRefreshReservation } from '../services/reservationPolling';
 import { toast } from 'sonner';
 import { QueueCountdownTimer } from './QueueCountdownTimer';
 import { useLanguage } from './LanguageContext';
+import { requestPermissionAndPrepareSubscription, completeSubscription, isPushSupported, getNotificationPermission } from '../services/pushSubscription';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -39,7 +40,16 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [reservationToCancel, setReservationToCancel] = useState<ReservationHistoryItem | null>(null);
   const [queueEstimates, setQueueEstimates] = useState<Record<string, { estimatedWaitMinutes: number; lastFetched: number }>>({});
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
   const { t } = useLanguage();
+  
+  // Check notification permission status
+  useEffect(() => {
+    if (isPushSupported()) {
+      setNotificationPermission(getNotificationPermission());
+    }
+  }, []);
 
   const loadData = async () => {
     setIsRefreshingAll(true);
@@ -147,11 +157,13 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Listen for storage events to catch SSE updates
+  // Listen for storage events to catch SSE updates and cross-context sync (Safari/PWA)
   useEffect(() => {
-    const handleStorageChange = () => {
-      // Reload data when localStorage changes (SSE updates)
-      loadData();
+    const handleStorageChange = (e: StorageEvent) => {
+      // Reload data when localStorage changes (from SSE updates or cross-context sync)
+      if (e.key === 'tabli_active_reservation' || e.key === 'tabli_reservation_history') {
+        loadData();
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -164,9 +176,20 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     
     window.addEventListener('reservation:updated', handleReservationUpdate as any);
     
+    // Listen for cross-context sync events (Safari/PWA)
+    const handleCrossContextSync = () => {
+      loadData();
+      setTimeUpdateTick(prev => prev + 1);
+    };
+    
+    window.addEventListener('tabli:reservation-updated', handleCrossContextSync as any);
+    window.addEventListener('tabli:reservation-history-updated', handleCrossContextSync as any);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('reservation:updated', handleReservationUpdate as any);
+      window.removeEventListener('tabli:reservation-updated', handleCrossContextSync as any);
+      window.removeEventListener('tabli:reservation-history-updated', handleCrossContextSync as any);
     };
   }, []);
 
@@ -477,6 +500,54 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     );
   };
 
+  const handleEnableNotifications = async () => {
+    if (!isPushSupported()) {
+      toast.error('Push notifications are not supported in this browser');
+      return;
+    }
+
+    setEnablingNotifications(true);
+    try {
+      // Request permission (must be from user gesture for iOS)
+      const granted = await requestPermissionAndPrepareSubscription();
+      
+      if (granted) {
+        // Complete subscription for any existing reservations
+        const activeReservations = reservations.filter(r => 
+          r.status === 'pending' || r.status === 'confirmed'
+        );
+        
+        for (const reservation of activeReservations) {
+          try {
+            await completeSubscription({
+              reservationId: reservation.reservationId,
+            });
+          } catch (err) {
+            console.error(`Failed to subscribe for reservation ${reservation.reservationId}:`, err);
+          }
+        }
+        
+        setNotificationPermission('granted');
+        toast.success('Notifications enabled! You will receive alerts about your reservations.');
+      } else {
+        const permission = getNotificationPermission();
+        setNotificationPermission(permission);
+        if (permission === 'denied') {
+          toast.error('Notification permission denied. Please enable it in your browser settings.');
+        } else {
+          toast.error('Failed to enable notifications');
+        }
+      }
+    } catch (error: any) {
+      console.error('[PUSH] Failed to enable notifications:', error);
+      const permission = getNotificationPermission();
+      setNotificationPermission(permission);
+      toast.error(error.message || 'Failed to enable notifications');
+    } finally {
+      setEnablingNotifications(false);
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'success':
@@ -517,6 +588,47 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Left Column - Reservations */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Notification Permission Prompt */}
+              {isPushSupported() && notificationPermission !== 'granted' && (
+                <Card className="card-shadow border-0 rounded-3xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 mt-1">
+                        <Bell className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                          Enable Push Notifications
+                        </h3>
+                        <p className="text-sm text-blue-800 mb-4">
+                          Get instant alerts when your table is ready, even when the app is closed.
+                          Never miss an update about your reservations!
+                        </p>
+                        <div className="flex gap-3">
+                          <Button
+                            onClick={handleEnableNotifications}
+                            disabled={enablingNotifications}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            size="sm"
+                          >
+                            {enablingNotifications ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Enabling...
+                              </>
+                            ) : (
+                              <>
+                                <Bell className="h-4 w-4 mr-2" />
+                                Enable Notifications
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <Card className="border-0 shadow-lg bg-white">
                 <CardHeader style={{ backgroundColor: '#EBD3A2', borderBottom: '1px solid #D4B896' }}>
                   <CardTitle className="flex items-center justify-between">

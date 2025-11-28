@@ -46,7 +46,26 @@ export function addReservationToHistory(reservation: ReservationHistoryItem): vo
     // Keep only MAX_HISTORY most recent
     const trimmed = history.slice(0, MAX_HISTORY);
     
+    // Get old value BEFORE setting new value
+    const oldValue = localStorage.getItem(STORAGE_KEY);
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    
+    // Dispatch storage event to sync across Safari/PWA contexts
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify(trimmed),
+        oldValue: oldValue,
+        storageArea: localStorage,
+      }));
+      
+      window.dispatchEvent(new CustomEvent('tabli:reservation-history-updated', {
+        detail: { reservation }
+      }));
+    } catch (eventError) {
+      console.warn('[SYNC] Failed to dispatch storage event:', eventError);
+    }
   } catch (error) {
     console.error('Failed to add reservation to history:', error);
   }
@@ -91,7 +110,27 @@ export function updateReservationInHistory(reservationId: string, updates: Parti
     
     if (index >= 0) {
       history[index] = { ...history[index], ...updates };
+      
+      // Get old value BEFORE setting new value
+      const oldValue = localStorage.getItem(STORAGE_KEY);
+      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      
+      // Dispatch storage event to sync across Safari/PWA contexts
+      try {
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: STORAGE_KEY,
+          newValue: JSON.stringify(history),
+          oldValue: oldValue,
+          storageArea: localStorage,
+        }));
+        
+        window.dispatchEvent(new CustomEvent('tabli:reservation-history-updated', {
+          detail: { reservationId, updates }
+        }));
+      } catch (eventError) {
+        console.warn('[SYNC] Failed to dispatch storage event:', eventError);
+      }
     }
   } catch (error) {
     console.error('Failed to update reservation in history:', error);

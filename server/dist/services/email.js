@@ -2,6 +2,24 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 let transporter = null;
 const NOTIFICATIONS_URL = 'https://tabliapp.com/#notifications';
+/**
+ * Validate if an email address is valid and can be used for sending emails
+ * @param email - Email address to validate
+ * @returns true if email is valid and not a placeholder, false otherwise
+ */
+export function isValidEmailForSending(email) {
+    if (!email || typeof email !== 'string') {
+        return false;
+    }
+    // Check for placeholder/empty emails
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || trimmedEmail === '' || trimmedEmail === 'walkin@tabli.app') {
+        return false;
+    }
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(trimmedEmail);
+}
 const baseEmailStyles = {
     body: 'margin:0;padding:0;font-family:\'Segoe UI\',Tahoma,sans-serif;background-color:#f7f5ed;color:#2d2d2b;',
     container: 'max-width:520px;margin:0 auto;padding:32px 24px;',
@@ -27,7 +45,7 @@ export function buildEmailTemplate(options) {
     // Add notifications link to footer if requested
     let footerText = footer || '';
     if (includeNotificationsLink) {
-        const notificationsLinkText = `You can check up on your reservations at <a href="${NOTIFICATIONS_URL}" style="${baseEmailStyles.link}">${NOTIFICATIONS_URL}</a>.`;
+        const notificationsLinkText = `You can check up on your reservations <a href="${NOTIFICATIONS_URL}" style="${baseEmailStyles.link}">click here</a>.`;
         footerText = footerText
             ? `${footerText}<br><br>${notificationsLinkText}`
             : notificationsLinkText;

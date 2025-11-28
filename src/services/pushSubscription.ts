@@ -95,30 +95,56 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /**
- * Subscribe to push notifications
+ * Request notification permission (iOS-safe - must be called directly from user gesture)
+ * This function ensures service worker is ready before requesting permission
  */
-export async function subscribeToPush(options?: {
-  reservationId?: string;
-  userId?: string;
-  restaurantId?: string; // For staff notifications
-}): Promise<PushSubscription | null> {
+export async function requestPermissionAndPrepareSubscription(): Promise<boolean> {
   try {
     // Check support
     if (!isPushSupported()) {
       console.warn('[PUSH] Push notifications not supported');
-      return null;
+      return false;
+    }
+
+    // Check if already granted
+    if (Notification.permission === 'granted') {
+      console.log('[PUSH] Permission already granted');
+      return true;
     }
 
     // CRITICAL for iOS: Register and wait for service worker to be ready BEFORE requesting permission
     const registration = await getServiceWorkerRegistration();
     await navigator.serviceWorker.ready; // Wait for service worker to be fully active
     
-    // NOW request permission (must be after user gesture for iOS)
+    // NOW request permission (must be directly from user gesture for iOS)
     const permission = await requestNotificationPermission();
     if (permission !== 'granted') {
       console.warn('[PUSH] Notification permission denied');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[PUSH] Failed to request permission:', error);
+    return false;
+  }
+}
+
+/**
+ * Complete push notification subscription (called after permission is granted)
+ */
+export async function completeSubscription(options?: {
+  reservationId?: string;
+  userId?: string;
+  restaurantId?: string;
+}): Promise<PushSubscription | null> {
+  try {
+    if (!isPushSupported()) {
       return null;
     }
+
+    const registration = await getServiceWorkerRegistration();
+    await navigator.serviceWorker.ready;
 
     // Check if already subscribed
     const existingSubscription = await registration.pushManager.getSubscription();
@@ -143,6 +169,47 @@ export async function subscribeToPush(options?: {
 
     console.log('[PUSH] Successfully subscribed to push notifications');
     return subscription;
+  } catch (error) {
+    console.error('[PUSH] Failed to complete subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Subscribe to push notifications
+ * For iOS compatibility, use requestPermissionAndPrepareSubscription() first
+ * then call this function after async operations complete
+ */
+export async function subscribeToPush(options?: {
+  reservationId?: string;
+  userId?: string;
+  restaurantId?: string; // For staff notifications
+}): Promise<PushSubscription | null> {
+  try {
+    // Check support
+    if (!isPushSupported()) {
+      console.warn('[PUSH] Push notifications not supported');
+      return null;
+    }
+
+    // Check permission status
+    const permission = Notification.permission;
+    if (permission === 'denied') {
+      console.warn('[PUSH] Notification permission denied');
+      return null;
+    }
+
+    if (permission !== 'granted') {
+      // Permission not yet requested - request it now
+      // NOTE: On iOS, this may fail if not called from user gesture
+      const granted = await requestPermissionAndPrepareSubscription();
+      if (!granted) {
+        return null;
+      }
+    }
+
+    // Complete the subscription
+    return await completeSubscription(options);
   } catch (error) {
     console.error('[PUSH] Failed to subscribe:', error);
     throw error;

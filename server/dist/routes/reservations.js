@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
-import { sendEmail, buildEmailTemplate } from '../services/email';
+import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime } from '../utils/dateFormat';
@@ -106,7 +106,7 @@ reservationsRouter.post('/', async (req, res, next) => {
                 ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready.`
                 : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
             try {
-                if (data.email) {
+                if (isValidEmailForSending(data.email)) {
                     const introName = data.name ? `Hi ${data.name},` : 'Hello,';
                     // #11 - Construct frontend URL for cancel link
                     const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
@@ -276,8 +276,14 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                 holdUntil.setMinutes(holdUntil.getMinutes() + 15);
                 r.holdUntil = holdUntil;
                 r.holdStatus = 'active';
+                // Recalculate queue positions if customer was in waitlist queue
+                // When checked in, they're still in queue but we need to notify others of position changes
+                if (r.mode === 'waitlist' && typeof r.queuePosition === 'number') {
+                    // Customer is being checked in but still in queue - no position change needed
+                    // Queue positions will update when they're seated or removed
+                }
                 // Send email notification about hold
-                if (r.email) {
+                if (r.email && isValidEmailForSending(r.email)) {
                     try {
                         const restaurant = await Restaurant.findById(r.restaurantId).lean();
                         const holdTime = formatUaeTime(holdUntil);
@@ -416,7 +422,7 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
         reservation.cancellationReason = 'user_cancelled'; // Track that user cancelled
         await reservation.save();
         // Send cancellation confirmation email if customer provided email
-        if (reservation.email) {
+        if (reservation.email && isValidEmailForSending(reservation.email)) {
             try {
                 await sendEmail({
                     to: reservation.email,
@@ -496,18 +502,23 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
         // Use custom message/subject from request body if provided, otherwise use default
         const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 15 minutes to secure your reservation.`;
         const subject = req.body?.subject || 'Your table is ready';
-        if (r.email) {
-            await sendEmail({
-                to: r.email,
-                subject,
-                text: message,
-                html: buildEmailTemplate({
-                    heading: subject,
-                    intro: `Hi${r.name ? ` ${r.name}` : ''},`,
-                    lines: [message],
-                    includeNotificationsLink: true,
-                }),
-            });
+        if (r.email && isValidEmailForSending(r.email)) {
+            try {
+                await sendEmail({
+                    to: r.email,
+                    subject,
+                    text: message,
+                    html: buildEmailTemplate({
+                        heading: subject,
+                        intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+                        lines: [message],
+                        includeNotificationsLink: true,
+                    }),
+                });
+            }
+            catch (emailError) {
+                console.error('Failed to send manual notification email:', emailError);
+            }
         }
         res.json({ success: true });
     }
@@ -632,6 +643,44 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
             }
             return res.status(500).json({ error: 'Failed to assign table. Please try again.' });
         }
+        // 4.5. Recalculate queue positions for remaining customers after seating
+        // When a customer is seated, they're removed from the queue, so everyone behind moves up
+        const oldQueuePosition = reservation.queuePosition;
+        if (typeof oldQueuePosition === 'number' && reservation.mode === 'waitlist') {
+            // First, find all affected reservations BEFORE updating their positions
+            const affectedReservations = await Reservation.find({
+                restaurantId: reservation.restaurantId,
+                mode: 'waitlist',
+                status: { $in: ['pending', 'confirmed'] },
+                queuePosition: { $gt: oldQueuePosition },
+                _id: { $ne: reservationId }
+            }).lean();
+            // Decrement queue position for all customers who were behind this one
+            await Reservation.updateMany({
+                restaurantId: reservation.restaurantId,
+                mode: 'waitlist',
+                status: { $in: ['pending', 'confirmed'] },
+                queuePosition: { $gt: oldQueuePosition },
+                _id: { $ne: reservationId }
+            }, { $inc: { queuePosition: -1 } });
+            // Emit SSE updates for all affected reservations so their queue positions update in real-time
+            // Fetch updated reservations with new positions
+            for (const affected of affectedReservations) {
+                const updatedAffectedRes = await Reservation.findById(affected._id).lean();
+                if (updatedAffectedRes) {
+                    notificationEmitter.notifyReservation(updatedAffectedRes._id.toString(), {
+                        type: 'reservation_updated',
+                        reservation: {
+                            _id: updatedAffectedRes._id.toString(),
+                            status: updatedAffectedRes.status,
+                            queuePosition: updatedAffectedRes.queuePosition,
+                            holdUntil: updatedAffectedRes.holdUntil,
+                            holdStatus: updatedAffectedRes.holdStatus,
+                        }
+                    });
+                }
+            }
+        }
         // 5. Log the action for audit trail
         console.log({
             action: 'ASSIGN_TABLE',
@@ -683,7 +732,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
             message: `Assigned to ${selectedTable.name}`
         });
         // 7. Notify guest if applicable (queue to table promotion)
-        if (reservation.email) {
+        if (reservation.email && isValidEmailForSending(reservation.email)) {
             try {
                 const restaurantName = (await Restaurant.findById(reservation.restaurantId).lean())?.name || 'your restaurant';
                 const notificationMessage = `Good news! Your table at ${restaurantName} is ready. Please proceed to the host stand to be seated.`;

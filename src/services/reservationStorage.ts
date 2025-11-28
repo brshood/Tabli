@@ -22,10 +22,32 @@ const STORAGE_KEY = 'tabli_active_reservation';
 
 /**
  * Save active reservation to localStorage
+ * Also triggers a storage event to sync across Safari/PWA contexts
  */
 export function saveActiveReservation(reservation: ActiveReservation): void {
   try {
+    // Get old value BEFORE setting new value
+    const oldValue = localStorage.getItem(STORAGE_KEY);
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reservation));
+    
+    // Dispatch a custom storage event to sync across Safari/PWA contexts
+    // (native storage events only fire in OTHER windows, not the same window)
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify(reservation),
+        oldValue: oldValue,
+        storageArea: localStorage,
+      }));
+      
+      // Also dispatch a custom event for our app-specific listeners
+      window.dispatchEvent(new CustomEvent('tabli:reservation-updated', {
+        detail: { reservation }
+      }));
+    } catch (eventError) {
+      console.warn('[SYNC] Failed to dispatch storage event:', eventError);
+    }
   } catch (error) {
     console.error('Failed to save reservation to localStorage:', error);
   }

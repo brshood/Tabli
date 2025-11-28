@@ -89,14 +89,40 @@ function AppContent() {
   );
 
   // #13 - Load active reservation and start SSE connection
+  // Also listen for cross-context sync (Safari/PWA)
   useEffect(() => {
-    const reservation = getActiveReservation();
-    if (reservation) {
-      setActiveReservation(reservation);
-      startReservationSSE(reservation);
-    }
+    const loadReservation = () => {
+      const reservation = getActiveReservation();
+      if (reservation) {
+        setActiveReservation(reservation);
+        startReservationSSE(reservation);
+      } else {
+        setActiveReservation(null);
+        stopReservationSSE();
+      }
+    };
+
+    // Load on mount
+    loadReservation();
+
+    // Listen for storage events (cross-context sync between Safari/PWA)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tabli_active_reservation') {
+        loadReservation();
+      }
+    };
+
+    // Listen for custom events (same-context sync)
+    const handleReservationSync = (e: CustomEvent) => {
+      loadReservation();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('tabli:reservation-updated', handleReservationSync as any);
 
     return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('tabli:reservation-updated', handleReservationSync as any);
       stopReservationSSE();
     };
   }, []);
