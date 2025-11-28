@@ -496,7 +496,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           return {
             id: idx + 1,
             reservationId: r._id,
-            tableId: r.tableId,
+            tableId: r.tableId ? String(r.tableId) : undefined, // Ensure tableId is always a string
             table: tableName,
             guests: r.name || 'Seated Party',
             partySize: r.partySize || 2,

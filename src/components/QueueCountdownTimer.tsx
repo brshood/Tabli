@@ -24,11 +24,18 @@ export function QueueCountdownTimer({
   const [error, setError] = useState<string | null>(null);
   const hasReachedZeroRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
+  const queuePositionRef = useRef(queuePosition);
+  const prevQueuePositionRef = useRef<number | undefined>(queuePosition);
+  const lastFetchTimeRef = useRef<number>(0);
 
-  // Update ref when countdown changes
+  // Update refs when props change
   useEffect(() => {
     countdownRef.current = countdownSeconds;
   }, [countdownSeconds]);
+
+  useEffect(() => {
+    queuePositionRef.current = queuePosition;
+  }, [queuePosition]);
 
   // Function to fetch estimate and update countdown
   const fetchEstimate = useCallback(async (forceRefresh: boolean = false) => {
@@ -61,6 +68,7 @@ export function QueueCountdownTimer({
         if (reservationEstimate) {
           const waitMinutes = reservationEstimate.estimatedWaitMinutes || 0;
           const estimatedSeatTime = reservationEstimate.estimatedSeatTime;
+          const newQueuePosition = reservationEstimate.queuePosition;
           
           setEstimatedWaitMinutes(waitMinutes);
           
@@ -80,10 +88,14 @@ export function QueueCountdownTimer({
             hasReachedZeroRef.current = totalSeconds === 0;
           }
           
-          // Check if position changed
-          if (reservationEstimate.queuePosition !== queuePosition && onPositionUpdate) {
-            onPositionUpdate(reservationEstimate.queuePosition);
+          // Only call onPositionUpdate if position actually changed
+          if (prevQueuePositionRef.current !== undefined && 
+              newQueuePosition !== prevQueuePositionRef.current && 
+              onPositionUpdate) {
+            onPositionUpdate(newQueuePosition);
           }
+          prevQueuePositionRef.current = newQueuePosition;
+          lastFetchTimeRef.current = Date.now();
         } else {
           // Use nextPartyEstimate as fallback
           const nextEstimate = estimates?.nextPartyEstimate;
@@ -105,6 +117,7 @@ export function QueueCountdownTimer({
               hasReachedZeroRef.current = totalSeconds === 0;
             }
           }
+          lastFetchTimeRef.current = Date.now();
         }
       }
     } catch (err) {
@@ -113,12 +126,30 @@ export function QueueCountdownTimer({
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId, partySize, reservationId, queuePosition, onPositionUpdate]);
+  }, [restaurantId, partySize, reservationId, onPositionUpdate]); // Removed queuePosition from deps
 
-  // Initial fetch on mount
+  // Initial fetch on mount or when reservationId changes
   useEffect(() => {
+    prevQueuePositionRef.current = queuePosition;
     fetchEstimate(true);
-  }, [fetchEstimate]);
+  }, [reservationId, fetchEstimate]); // Include fetchEstimate but it's now stable
+
+  // Handle queue position changes - only refetch if position actually changed and countdown is at 0
+  useEffect(() => {
+    // Only refetch if position changed AND countdown is at 0/null
+    if (prevQueuePositionRef.current !== undefined && 
+        prevQueuePositionRef.current !== queuePosition) {
+      // Position changed - but only refetch if countdown is already at 0
+      if (countdownRef.current === null || countdownRef.current <= 0) {
+        // Don't refetch if we just fetched recently (within last 5 seconds)
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch > 5000) {
+          fetchEstimate(true);
+        }
+      }
+    }
+    prevQueuePositionRef.current = queuePosition;
+  }, [queuePosition, fetchEstimate]);
 
   // Periodic refresh - only when countdown is at 0
   useEffect(() => {

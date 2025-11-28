@@ -140,8 +140,9 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       restaurantId: table.restaurantId.toString()
     });
     
-    // 7. Send thank-you email with rating link if applicable
-    if (reservation.email) {
+    // 7. Send thank-you email with rating link if applicable (skip for walk-ins)
+    const isWalkIn = reservation.phone === '0000000000' || reservation.email === 'walkin@tabli.app';
+    if (reservation.email && !isWalkIn) {
       try {
         const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
         const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
@@ -158,7 +159,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
               restaurant?.name
                 ? `We hope you enjoyed your time at ${restaurant.name}.`
                 : 'We hope you enjoyed your dining experience.',
-              'We’d love to hear how everything went—share your thoughts with us!',
+              "We'd love to hear how everything went - share your thoughts with us!",
             ],
             actionText: 'Leave a quick rating',
             actionUrl: ratingLink,
