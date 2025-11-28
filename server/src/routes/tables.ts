@@ -159,7 +159,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
               restaurant?.name
                 ? `We hope you enjoyed your time at ${restaurant.name}.`
                 : 'We hope you enjoyed your dining experience.',
-              'We'd love to hear how everything went—share your thoughts with us!',
+              "We'd love to hear how everything went - share your thoughts with us!",
             ],
             actionText: 'Leave a quick rating',
             actionUrl: ratingLink,
