@@ -461,7 +461,8 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run main when this file is executed directly
+if (import.meta.url.endsWith(process.argv[1]) || import.meta.url.includes('stress-test.ts')) {
   main();
 }
 
