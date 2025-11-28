@@ -45,6 +45,9 @@ export function RestaurantProfilePage({ restaurant, onNavigate, onImagesLoaded }
 
   // #14 - Detect when all key images (including cover) have loaded
   useEffect(() => {
+    // Reset loading state when restaurant changes
+    setImagesLoaded(false);
+    
     const imagesToLoad: string[] = [];
     
     // Collect all image URLs from restaurant gallery
@@ -92,7 +95,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate, onImagesLoaded }
         checkAllLoaded();
       }
     });
-  }, [restaurant.photos, restaurant.coverImage]);
+  }, [restaurant.id, restaurant.photos, restaurant.coverImage, onImagesLoaded]);
 
   // Load menu when component mounts
   useEffect(() => {

@@ -90,6 +90,11 @@ function AppContent() {
     []
   );
 
+  // Reset images loaded state whenever the selected restaurant changes
+  useEffect(() => {
+    setRestaurantProfileImagesLoaded(false);
+  }, [selectedRestaurant?.id]);
+
   // #13 - Load active reservation and start SSE connection
   useEffect(() => {
     const reservation = getActiveReservation();
