@@ -382,7 +382,8 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           </div>
 
           {/* Queue Position / Hold Timer */}
-          {reservation.mode === 'waitlist' && reservation.queuePosition && reservation.status === 'pending' && (
+          {/* HIDDEN: Timer countdown and estimated wait time removed from user view */}
+          {/* {reservation.mode === 'waitlist' && reservation.queuePosition && reservation.status === 'pending' && (
             <QueueCountdownTimer
               reservationId={reservation.reservationId}
               restaurantId={reservation.restaurantId}
@@ -394,7 +395,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                 loadData();
               }}
             />
-          )}
+          )} */}
 
           {reservation.status === 'confirmed' && reservation.holdUntil && reservation.holdStatus === 'active' && (
             <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 mb-3">

@@ -88,6 +88,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [checkingInIds, setCheckingInIds] = useState<Set<number>>(new Set());
   const [seatingIds, setSeatingIds] = useState<Set<number>>(new Set());
   const [checkingOutIds, setCheckingOutIds] = useState<Set<number>>(new Set());
+  const [seatingWalkIn, setSeatingWalkIn] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [enablingNotifications, setEnablingNotifications] = useState(false);
@@ -672,12 +673,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     // Set loading state
     setCheckingOutIds(prev => new Set(prev).add(id));
     
+    const reservationId = (table as any).reservationId;
+    
     try {
-      // Use the enhanced checkout endpoint for atomic database updates
-      const response = await fetch(`${API_URL}/tables/${tableId}/checkout`, {
+      // Try checkout by table ID first
+      let response = await fetch(`${API_URL}/tables/${tableId}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
+      
+      // If table not found (404), try checkout by reservation ID
+      if (!response.ok && response.status === 404 && reservationId) {
+        console.log('Table not found, trying checkout by reservation ID:', reservationId);
+        response = await fetch(`${API_URL}/tables/checkout-by-reservation/${reservationId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -692,7 +704,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         loadTablesFromDB()
       ]);
       
-      toast.success(`${table.table} checked out successfully (${data.dwellTimeMinutes} min)`);
+      toast.success(`${table.table || 'Table'} checked out successfully (${data.dwellTimeMinutes || 0} min)`);
     } catch (error: any) {
       console.error('Error checking out table:', error);
       toast.error(error.message || 'Failed to check out table');
@@ -1122,11 +1134,12 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   };
 
   const handleSeatWalkIn = async () => {
-    if (!validateWalkInForm() || !selectedTableForSeating) return;
+    if (!validateWalkInForm() || !selectedTableForSeating || seatingWalkIn) return;
 
     const partySize = walkInPartySize;
     const customerName = walkInCustomerName.trim() || 'Walk-in Customer';
 
+    setSeatingWalkIn(true);
     try {
       // 1. Create reservation record for walk-in (proper data recording)
       const createResponse = await fetch(`${API_URL}/reservations`, {
@@ -1189,6 +1202,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         loadReservationsFromDB(),
         loadTablesFromDB()
       ]);
+    } finally {
+      setSeatingWalkIn(false);
     }
   };
 
@@ -2270,10 +2285,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             </Button>
             <Button
               onClick={handleSeatWalkIn}
+              disabled={seatingWalkIn}
               className="text-white"
               style={{backgroundColor: '#3F4427'}}
             >
-              Seat Guest
+              {seatingWalkIn ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Seating...
+                </>
+              ) : (
+                'Seat Guest'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

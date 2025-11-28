@@ -291,13 +291,14 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               </div>
               <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{formattedQueueCount}</span>
             </div>
-            <div className="flex items-center justify-between">
+            {/* HIDDEN: Estimated wait time removed from user view */}
+            {/* <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
                 <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>Estimated wait:</span>
               </div>
               <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{waitLabel}</span>
-            </div>
+            </div> */}
           </div>
         )}
 
