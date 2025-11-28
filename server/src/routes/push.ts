@@ -67,7 +67,7 @@ pushRouter.post('/subscribe', async (req, res, next) => {
     res.status(201).json({ 
       success: true, 
       message: 'Subscription created',
-      id: subscription._id.toString(),
+      id: (subscription._id as any).toString(),
     });
   } catch (err) {
     next(err);

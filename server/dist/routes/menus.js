@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { Menu } from '../models/Menu';
+import { Restaurant } from '../models/Restaurant';
 import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 export const menusRouter = express.Router();
 const menuItemSchema = z.object({
@@ -32,12 +33,24 @@ menusRouter.get('/:restaurantId', async (req, res, next) => {
                 __v: 0,
             };
         }
+        // Also fetch menu documents (PDFs/images) from restaurant
+        const restaurant = await Restaurant.findById(restaurantId).lean();
+        const menuDocuments = (restaurant?.mediaRefs || [])
+            .filter((doc) => doc.category === 'menu' && doc.isActive)
+            .map((doc) => ({
+            fileId: doc.fileId.toString(),
+            filename: doc.filename,
+            contentType: doc.contentType,
+            type: doc.type,
+            menuType: doc.menuType || 'general',
+        }));
         // TypeScript now knows menu is not null
         res.json({
             menu: {
                 restaurantId: menu.restaurantId.toString(),
                 items: menu.items || [],
-            }
+            },
+            menuDocuments: menuDocuments,
         });
     }
     catch (err) {

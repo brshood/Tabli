@@ -297,6 +297,26 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
             console.error('Failed to send hold notification email:', emailError);
           }
         }
+
+        // Send push notification - table is ready
+        try {
+          const restaurant = await Restaurant.findById(r.restaurantId).lean();
+          const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+          const holdTime = formatUaeTime(holdUntil);
+          
+          await sendPushToReservation((r._id as any).toString(), {
+            title: '🎉 Table Ready!',
+            body: `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive by ${holdTime} (within 15 minutes).`,
+            icon: '/favicon.png',
+            data: {
+              reservationId: (r._id as any).toString(),
+              restaurantId: r.restaurantId.toString(),
+              url: `${base}/#notifications`,
+            },
+          });
+        } catch (pushError) {
+          console.error('[PUSH] Failed to send table ready notification:', pushError);
+        }
       }
       if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
       r.status = data.status;
@@ -333,29 +353,6 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     });
     
     // Note: Staff notifications removed - they only get notified for actual table reservations
-
-    // Send push notification - table is ready
-      if (r.holdUntil) {
-        try {
-          const restaurant = await Restaurant.findById(r.restaurantId).lean();
-          const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
-          const holdTime = formatUaeTime(r.holdUntil);
-          
-          await sendPushToReservation((r._id as any).toString(), {
-            title: '🎉 Table Ready!',
-            body: `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive by ${holdTime} (within 15 minutes).`,
-            icon: '/favicon.png',
-            data: {
-              reservationId: (r._id as any).toString(),
-              restaurantId: r.restaurantId.toString(),
-              url: `${base}/#notifications`,
-            },
-          });
-        } catch (pushError) {
-          console.error('[PUSH] Failed to send table ready notification:', pushError);
-        }
-      }
-    }
     
     res.json({ reservation });
   } catch (err) { next(err); }
