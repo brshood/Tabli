@@ -321,6 +321,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
       if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
       r.status = data.status;
     }
+    const prevQueuePosition = r.queuePosition;
     if (typeof data.queuePosition === 'number') r.queuePosition = data.queuePosition;
     if (data.tableId) (r as any).tableId = data.tableId;
     // Allow explicit setting of leftAt (for checkout without status change)
@@ -336,6 +337,27 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     await r.save();
     const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
+    
+    // Send push notification if user becomes #1 in queue
+    if (r.queuePosition === 1 && prevQueuePosition !== 1 && r.status === 'pending' && r.mode === 'waitlist') {
+      try {
+        const restaurant = await Restaurant.findById(r.restaurantId).lean();
+        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+        
+        await sendPushToReservation((r._id as any).toString(), {
+          title: '🎉 You\'re Next!',
+          body: `You're #1 in line at ${restaurant?.name || 'the restaurant'}! Your table will be ready soon.`,
+          icon: '/favicon.png',
+          data: {
+            reservationId: (r._id as any).toString(),
+            restaurantId: r.restaurantId.toString(),
+            url: `${base}/#notifications`,
+          },
+        });
+      } catch (pushError) {
+        console.error('[PUSH] Failed to send queue position 1 notification:', pushError);
+      }
+    }
     
     // Emit SSE notification for real-time updates (customer)
     notificationEmitter.notifyReservation((r._id as any).toString(), {
@@ -436,6 +458,26 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
         cancellationReason: reservation.cancellationReason,
       }
     });
+    
+    // Send push notification if removed by staff
+    if (reservation.cancellationReason === 'staff_removed') {
+      try {
+        const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+        
+        await sendPushToReservation((reservation._id as any).toString(), {
+          title: 'Removed from Queue',
+          body: `You've been removed from the queue at ${restaurantName}.`,
+          icon: '/favicon.png',
+          data: {
+            reservationId: (reservation._id as any).toString(),
+            restaurantId: reservation.restaurantId.toString(),
+            url: `${base}/#notifications`,
+          },
+        });
+      } catch (pushError) {
+        console.error('[PUSH] Failed to send removal notification:', pushError);
+      }
+    }
     
     res.json({ success: true, message: 'Reservation cancelled successfully' });
   } catch (err) {

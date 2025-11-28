@@ -1,0 +1,48 @@
+{
+  "name": "Tabli Restaurant Reservation",
+  "short_name": "Tabli",
+  "description": "Restaurant reservation and queue management app",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F1E7",
+  "theme_color": "#5A5E3E",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "restaurant", "lifestyle"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Reservations",
+      "short_name": "Reservations",
+      "description": "View your reservations",
+      "url": "/#notifications",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}

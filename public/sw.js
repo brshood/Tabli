@@ -55,11 +55,18 @@ self.addEventListener('push', (event) => {
   const notificationOptions = {
     body: notificationData.body,
     icon: notificationData.icon,
-    badge: notificationData.badge,
+    badge: notificationData.badge || notificationData.icon,
     data: notificationData.data,
     requireInteraction: false,
+    // iOS doesn't support vibrate, but it won't cause issues
     vibrate: [200, 100, 200],
     tag: notificationData.data.reservationId || 'tabli-notification',
+    // iOS-specific: Use sound if available
+    silent: false,
+    // iOS: Use renotify to replace existing notifications with same tag
+    renotify: true,
+    // iOS: Show notification even when app is in foreground
+    timestamp: Date.now(),
   };
 
   event.waitUntil(

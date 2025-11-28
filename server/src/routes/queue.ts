@@ -6,6 +6,8 @@ import { sendEmail, buildEmailTemplate } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
+import { sendPushToReservation } from '../services/pushNotification';
+import { env } from '../config/env';
 
 export const queueRouter = express.Router();
 
@@ -193,6 +195,24 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         cancellationReason: (r as any).cancellationReason,
       }
     });
+    
+    // Send push notification - removed from queue
+    try {
+      const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+      
+      await sendPushToReservation((r._id as any).toString(), {
+        title: 'Removed from Queue',
+        body: `You've been removed from the queue at ${restaurant?.name || 'the restaurant'}.`,
+        icon: '/favicon.png',
+        data: {
+          reservationId: (r._id as any).toString(),
+          restaurantId: r.restaurantId.toString(),
+          url: `${base}/#notifications`,
+        },
+      });
+    } catch (pushError) {
+      console.error('[PUSH] Failed to send removal notification:', pushError);
+    }
     
     // Note: Staff notifications removed - they only get notified for actual table reservations
     
