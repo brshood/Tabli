@@ -10,9 +10,15 @@ export const queueRouter = express.Router();
 const joinSchema = z.object({
     partySize: z.number().min(1).max(20),
     contactMethod: z.enum(['phone', 'email']),
-    phone: z.string().optional(),
-    email: z.string().email().optional(),
+    phone: z.string(),
+    email: z.string().email(),
     name: z.string().min(1).max(100).optional(),
+}).refine((data) => {
+    // Require both email and phone
+    return !!(data.email && data.phone);
+}, {
+    message: 'Both email and phone number are required',
+    path: ['email', 'phone']
 });
 // POST /queue/:restaurantId/join
 queueRouter.post('/:restaurantId/join', async (req, res, next) => {
@@ -47,8 +53,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
             name: data.name,
             partySize: data.partySize,
             contactMethod: data.contactMethod,
-            phone: data.contactMethod === 'phone' ? data.phone : undefined,
-            email: data.contactMethod === 'email' ? data.email : undefined,
+            phone: data.phone, // Always store phone
+            email: data.email, // Always store email
             status: 'pending',
             queuePosition,
         });
@@ -92,6 +98,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
                 // Don't fail reservation if SMS fails
             }
         }
+        // Note: Staff notifications removed - they only get notified for actual table reservations, not waitlist entries
         res.status(201).json({ reservation: doc });
     }
     catch (err) {
@@ -169,7 +176,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         if (typeof oldPos === 'number') {
             await Reservation.updateMany({ restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] }, queuePosition: { $gt: oldPos } }, { $inc: { queuePosition: -1 } });
         }
-        // Emit SSE notification for real-time updates
+        // Emit SSE notification for real-time updates (customer)
         notificationEmitter.notifyReservation(r._id.toString(), {
             type: 'reservation_updated',
             reservation: {
@@ -180,6 +187,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
                 cancellationReason: r.cancellationReason,
             }
         });
+        // Note: Staff notifications removed - they only get notified for actual table reservations
         res.json({ success: true });
     }
     catch (err) {

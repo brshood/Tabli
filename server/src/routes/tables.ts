@@ -169,7 +169,7 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       }
     }
 
-    // 8. Emit SSE notification for real-time checkout update
+    // 8. Emit SSE notification for real-time checkout update (customer)
     notificationEmitter.notifyReservation(reservationId.toString(), {
       type: 'reservation_updated',
       reservation: {
@@ -179,6 +179,8 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
         seatedAt: updatedReservation.seatedAt,
       }
     });
+
+    // Note: Staff notifications removed - they only get notified for actual table reservations
 
     // 9. Return success with complete data
     res.json({

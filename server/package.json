@@ -10,9 +10,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
     "start": "tsx src/index.ts",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "stress-test": "tsx scripts/stress-test.ts"
   },
   "dependencies": {
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
@@ -34,6 +36,7 @@
     "pino-http": "^10.3.0",
     "tsx": "^4.20.6",
     "twilio": "^5.10.4",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {

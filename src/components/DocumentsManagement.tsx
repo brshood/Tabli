@@ -524,8 +524,17 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
                 className="pill-button text-white"
                 style={{ backgroundColor: '#3F4427' }}
               >
-                <Upload className="h-4 w-4 mr-2" />
-                {activeLicense ? 'Replace License' : 'Upload License'}
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {activeLicense ? 'Replace License' : 'Upload License'}
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -591,8 +600,17 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
                 className="pill-button text-white"
                 style={{ backgroundColor: '#3F4427' }}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Menu
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Menu
+                  </>
+                )}
               </Button>
             </div>
           </div>

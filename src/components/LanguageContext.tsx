@@ -7,6 +7,8 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
   isRTL: boolean;
+  direction: 'ltr' | 'rtl';
+  direction: 'ltr' | 'rtl';
 }
 
 const translations = {
@@ -114,6 +116,48 @@ const translations = {
     // Language Toggle
     'language.english': 'English',
     'language.arabic': 'العربية',
+
+    // Generic actions / labels
+    'action.cancel': 'Cancel',
+    'action.save': 'Save',
+    'action.delete': 'Delete',
+    'action.close': 'Close',
+    'action.confirm': 'Confirm',
+
+    // Staff / Admin / Forms (keys only in English copy for now)
+    'staff.login.title': 'Staff Access',
+    'staff.login.subtitle': 'Log in to your staff account or create a new restaurant account.',
+    'staff.login.email': 'Email',
+    'staff.login.password': 'Password',
+    'staff.login.button': 'Log in',
+    'staff.login.forgotPassword': 'Forgot your password?',
+    'staff.signup.title': 'Create Restaurant Account',
+    'staff.signup.personalInfo': 'Personal Information',
+    'staff.signup.fullName': 'Full Name',
+    'staff.signup.restaurantInfo': 'Restaurant Information',
+    'staff.signup.restaurantName': 'Restaurant Name',
+    'staff.signup.city': 'City',
+    'staff.signup.cuisine': 'Cuisine Type',
+    'staff.signup.phone': 'Phone Number',
+    'staff.signup.address': 'Address',
+    'staff.signup.licenseInfo': 'License Information',
+    'staff.signup.licenseNumber': 'License Number',
+    'staff.signup.licenseDocument': 'License Document',
+
+    'admin.login.title': 'Admin Login',
+    'admin.dashboard.title': 'Admin Dashboard',
+    'admin.logout': 'Logout',
+
+    'notifications.empty.title': 'No Reservations Yet',
+    'notifications.empty.subtitle': "You haven't made any reservations. Start exploring restaurants!",
+
+    'survey.title': 'Quick Feedback',
+    'survey.subtitle': 'Help us improve your experience',
+    'survey.hearAboutUs': 'How did you hear about {restaurant}?',
+    'survey.specialRequirements': 'Any special requirements?',
+    'survey.improvements': 'What can we improve?',
+    'survey.skip': 'Skip',
+    'survey.submit': 'Submit',
   },
   ar: {
     // Landing Page - Hero Section
@@ -219,6 +263,48 @@ const translations = {
     // Language Toggle
     'language.english': 'English',
     'language.arabic': 'العربية',
+
+    // Generic actions / labels
+    'action.cancel': 'إلغاء',
+    'action.save': 'حفظ',
+    'action.delete': 'حذف',
+    'action.close': 'إغلاق',
+    'action.confirm': 'تأكيد',
+
+    // Staff / Admin / Forms
+    'staff.login.title': 'دخول الموظفين',
+    'staff.login.subtitle': 'سجّل الدخول إلى حساب الموظفين أو أنشئ حساب مطعم جديد.',
+    'staff.login.email': 'البريد الإلكتروني',
+    'staff.login.password': 'كلمة المرور',
+    'staff.login.button': 'تسجيل الدخول',
+    'staff.login.forgotPassword': 'نسيت كلمة المرور؟',
+    'staff.signup.title': 'إنشاء حساب مطعم',
+    'staff.signup.personalInfo': 'المعلومات الشخصية',
+    'staff.signup.fullName': 'الاسم الكامل',
+    'staff.signup.restaurantInfo': 'معلومات المطعم',
+    'staff.signup.restaurantName': 'اسم المطعم',
+    'staff.signup.city': 'المدينة',
+    'staff.signup.cuisine': 'نوع المطبخ',
+    'staff.signup.phone': 'رقم الهاتف',
+    'staff.signup.address': 'العنوان',
+    'staff.signup.licenseInfo': 'معلومات الرخصة',
+    'staff.signup.licenseNumber': 'رقم الرخصة',
+    'staff.signup.licenseDocument': 'مستند الرخصة',
+
+    'admin.login.title': 'تسجيل دخول المشرف',
+    'admin.dashboard.title': 'لوحة تحكم المشرف',
+    'admin.logout': 'تسجيل الخروج',
+
+    'notifications.empty.title': 'لا توجد حجوزات بعد',
+    'notifications.empty.subtitle': 'لم تقم بأي حجز حتى الآن. ابدأ في استكشاف المطاعم!',
+
+    'survey.title': 'ملاحظات سريعة',
+    'survey.subtitle': 'ساعدنا على تحسين تجربتك',
+    'survey.hearAboutUs': 'كيف سمعت عن {restaurant}?',
+    'survey.specialRequirements': 'هل لديك أي متطلبات خاصة؟',
+    'survey.improvements': 'ما الذي يمكننا تحسينه؟',
+    'survey.skip': 'تخطّي',
+    'survey.submit': 'إرسال',
   }
 };
 
@@ -255,6 +341,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     setLanguage,
     t,
     isRTL: language === 'ar',
+    direction: language === 'ar' ? 'rtl' : 'ltr',
   };
 
   return (

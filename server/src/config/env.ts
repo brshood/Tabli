@@ -24,6 +24,10 @@ export const env = {
   TWILIO_WHATSAPP_NUMBER: process.env.TWILIO_WHATSAPP_NUMBER,
   ADMIN_USERNAME: required(process.env.ADMIN_USERNAME, 'ADMIN_USERNAME'),
   ADMIN_PASSWORD: required(process.env.ADMIN_PASSWORD, 'ADMIN_PASSWORD'),
+  // Web Push VAPID keys (generate using: npx web-push generate-vapid-keys)
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:tabli.team@gmail.com',
 };
 
 

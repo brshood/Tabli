@@ -107,6 +107,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       }
     }
 
+    // Note: Staff notifications removed - they only get notified for actual table reservations, not waitlist entries
+
     res.status(201).json({ reservation: doc });
   } catch (err) { next(err); }
 });
@@ -180,7 +182,7 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
       );
     }
     
-    // Emit SSE notification for real-time updates
+    // Emit SSE notification for real-time updates (customer)
     notificationEmitter.notifyReservation((r._id as any).toString(), {
       type: 'reservation_updated',
       reservation: {
@@ -191,6 +193,8 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         cancellationReason: (r as any).cancellationReason,
       }
     });
+    
+    // Note: Staff notifications removed - they only get notified for actual table reservations
     
     res.json({ success: true });
   } catch (err) { next(err); }

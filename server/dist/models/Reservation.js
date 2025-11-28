@@ -22,6 +22,13 @@ const reservationSchema = new Schema({
     holdUntil: Date, // #2 - When hold expires (15 min from check-in)
     holdStatus: { type: String, enum: ['active', 'expired', 'confirmed'] }, // #2 - Hold state tracking
     cancellationReason: { type: String, enum: ['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed'] }, // Track why reservation was cancelled
+    // Survey feedback fields
+    surveyFeedback: {
+        hearAboutUs: String,
+        specialRequirements: String,
+        improvements: String,
+        submittedAt: Date,
+    },
 }, { timestamps: true });
 // Compound indexes for better query performance
 reservationSchema.index({ restaurantId: 1, status: 1 }); // For filtering by restaurant and status

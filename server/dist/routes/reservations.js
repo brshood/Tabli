@@ -6,6 +6,9 @@ import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
+import { formatUaeTime } from '../utils/dateFormat';
+import { sendPushToReservation } from '../services/pushNotification';
+import { env } from '../config/env';
 export const reservationsRouter = express.Router();
 const createSchema = z.object({
     restaurantId: z.string(),
@@ -13,10 +16,16 @@ const createSchema = z.object({
     name: z.string().min(1).max(100).optional(),
     partySize: z.number().min(1).max(20),
     contactMethod: z.enum(['phone', 'email']),
-    phone: z.string().optional(),
-    email: z.string().email().optional(),
+    phone: z.string(),
+    email: z.string().email(),
     gender: z.enum(['male', 'female', 'prefer-not-to-say']).optional(),
     seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
+}).refine((data) => {
+    // Require both email and phone for all reservations (walk-ins use placeholder '0000000000')
+    return !!(data.email && data.phone);
+}, {
+    message: 'Both email and phone number are required',
+    path: ['email', 'phone']
 });
 reservationsRouter.post('/', async (req, res, next) => {
     try {
@@ -80,8 +89,8 @@ reservationsRouter.post('/', async (req, res, next) => {
             mode: data.mode,
             partySize: data.partySize,
             contactMethod: data.contactMethod,
-            phone: data.contactMethod === 'phone' ? data.phone : undefined,
-            email: data.contactMethod === 'email' ? data.email : undefined,
+            phone: data.phone, // Always store phone (walk-ins use '0000000000')
+            email: data.email, // Always store email
             status,
             queuePosition,
             confirmedAt: status !== 'pending' ? new Date() : undefined,
@@ -152,6 +161,21 @@ reservationsRouter.post('/', async (req, res, next) => {
                     // Don't fail reservation if SMS fails
                 }
             }
+        }
+        // Notify staff ONLY when a table is actually reserved (not waitlist)
+        if (reservationType === 'reserved') {
+            notificationEmitter.notifyStaff(data.restaurantId, {
+                type: 'table_reservation',
+                event: 'new_table_reservation',
+                reservation: {
+                    _id: doc._id.toString(),
+                    name: doc.name,
+                    partySize: doc.partySize,
+                    contactMethod: doc.contactMethod,
+                    requestedAt: doc.requestedAt,
+                },
+                timestamp: new Date().toISOString(),
+            });
         }
         res.status(201).json({ reservation: doc });
     }
@@ -235,7 +259,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                 if (r.email) {
                     try {
                         const restaurant = await Restaurant.findById(r.restaurantId).lean();
-                        const holdTime = holdUntil.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        const holdTime = formatUaeTime(holdUntil);
                         await sendEmail({
                             to: r.email,
                             subject: `Your table is ready at ${restaurant?.name || 'your restaurant'}`,
@@ -255,6 +279,25 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                     catch (emailError) {
                         console.error('Failed to send hold notification email:', emailError);
                     }
+                }
+                // Send push notification - table is ready
+                try {
+                    const restaurant = await Restaurant.findById(r.restaurantId).lean();
+                    const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+                    const holdTime = formatUaeTime(holdUntil);
+                    await sendPushToReservation(r._id.toString(), {
+                        title: '🎉 Table Ready!',
+                        body: `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive by ${holdTime} (within 15 minutes).`,
+                        icon: '/favicon.png',
+                        data: {
+                            reservationId: r._id.toString(),
+                            restaurantId: r.restaurantId.toString(),
+                            url: `${base}/#notifications`,
+                        },
+                    });
+                }
+                catch (pushError) {
+                    console.error('[PUSH] Failed to send table ready notification:', pushError);
                 }
             }
             if (data.status === 'cancelled' || data.status === 'no_show')
@@ -280,7 +323,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         const reservation = r;
         if (!reservation)
             return res.status(404).json({ error: 'Not found' });
-        // Emit SSE notification for real-time updates
+        // Emit SSE notification for real-time updates (customer)
         notificationEmitter.notifyReservation(r._id.toString(), {
             type: 'reservation_updated',
             reservation: {
@@ -294,6 +337,7 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                 cancellationReason: r.cancellationReason,
             }
         });
+        // Note: Staff notifications removed - they only get notified for actual table reservations
         res.json({ reservation });
     }
     catch (err) {
@@ -537,7 +581,7 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
             timestamp: now.toISOString(),
             restaurantId: reservation.restaurantId.toString()
         });
-        // 6. Emit SSE notification for real-time updates
+        // 6. Emit SSE notification for real-time updates (customer)
         notificationEmitter.notifyReservation(reservationId.toString(), {
             type: 'reservation_updated',
             reservation: {
@@ -550,6 +594,25 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
                 seatedAt: updatedReservation.seatedAt,
             }
         });
+        // Note: Staff notifications removed - they only get notified for actual table reservations
+        // Send push notification - customer seated
+        try {
+            const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+            const base = (env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+            await sendPushToReservation(reservationId.toString(), {
+                title: '✅ You\'re Seated!',
+                body: `You've been seated at ${restaurant?.name || 'the restaurant'}. Enjoy your meal!`,
+                icon: '/favicon.png',
+                data: {
+                    reservationId: reservationId.toString(),
+                    restaurantId: reservation.restaurantId.toString(),
+                    url: `${base}/#notifications`,
+                },
+            });
+        }
+        catch (pushError) {
+            console.error('[PUSH] Failed to send seated notification:', pushError);
+        }
         // 7. Return success with complete data
         res.json({
             success: true,
@@ -583,6 +646,41 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
     }
     catch (err) {
         console.error('Error in assign-table:', err);
+        next(err);
+    }
+});
+// POST /reservations/:id/survey - Submit survey feedback for a reservation
+const surveySchema = z.object({
+    hearAboutUs: z.string().optional(),
+    specialRequirements: z.string().optional(),
+    improvements: z.string().optional(),
+});
+reservationsRouter.post('/:id/survey', async (req, res, next) => {
+    try {
+        const reservationId = req.params.id;
+        const data = surveySchema.parse(req.body);
+        const reservation = await Reservation.findById(reservationId);
+        if (!reservation) {
+            return res.status(404).json({ error: 'Reservation not found' });
+        }
+        // Update reservation with survey feedback
+        reservation.surveyFeedback = {
+            hearAboutUs: data.hearAboutUs || undefined,
+            specialRequirements: data.specialRequirements || undefined,
+            improvements: data.improvements || undefined,
+            submittedAt: new Date(),
+        };
+        await reservation.save();
+        res.json({
+            success: true,
+            message: 'Survey feedback saved successfully',
+            reservation
+        });
+    }
+    catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: 'Invalid survey data', details: err.errors });
+        }
         next(err);
     }
 });

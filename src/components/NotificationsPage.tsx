@@ -12,6 +12,7 @@ import { getReservationHistory, updateReservationInHistory, removeReservationFro
 import { forceRefreshReservation } from '../services/reservationPolling';
 import { toast } from 'sonner';
 import { QueueCountdownTimer } from './QueueCountdownTimer';
+import { useLanguage } from './LanguageContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -38,6 +39,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [reservationToCancel, setReservationToCancel] = useState<ReservationHistoryItem | null>(null);
   const [queueEstimates, setQueueEstimates] = useState<Record<string, { estimatedWaitMinutes: number; lastFetched: number }>>({});
+  const { t } = useLanguage();
 
   const loadData = async () => {
     setIsRefreshingAll(true);
@@ -448,7 +450,14 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                   onClick={() => handleCancelClick(reservation)}
                   disabled={isRefreshing || isCancelling}
                 >
-                  {isCancelling ? 'Cancelling...' : 'Cancel'}
+                  {isCancelling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    'Cancel'
+                  )}
                 </Button>
               </>
             )}
@@ -486,12 +495,12 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {reservations.length === 0 ? (
           /* Empty State */
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg bg-white">
             <CardContent className="p-12 text-center">
               <Bell className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-xl font-semibold mb-2 text-gray-700">No Reservations Yet</h3>
+              <h3 className="text-xl font-semibold mb-2 text-gray-700">{t('notifications.empty.title')}</h3>
               <p className="text-gray-500 mb-6">
-                You haven't made any reservations. Start exploring restaurants!
+                {t('notifications.empty.subtitle')}
               </p>
               <div className="flex gap-3 justify-center">
                 <Button onClick={() => onNavigate('discover')} style={{ backgroundColor: '#5A5E3E', color: 'white' }}>
@@ -507,7 +516,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Left Column - Reservations */}
             <div className="lg:col-span-2 space-y-6">
-              <Card className="border-0 shadow-lg">
+              <Card className="border-0 shadow-lg bg-white">
                 <CardHeader style={{ backgroundColor: '#EBD3A2', borderBottom: '1px solid #D4B896' }}>
                   <CardTitle className="flex items-center justify-between">
                     <span>My Reservations</span>
@@ -555,7 +564,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
 
             {/* Right Column - Notifications */}
             <div className="lg:col-span-1">
-              <Card className="border-0 shadow-lg sticky top-24">
+              <Card className="border-0 shadow-lg sticky top-24 bg-white">
                 <CardHeader style={{ backgroundColor: '#EBD3A2', borderBottom: '1px solid #D4B896' }}>
                   <CardTitle className="flex items-center justify-between text-base">
                     <span className="flex items-center gap-2">
