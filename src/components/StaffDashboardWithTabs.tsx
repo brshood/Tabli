@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2 } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -19,7 +19,7 @@ import { openDailySummaryPdf, generateDailySummary } from '../services/analytics
 import { useRestaurant } from './RestaurantContext';
 import { estimateWaitTimes } from '../utils/waitTimeEstimator';
 import { startStaffSSE, stopStaffSSE } from '../services/staffSSE';
-import { subscribeToPush } from '../services/pushSubscription';
+import { subscribeToPush, getNotificationPermission, isPushSupported } from '../services/pushSubscription';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -88,6 +88,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [checkingInIds, setCheckingInIds] = useState<Set<number>>(new Set());
   const [seatingIds, setSeatingIds] = useState<Set<number>>(new Set());
   const [checkingOutIds, setCheckingOutIds] = useState<Set<number>>(new Set());
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
 
   useEffect(() => {
     let timer: any;
@@ -553,24 +556,62 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     };
   }, [staffAuth?.restaurantId]);
 
-  // Automatically subscribe to push notifications for staff
+  // Check notification permission status and show prompt if needed
   useEffect(() => {
     if (!staffAuth?.restaurantId) return;
 
-    const subscribeStaffToPush = async () => {
-      try {
-        await subscribeToPush({ restaurantId: staffAuth.restaurantId });
-        console.log('[PUSH:STAFF] Successfully subscribed to push notifications for restaurant');
-      } catch (error) {
-        // Gracefully handle errors - don't block dashboard access
-        console.warn('[PUSH:STAFF] Failed to subscribe to push notifications:', error);
-        // Permission denied is expected if user hasn't granted permission yet
-        // This is fine - they'll be prompted next time or can enable it manually
-      }
-    };
+    // Check if push notifications are supported
+    if (!isPushSupported()) {
+      setNotificationPermission(null);
+      return;
+    }
 
-    subscribeStaffToPush();
+    // Check current permission status
+    const permission = getNotificationPermission();
+    setNotificationPermission(permission);
+
+    // Show prompt if permission hasn't been granted yet
+    if (permission === 'default') {
+      setShowNotificationPrompt(true);
+    } else if (permission === 'granted') {
+      // If permission is granted, automatically subscribe (no user gesture needed after first grant)
+      const autoSubscribe = async () => {
+        try {
+          await subscribeToPush({ restaurantId: staffAuth.restaurantId });
+          console.log('[PUSH:STAFF] Successfully subscribed to push notifications for restaurant');
+        } catch (error) {
+          console.warn('[PUSH:STAFF] Failed to subscribe to push notifications:', error);
+        }
+      };
+      autoSubscribe();
+    }
   }, [staffAuth?.restaurantId]);
+
+  // Manual handler for enabling notifications (requires user gesture for iOS)
+  const handleEnableNotifications = async () => {
+    if (!staffAuth?.restaurantId) return;
+
+    setEnablingNotifications(true);
+    try {
+      await subscribeToPush({ restaurantId: staffAuth.restaurantId });
+      const permission = getNotificationPermission();
+      setNotificationPermission(permission);
+      setShowNotificationPrompt(false);
+      toast.success('Notifications enabled! You will receive alerts when customers reserve tables.');
+    } catch (error: any) {
+      console.error('[PUSH:STAFF] Failed to enable notifications:', error);
+      const permission = getNotificationPermission();
+      setNotificationPermission(permission);
+      
+      if (permission === 'denied') {
+        toast.error('Notification permission denied. Please enable it in your browser settings.');
+      } else {
+        toast.error(error.message || 'Failed to enable notifications');
+      }
+    } finally {
+      setEnablingNotifications(false);
+    }
+  };
 
   const checkOutTable = async (id: number) => {
     const table = seatedTables.find(item => item.id === id);
@@ -1211,6 +1252,73 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
+            {/* Notification Permission Prompt */}
+            {showNotificationPrompt && notificationPermission === 'default' && isPushSupported() && (
+              <Card className="card-shadow border-0 rounded-3xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 mt-1">
+                      <Bell className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                        Enable Push Notifications
+                      </h3>
+                      <p className="text-sm text-blue-800 mb-4">
+                        Get instant alerts when customers reserve tables, even when the app is closed. 
+                        Perfect for staying on top of reservations while working.
+                      </p>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={handleEnableNotifications}
+                          disabled={enablingNotifications}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="sm"
+                        >
+                          {enablingNotifications ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Enabling...
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="h-4 w-4 mr-2" />
+                              Enable Notifications
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => setShowNotificationPrompt(false)}
+                          variant="outline"
+                          size="sm"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                          disabled={enablingNotifications}
+                        >
+                          Not Now
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Permission Denied Message */}
+            {notificationPermission === 'denied' && (
+              <Card className="card-shadow border-0 rounded-3xl bg-yellow-50 border-2 border-yellow-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-yellow-800">
+                        Notifications are currently disabled. To enable them, go to your browser settings and allow notifications for this site.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Quick Actions */}
             <Card className="card-shadow border-0 rounded-3xl">
               <CardHeader>
