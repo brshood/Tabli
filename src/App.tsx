@@ -591,7 +591,7 @@ function AppContent() {
             transition={pageTransition}
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
-            <LandingPage onNavigate={navigateToPage} onCtaNavigate={handleCountdownNavigation} />
+            <LandingPage onNavigate={navigateToPage} />
           </motion.div>
         );
       case 'discover':
@@ -919,47 +919,6 @@ function AppContent() {
       {/* Reset Password Modal */}
       <ResetPasswordModal isOpen={resetOpen} token={resetToken} onClose={() => setResetOpen(false)} />
 
-      <AnimatePresence>
-        {shouldShowCountdown && (
-          <motion.div
-            key="countdown"
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-            >
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-500">We'll be live in:</p>
-              <div className="grid grid-cols-4 gap-3 my-8">
-                {[
-                  { label: 'Days', value: formatCountdownValue(countdownParts.days, false) },
-                  { label: 'Hours', value: formatCountdownValue(countdownParts.hours) },
-                  { label: 'Minutes', value: formatCountdownValue(countdownParts.minutes) },
-                  { label: 'Seconds', value: formatCountdownValue(countdownParts.seconds) },
-                ].map((segment) => (
-                  <div key={segment.label} className="rounded-2xl bg-[#FDF7ED] px-3 py-4">
-                    <div className="text-3xl font-semibold text-[#B8860B]">
-                      {segment.value}
-                    </div>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">{segment.label}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-gray-600">
-                We’re opening the line on {countdownTargetLabel}. Thanks for your patience!
-              </p>
-              <Button variant="ghost" className="mt-6" onClick={handleCountdownClose}>
-                Back to home
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* #13 - Floating Notification Bell (only show after landing page, excluding staff) */}
       {currentPage !== 'landing' && currentPage !== 'staff' && (

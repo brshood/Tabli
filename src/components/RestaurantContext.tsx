@@ -141,7 +141,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             waitTime: waitTime,
             tablesAvailable: r.availableTables || 0,
             image: 'restaurant-generic',
-            waitingInLine: 0,
+            waitingInLine: r.waitingInLine || 0,
             weeklyAverageCustomers: 0,
             coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
             menu: r.menu || [],

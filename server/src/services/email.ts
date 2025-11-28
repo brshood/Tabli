@@ -58,7 +58,7 @@ export function buildEmailTemplate(options: EmailTemplateOptions & { includeNoti
   // Add notifications link to footer if requested
   let footerText = footer || '';
   if (includeNotificationsLink) {
-    const notificationsLinkText = `You can check up on your reservations at <a href="${NOTIFICATIONS_URL}" style="${baseEmailStyles.link}">${NOTIFICATIONS_URL}</a>.`;
+    const notificationsLinkText = `You can check up on your reservations <a href="${NOTIFICATIONS_URL}" style="${baseEmailStyles.link}">click here</a>.`;
     footerText = footerText 
       ? `${footerText}<br><br>${notificationsLinkText}`
       : notificationsLinkText;

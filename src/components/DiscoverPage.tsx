@@ -215,8 +215,8 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
 
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
-                        <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
                         <span className="font-bold text-lg">{restaurant.rating}</span>
+                        <Star className="h-5 w-5 text-yellow-400 fill-current ml-1" />
                       </div>
                       <Badge variant="outline" className="text-sm">{restaurant.cuisine}</Badge>
                     </div>
