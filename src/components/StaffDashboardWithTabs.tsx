@@ -1966,7 +1966,21 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={dailyData.map(d => {
                       try {
+                        if (!d.day) {
+                          return {
+                            name: 'Invalid Date', 
+                            reservations: d.reservations || 0, 
+                            walkIns: d.walkIns || 0
+                          };
+                        }
                         const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
+                        if (isNaN(date.getTime())) {
+                          return {
+                            name: d.day, 
+                            reservations: d.reservations || 0, 
+                            walkIns: d.walkIns || 0
+                          };
+                        }
                         return {
                           name: formatGSTDateShort(date), 
                           reservations: d.reservations || 0, 
@@ -1974,7 +1988,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         };
                       } catch (e) {
                         return {
-                          name: d.day, 
+                          name: d.day || 'Invalid Date', 
                           reservations: d.reservations || 0, 
                           walkIns: d.walkIns || 0
                         };
@@ -2140,7 +2154,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   {dailyData.length > 0 && dailyData.some(d => d.total > 0) ? (() => {
                     const busiest = dailyData.reduce((a, b) => (b.total > a.total ? b : a));
                     try {
+                      if (!busiest.day) {
+                        return (
+                          <>
+                            <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>N/A</p>
+                            <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
+                          </>
+                        );
+                      }
                       const date = new Date(busiest.day);
+                      if (isNaN(date.getTime())) {
+                        return (
+                          <>
+                            <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day}</p>
+                            <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
+                          </>
+                        );
+                      }
                       const formatted = formatGSTDateShort(date);
                       return (
                         <>
@@ -2151,7 +2181,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     } catch (e) {
                       return (
                         <>
-                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day}</p>
+                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day || 'N/A'}</p>
                           <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
                         </>
                       );
