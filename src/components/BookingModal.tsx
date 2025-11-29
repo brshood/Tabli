@@ -163,24 +163,48 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     }
     
     try {
-      const res = await fetch(`${API_URL}/reservations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
-          mode,
-          name: customerName || undefined,
-          partySize,
-          contactMethod,
-          phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`,
-          email: email,
-          gender: gender !== 'prefer-not-to-say' ? gender : undefined,
-          seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
-        })
-      });
+      // Create AbortController for timeout handling (especially important on mobile)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      let res: Response;
+      try {
+        res = await fetch(`${API_URL}/reservations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
+            mode,
+            name: customerName || undefined,
+            partySize,
+            contactMethod,
+            phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`,
+            email: email,
+            gender: gender !== 'prefer-not-to-say' ? gender : undefined,
+            seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        // Check if it's an abort (timeout) or network error
+        if (fetchError.name === 'AbortError' || fetchError.message?.includes('network') || fetchError.message?.includes('fetch')) {
+          // Network timeout or connection error - request might have succeeded on server
+          // Show a message that suggests checking notifications
+          console.warn('[RESERVATION] Network error/timeout - reservation may have been created:', fetchError);
+          toast.info('Connection issue detected. Your reservation may have been submitted. Please check your notifications to confirm.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Re-throw other errors
+        throw fetchError;
+      }
       
       if (res.status === 409) {
         toast.error('You already have an active reservation at this restaurant');
+        setIsSubmitting(false);
         return;
       }
       
@@ -210,7 +234,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           throw new Error('reservation_failed');
         } else {
           // API returned error status and no reservation data - expected failure
-          throw new Error('reservation_failed');
+          const errorMessage = data?.error || 'Could not submit request. Please try again.';
+          toast.error(errorMessage);
+          setIsSubmitting(false);
+          return;
         }
       }
       
@@ -288,8 +315,15 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       } else {
         onClose();
       }
-    } catch (_e) {
-      toast.error('Could not submit request. Please try again.');
+    } catch (error: any) {
+      // Only show error for actual failures, not network timeouts (already handled above)
+      if (error.name !== 'AbortError' && !error.message?.includes('network') && !error.message?.includes('fetch')) {
+        console.error('[RESERVATION] Error submitting reservation:', error);
+        const errorMessage = error?.message?.includes('reservation_failed') 
+          ? 'Could not submit request. Please try again.'
+          : (error?.message || 'Could not submit request. Please try again.');
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSubmitting(false); // #10 - End loading
     }
