@@ -53,17 +53,32 @@ export function buildEmailTemplate(options) {
     const footerBlock = footerText
         ? `<div style="${baseEmailStyles.footer}">${footerText}</div>`
         : '';
+    // Wrap in proper HTML document structure for better email client compatibility
     return `
-  <body style="${baseEmailStyles.body}">
-    <div style="${baseEmailStyles.container}">
-      <div style="${baseEmailStyles.card}">
-        <h1 style="${baseEmailStyles.heading}">${heading}</h1>
-        ${paragraphs}
-        ${button}
-        ${footerBlock}
-      </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>${heading}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, sans-serif !important;}
+  </style>
+  <![endif]-->
+</head>
+<body style="${baseEmailStyles.body}">
+  <div style="${baseEmailStyles.container}">
+    <div style="${baseEmailStyles.card}">
+      <h1 style="${baseEmailStyles.heading}">${heading}</h1>
+      ${paragraphs}
+      ${button}
+      ${footerBlock}
     </div>
-  </body>
+  </div>
+</body>
+</html>
   `;
 }
 async function getTransporter() {
@@ -80,6 +95,8 @@ async function getTransporter() {
                     user: env.EMAIL_USERNAME,
                     pass: env.EMAIL_PASSWORD,
                 },
+                // SMTP transport sends emails immediately without queuing
+                // No connection pooling - each email is sent immediately
             });
             // Verify connection once during initialization
             await transporter.verify();
@@ -96,30 +113,77 @@ async function getTransporter() {
 export async function sendEmail(opts) {
     const transporter = await getTransporter();
     if (!transporter) {
+        const errorMsg = !env.EMAIL_USERNAME || !env.EMAIL_PASSWORD
+            ? 'Email service not configured: EMAIL_USERNAME and/or EMAIL_PASSWORD missing'
+            : 'Email transporter failed to initialize';
         // eslint-disable-next-line no-console
-        console.log('[EMAIL:DEV]', { from: env.EMAIL_FROM || env.EMAIL_USERNAME, ...opts });
-        return;
+        console.error('[EMAIL:NOT_CONFIGURED]', errorMsg, { to: opts.to, subject: opts.subject });
+        throw new Error(errorMsg);
     }
     const fromAddress = env.EMAIL_FROM || env.EMAIL_USERNAME;
     if (!fromAddress) {
+        const errorMsg = 'Email FROM address not configured: EMAIL_FROM and EMAIL_USERNAME both missing';
         // eslint-disable-next-line no-console
-        console.log('[EMAIL:DEV:NO_FROM]', { ...opts });
-        return;
+        console.error('[EMAIL:NO_FROM]', errorMsg, { to: opts.to, subject: opts.subject });
+        throw new Error(errorMsg);
+    }
+    // Format "From" address with friendly display name
+    // Format: "Tabli" <email@example.com> or just email@example.com if no display name needed
+    const formattedFrom = fromAddress.includes('<')
+        ? fromAddress
+        : `"Tabli" <${fromAddress}>`;
+    // Construct frontend URL for unsubscribe/list-unsubscribe
+    const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'https://tabliapp.com';
+    const unsubscribeUrl = `${frontendUrl}/#notifications?unsubscribe=true`;
+    // Build email headers for better deliverability
+    const headers = {
+        // List-Unsubscribe header helps with spam scoring
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        // Priority headers
+        'X-Priority': '3', // Normal priority (1=highest, 3=normal, 5=lowest)
+        'Importance': 'normal',
+        'Precedence': 'bulk', // Indicates transactional email
+        // Message classification
+        'X-Auto-Response-Suppress': 'All', // Prevents auto-responders
+    };
+    // Add Reply-To header if provided, otherwise use from address
+    if (opts.replyTo) {
+        headers['Reply-To'] = opts.replyTo;
+    }
+    else {
+        headers['Reply-To'] = fromAddress;
     }
     try {
-        await transporter.sendMail({
+        const result = await transporter.sendMail({
             to: opts.to,
-            from: fromAddress,
+            from: formattedFrom,
             subject: opts.subject,
             text: opts.text || '',
             html: opts.html || opts.text || '',
+            headers,
+            replyTo: opts.replyTo || fromAddress,
         });
         // eslint-disable-next-line no-console
-        console.log('[EMAIL:SENT]', { to: opts.to, subject: opts.subject });
+        console.log('[EMAIL:SENT]', {
+            to: opts.to,
+            subject: opts.subject,
+            messageId: result.messageId,
+            accepted: result.accepted,
+            rejected: result.rejected,
+            response: result.response,
+            timestamp: new Date().toISOString()
+        });
     }
     catch (error) {
         // eslint-disable-next-line no-console
-        console.error('[EMAIL:ERROR]', error?.message || error);
+        console.error('[EMAIL:ERROR]', {
+            error: error?.message || error,
+            to: opts.to,
+            subject: opts.subject,
+            code: error?.code,
+            response: error?.response
+        });
         throw error;
     }
 }

@@ -118,7 +118,7 @@ reservationsRouter.post('/', async (req, res, next) => {
         : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
       
       try {
-        if (isValidEmailForSending(data.email)) {
+        if (data.email && isValidEmailForSending(data.email)) {
           const introName = data.name ? `Hi ${data.name},` : 'Hello,';
           
           // #11 - Construct frontend URL for cancel link
@@ -126,7 +126,7 @@ reservationsRouter.post('/', async (req, res, next) => {
           const cancelUrl = `${frontendUrl}/#cancel-reservation?id=${doc._id}`;
           
           await sendEmail({
-            to: data.email,
+            to: data.email as string,
             subject: `Reservation at ${restaurant.name}`,
             text: message,
             html: buildEmailTemplate({
@@ -154,10 +154,22 @@ reservationsRouter.post('/', async (req, res, next) => {
           // #3 - Mark email as sent on success
           doc.emailSent = true;
           await doc.save();
+          console.log(`[RESERVATION] Confirmation email sent successfully to ${data.email} for reservation ${doc._id}`);
+        } else {
+          console.warn(`[RESERVATION] Email not sent - invalid or missing email:`, {
+            email: data.email,
+            reservationId: doc._id,
+            isValid: data.email ? isValidEmailForSending(data.email) : false
+          });
         }
       } catch (err) {
         // Log but don't fail reservation if notification fails
-        console.error('Failed to send confirmation email:', err);
+        console.error('[RESERVATION] Failed to send confirmation email:', {
+          error: err instanceof Error ? err.message : err,
+          email: data.email,
+          reservationId: doc._id,
+          restaurantId: data.restaurantId
+        });
         // emailSent remains false if email failed
       }
       
@@ -322,9 +334,21 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
                 includeNotificationsLink: true,
               })
             });
+            console.log(`[RESERVATION] Check-in email sent successfully to ${r.email} for reservation ${r._id}`);
           } catch (emailError) {
-            console.error('Failed to send hold notification email:', emailError);
+            console.error('[RESERVATION] Failed to send check-in email:', {
+              error: emailError instanceof Error ? emailError.message : emailError,
+              email: r.email,
+              reservationId: r._id,
+              restaurantId: r.restaurantId
+            });
           }
+        } else {
+          console.warn(`[RESERVATION] Check-in email not sent - invalid or missing email:`, {
+            email: r.email,
+            reservationId: r._id,
+            isValid: r.email ? isValidEmailForSending(r.email) : false
+          });
         }
 
         // Send push notification - table is ready
@@ -527,17 +551,17 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     
     if (r.email && isValidEmailForSending(r.email)) {
       try {
-        await sendEmail({
+      await sendEmail({
           to: r.email as string,
-          subject,
-          text: message,
-          html: buildEmailTemplate({
-            heading: subject,
-            intro: `Hi${r.name ? ` ${r.name}` : ''},`,
-            lines: [message],
+        subject,
+        text: message,
+        html: buildEmailTemplate({
+          heading: subject,
+          intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+          lines: [message],
             includeNotificationsLink: true,
-          }),
-        });
+        }),
+      });
       } catch (emailError) {
         console.error('Failed to send manual notification email:', emailError);
       }

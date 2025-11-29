@@ -125,7 +125,7 @@ queueRouter.post('/:reservationId/notify', async (req, res, next) => {
     const message = `Your table at ${restaurant?.name || 'the restaurant'} is ready! Please arrive within 15 minutes.`;
     if (r.email && isValidEmailForSending(r.email)) {
       try {
-        await sendEmail({
+      await sendEmail({
         to: r.email as string,
         subject: restaurant?.name ? `${restaurant.name}: your table is ready` : 'Your table is ready',
         text: message,

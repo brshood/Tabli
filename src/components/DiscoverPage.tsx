@@ -27,6 +27,61 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const { t, isRTL } = useLanguage();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+
+  // Preload all cover images before displaying the page
+  useEffect(() => {
+    setImagesLoaded(false);
+    
+    // Collect all unique cover image URLs from all restaurants
+    const imagesToLoad: string[] = [];
+    allRestaurants.forEach(restaurant => {
+      if (restaurant.coverImage && !imagesToLoad.includes(restaurant.coverImage)) {
+        imagesToLoad.push(restaurant.coverImage);
+      }
+    });
+    
+    // If no images, consider loaded immediately
+    if (imagesToLoad.length === 0) {
+      setImagesLoaded(true);
+      return;
+    }
+    
+    let loadedCount = 0;
+    const totalImages = imagesToLoad.length;
+    
+    const checkAllLoaded = () => {
+      loadedCount++;
+      if (loadedCount >= totalImages) {
+        setImagesLoaded(true);
+      }
+    };
+    
+    // Preload all images
+    imagesToLoad.forEach((src) => {
+      const img = new Image();
+      
+      // Use a flag to prevent double-counting cached images
+      let hasBeenCounted = false;
+      const markAsLoaded = () => {
+        if (!hasBeenCounted) {
+          hasBeenCounted = true;
+          checkAllLoaded();
+        }
+      };
+      
+      // Set handlers before setting src
+      img.onload = markAsLoaded;
+      img.onerror = markAsLoaded; // Count errors as "loaded" to not block forever
+      img.src = src;
+      
+      // Check if already cached (for images that load synchronously)
+      // This will only count if onload hasn't fired yet
+      if (img.complete) {
+        markAsLoaded();
+      }
+    });
+  }, [allRestaurants]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -60,6 +115,18 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
   const handleSearchClick = () => {
     onNavigate('search');
   };
+
+  // Show loading state until images are loaded
+  if (!imagesLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#F5F5F5'}}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
+          <p className="text-lg" style={{color: 'var(--where2go-text)'}}>Loading restaurants...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#F5F5F5'}}>

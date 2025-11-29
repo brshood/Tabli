@@ -184,10 +184,30 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         return;
       }
       
-      if (!res.ok) throw new Error('reservation_failed');
-      const data = await res.json().catch(() => ({}));
+      // Try to parse response even if not ok - reservation might still be created
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // If JSON parsing fails, check if it's a non-ok status
+        if (!res.ok) {
+          // Try to fetch the reservation by checking the error response or make a fallback request
+          console.error('Failed to parse response, but reservation may have been created');
+          throw new Error('reservation_failed');
+        }
+      }
+      
       const reservation = data?.reservation;
       const position = reservation?.queuePosition;
+      
+      // If we got a reservation even with non-ok status, treat it as success
+      if (reservation && reservation._id) {
+        // Reservation was created successfully, continue with success flow
+        console.log('Reservation created successfully:', reservation._id);
+      } else if (!res.ok) {
+        // No reservation in response and status is not ok
+        throw new Error('reservation_failed');
+      }
       
       // #13 - Save reservation to localStorage for tracking
       if (reservation) {
