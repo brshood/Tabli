@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Users, Table, Clock, Calendar, ArrowLeft } from 'lucide-react';
+import { formatGSTDate } from '../utils/dateFormat';
 
 interface AnalyticsDashboardProps {
   onNavigate: (page: 'landing' | 'search' | 'staff' | 'analytics') => void;
@@ -45,7 +46,7 @@ export function AnalyticsDashboard({ onNavigate }: AnalyticsDashboardProps) {
             </div>
           </div>
           <Badge className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full">
-            Today: {new Date().toLocaleDateString()}
+            Today: {formatGSTDate(new Date())}
           </Badge>
         </div>
 

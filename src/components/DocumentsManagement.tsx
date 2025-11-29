@@ -17,6 +17,7 @@ import {
 } from '../services/documentsApi';
 import { updateMenuType, uploadProfilePicture, deleteProfilePicture, getProfilePictureUrl, getRestaurantInfo } from '../services/profileApi';
 import { QRCodeDisplay } from './QRCodeDisplay';
+import { formatGSTDateTimeLong } from '../utils/dateFormat';
 
 interface DocumentsManagementProps {
   restaurantId: string;
@@ -260,13 +261,7 @@ export function DocumentsManagement({ restaurantId, token }: DocumentsManagement
   };
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatGSTDateTimeLong(date);
   };
 
   const getFileIcon = (doc: DocumentRef) => {

@@ -4,6 +4,15 @@ import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
 import { Restaurant } from '../models/Restaurant';
 import { DailySummary, DailySummaryMetrics, TableStat, BusiestTableInfo } from '../models/DailySummary';
+import { 
+  getTodayStartGST, 
+  getGSTHour, 
+  getDaysAgoStartGST, 
+  getMonthsAgoStartGST,
+  getYesterdayStartGST,
+  formatGSTDateString,
+  getGSTDateComponents
+} from '../utils/dateFormat';
 
 export const analyticsRouter = express.Router();
 
@@ -65,26 +74,26 @@ analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
 });
 
 /**
- * Parses a date string and creates a Date object in local timezone.
+ * Parses a date string and creates a Date object representing midnight GST for that date.
  * Supports YYYY-MM-DD format or ISO date strings.
  * 
  * @param dateStr - Date string in YYYY-MM-DD format or ISO format
- * @returns Date object set to midnight in local timezone
+ * @returns Date object set to midnight GST
  * @throws Error if date format is invalid
  */
 function parseDateString(dateStr: string): Date {
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    // YYYY-MM-DD format - parse as local date to avoid timezone issues
+    // YYYY-MM-DD format - parse as GST date (midnight GST)
     const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day, 0, 0, 0, 0);
+    // Create date at midnight GST
+    return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+04:00`);
   } else {
-    // Try parsing as ISO string
+    // Try parsing as ISO string, then convert to GST start of day
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       throw new Error('Invalid date format. Use YYYY-MM-DD');
     }
-    date.setHours(0, 0, 0, 0);
-    return date;
+    return getGSTStartOfDay(date);
   }
 }
 
@@ -102,24 +111,20 @@ async function checkDataExists(restaurantId: string, targetDate: Date): Promise<
     return { exists: false, message: 'Restaurant not found' };
   }
 
-  // Check if restaurant existed on this date
-  // Normalize restaurant creation date to start of day for comparison
+  // Check if restaurant existed on this date (use GST timezone)
+  // Normalize restaurant creation date to start of day in GST for comparison
   if (restaurant.createdAt) {
-    const restaurantCreatedDate = new Date(restaurant.createdAt);
-    restaurantCreatedDate.setHours(0, 0, 0, 0);
-    const targetDateNormalized = new Date(targetDate);
-    targetDateNormalized.setHours(0, 0, 0, 0);
+    const restaurantCreatedDate = getGSTStartOfDay(new Date(restaurant.createdAt));
+    const targetDateNormalized = getGSTStartOfDay(targetDate);
     
     if (restaurantCreatedDate > targetDateNormalized) {
       return { exists: false, message: 'Restaurant did not exist on this date' };
     }
   }
 
-  // Check if there's any reservation data for this day
-  const startOfDay = new Date(targetDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(targetDate);
-  endOfDay.setHours(23, 59, 59, 999);
+  // Check if there's any reservation data for this day in GST timezone
+  const startOfDay = getGSTStartOfDay(targetDate);
+  const endOfDay = getGSTEndOfDay(targetDate);
 
   const hasAnyData = await Reservation.exists({
     restaurantId,
@@ -154,10 +159,17 @@ analyticsRouter.get('/overview', async (req, res, next) => {
     const restaurantId = req.query.restaurantId as string;
     const range = (req.query.range as string) || 'day';
     const now = new Date();
-    const start = new Date(now);
-    if (range === 'week') start.setDate(now.getDate() - 7);
-    else if (range === 'month') start.setMonth(now.getMonth() - 1);
-    else start.setDate(now.getDate() - 1);
+    let start: Date;
+    
+    // Use GST timezone for date ranges
+    if (range === 'week') {
+      start = getDaysAgoStartGST(7);
+    } else if (range === 'month') {
+      start = getMonthsAgoStartGST(1);
+    } else {
+      // For 'day' range, use yesterday's start in GST
+      start = getYesterdayStartGST();
+    }
 
     const [totals] = await Reservation.aggregate([
       { $match: { restaurantId: restaurantId ? (restaurantId as any) : { $exists: true }, requestedAt: { $gte: start } } },
@@ -195,14 +207,12 @@ analyticsRouter.get('/kpis', async (req, res, next) => {
 
     const now = new Date();
     
-    // Define today's range (midnight to now)
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+    // Define today's range (midnight to now) in GST timezone
+    const todayStart = getTodayStartGST();
     
-    // Define yesterday's range
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const yesterdayEnd = new Date(todayStart);
+    // Define yesterday's range in GST timezone
+    const yesterdayStart = getYesterdayStartGST();
+    const yesterdayEnd = new Date(todayStart); // End of yesterday is start of today
     
     // Get total table count for this restaurant
     const totalTables = await Table.countDocuments({ restaurantId });
@@ -373,13 +383,16 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
     
     const range = (req.query.range as string) || 'day';
     const now = new Date();
-    const start = new Date(now);
+    let start: Date;
     
-    if (range === 'week') start.setDate(now.getDate() - 7);
-    else if (range === 'month') start.setMonth(now.getMonth() - 1);
-    else {
-      // For 'day' range, use today's start
-      start.setHours(0, 0, 0, 0);
+    // Use GST timezone for date ranges
+    if (range === 'week') {
+      start = getDaysAgoStartGST(7);
+    } else if (range === 'month') {
+      start = getMonthsAgoStartGST(1);
+    } else {
+      // For 'day' range, use today's start in GST
+      start = getTodayStartGST();
     }
 
     // Fetch all reservations that were seated within the date range
@@ -391,9 +404,8 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
     };
     
     if (range === 'day') {
-      // For today, use today's start to now
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
+      // For today, use today's start in GST to now
+      const todayStart = getTodayStartGST();
       matchCondition.seatedAt = { $gte: todayStart, $lte: now };
     } else {
       matchCondition.seatedAt = { $gte: start, $lte: now };
@@ -410,16 +422,18 @@ analyticsRouter.get('/peak-hours', async (req, res, next) => {
       hourMap.set(hour, 0);
     }
     
+    // Get current hour in GST timezone
+    const currentGSTHour = getGSTHour(now);
+    
     // For each reservation, count it in all hours where it was present
     reservations.forEach((reservation: any) => {
       const seatedAt = new Date(reservation.seatedAt);
-      const seatedHour = seatedAt.getHours();
+      const seatedHour = getGSTHour(seatedAt); // Extract hour in GST timezone
       const leftAt = reservation.leftAt ? new Date(reservation.leftAt) : null;
-      const leftHour = leftAt ? leftAt.getHours() : null;
-      const currentHour = now.getHours();
+      const leftHour = leftAt ? getGSTHour(leftAt) : null; // Extract hour in GST timezone
     
-      // Determine the end hour: if not left yet, use current hour; otherwise use left hour
-      const endHour = leftHour !== null ? leftHour : currentHour;
+      // Determine the end hour: if not left yet, use current hour in GST; otherwise use left hour
+      const endHour = leftHour !== null ? leftHour : currentGSTHour;
       
       // Count this reservation in all hours from seatedHour through endHour
       // Note: A customer seated at hour H and leaving at hour H is still present during hour H
@@ -539,10 +553,14 @@ analyticsRouter.get('/daily', async (req, res, next) => {
     const restaurantId = req.query.restaurantId as string;
     const range = (req.query.range as string) || 'week';
     const now = new Date();
-    const start = new Date(now);
-    if (range === 'month') start.setMonth(now.getMonth() - 1);
-    else start.setDate(now.getDate() - 7);
-    start.setHours(0, 0, 0, 0); // Start of day
+    let start: Date;
+    
+    // Use GST timezone for date ranges
+    if (range === 'month') {
+      start = getMonthsAgoStartGST(1);
+    } else {
+      start = getDaysAgoStartGST(7);
+    }
 
     // Get all seated reservations and categorize them as reservations or walk-ins
     // Walk-ins are identified by phone === '0000000000'
@@ -557,7 +575,7 @@ analyticsRouter.get('/daily', async (req, res, next) => {
       .select({ seatedAt: 1, phone: 1 })
       .lean();
 
-    // Create maps for easy lookup - group by day
+    // Create maps for easy lookup - group by day in GST timezone
     const reservationsMap = new Map<string, number>();
     const walkInsMap = new Map<string, number>();
     
@@ -565,11 +583,8 @@ analyticsRouter.get('/daily', async (req, res, next) => {
       if (!reservation.seatedAt) return;
       
       const seatedDate = new Date(reservation.seatedAt);
-      // Format as YYYY-MM-DD using UTC to match date string format
-      const year = seatedDate.getUTCFullYear();
-      const month = String(seatedDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(seatedDate.getUTCDate()).padStart(2, '0');
-      const dayStr = `${year}-${month}-${day}`;
+      // Format as YYYY-MM-DD using GST timezone
+      const dayStr = formatGSTDateString(seatedDate);
       
       // Walk-ins are identified by phone === '0000000000'
       // Everything else (including undefined/null phone) counts as a reservation
@@ -584,20 +599,18 @@ analyticsRouter.get('/daily', async (req, res, next) => {
       }
     });
 
-    // Generate all days in range (use UTC to match MongoDB's $dateToString behavior)
+    // Generate all days in range using GST timezone
     const items: any[] = [];
-    const currentDate = new Date(start);
-    // Set to UTC to match MongoDB's date string formatting
-    const utcStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-    const utcNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59));
-    let currentUtcDate = new Date(utcStart);
+    const startGST = getGSTDateComponents(start);
+    const nowGST = getGSTDateComponents(now);
     
-    while (currentUtcDate <= utcNow) {
-      // Format as YYYY-MM-DD using UTC date components to match MongoDB
-      const year = currentUtcDate.getUTCFullYear();
-      const month = String(currentUtcDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(currentUtcDate.getUTCDate()).padStart(2, '0');
-      const dayStr = `${year}-${month}-${day}`;
+    // Create date at start of first day in GST
+    let currentGSTDate = new Date(`${startGST.year}-${String(startGST.month).padStart(2, '0')}-${String(startGST.day).padStart(2, '0')}T00:00:00+04:00`);
+    const endGSTDate = new Date(`${nowGST.year}-${String(nowGST.month).padStart(2, '0')}-${String(nowGST.day).padStart(2, '0')}T23:59:59+04:00`);
+    
+    while (currentGSTDate <= endGSTDate) {
+      // Format as YYYY-MM-DD using GST date components
+      const dayStr = formatGSTDateString(currentGSTDate);
       
       const reservations = reservationsMap.get(dayStr) || 0;
       const walkIns = walkInsMap.get(dayStr) || 0;
@@ -608,7 +621,8 @@ analyticsRouter.get('/daily', async (req, res, next) => {
         walkIns: walkIns,
         total: reservations + walkIns
       });
-      currentUtcDate.setUTCDate(currentUtcDate.getUTCDate() + 1);
+      // Move to next day in GST timezone
+      currentGSTDate = new Date(currentGSTDate.getTime() + 24 * 60 * 60 * 1000);
     }
 
     res.json({ items });
@@ -636,11 +650,9 @@ async function calculateDailySummaryMetrics(
   restaurantId: string,
   date: Date
 ): Promise<DailySummaryMetrics> {
-  // Calculate date range (start and end of day)
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
+  // Calculate date range (start and end of day) in GST timezone
+  const startOfDay = getGSTStartOfDay(date);
+  const endOfDay = getGSTEndOfDay(date);
 
   // Get all reservations for the day (by requestedAt)
   const allReservations = await Reservation.find({
@@ -1238,14 +1250,13 @@ analyticsRouter.get('/daily-summaries', async (req, res, next) => {
     if (startDate || endDate) {
       filter.date = {};
       if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
+        const start = parseDateString(startDate); // This now returns GST start of day
         filter.date.$gte = start;
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.date.$lte = end;
+        const end = parseDateString(endDate);
+        const endOfDay = getGSTEndOfDay(end);
+        filter.date.$lte = endOfDay;
       }
     }
 

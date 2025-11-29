@@ -6,7 +6,7 @@ import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { notificationEmitter } from '../services/notificationEmitter';
-import { formatUaeTime } from '../utils/dateFormat';
+import { formatUaeTime, getGSTStartOfDay, getGSTEndOfDay } from '../utils/dateFormat';
 import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../services/pushNotification';
 import { env } from '../config/env';
 
@@ -251,10 +251,12 @@ reservationsRouter.get('/', async (req, res, next) => {
     if (restaurantId) filter.restaurantId = restaurantId;
     if (status) filter.status = status;
     if (date) {
-      const start = new Date(date);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
-      filter.requestedAt = { $gte: start, $lt: end };
+      // date is expected to be YYYY-MM-DD format, interpret as GST date
+      const startDate = typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)
+        ? new Date(`${date}T00:00:00+04:00`) // GST midnight
+        : getGSTStartOfDay(new Date(date));
+      const end = getGSTEndOfDay(startDate);
+      filter.requestedAt = { $gte: startDate, $lte: end };
     }
     const items = await Reservation.find(filter).sort({ requestedAt: 1 }).lean();
     

@@ -20,6 +20,7 @@ import { useRestaurant } from './RestaurantContext';
 import { estimateWaitTimes } from '../utils/waitTimeEstimator';
 import { startStaffSSE, stopStaffSSE } from '../services/staffSSE';
 import { subscribeToPush, getNotificationPermission, isPushSupported } from '../services/pushSubscription';
+import { formatGSTTime, formatGSTDateShort, formatGSTDateTime } from '../utils/dateFormat';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -475,7 +476,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         waitTime: '—',
         phone: r.phone || '',
         email: r.email || '',
-        joined: new Date(r.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        joined: formatGSTTime(r.requestedAt),
         contactMethod: (r.contactMethod || 'phone') as any,
         gender: r.gender,
         seatingPreference: r.seatingPreference,
@@ -504,7 +505,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
             guests: r.name || 'Seated Party',
             partySize: r.partySize || 2,
             capacity: r.partySize || 4,
-            seatedTime: r.seatedAt ? new Date(r.seatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            seatedTime: r.seatedAt ? formatGSTTime(r.seatedAt) : '--:--',
             duration: '—',
           };
         });
@@ -1614,7 +1615,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                       className="px-2 py-1 text-xs"
                                       style={{backgroundColor: '#FEF3C7', color: '#92400E'}}
                                     >
-                                      Hold: {new Date((customer as any).holdUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      Hold: {formatGSTTime((customer as any).holdUntil)}
                                     </Badge>
                                   )}
                                 </>
@@ -1967,7 +1968,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                       try {
                         const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
                         return {
-                          name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 
+                          name: formatGSTDateShort(date), 
                           reservations: d.reservations || 0, 
                           walkIns: d.walkIns || 0
                         };
@@ -2140,7 +2141,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     const busiest = dailyData.reduce((a, b) => (b.total > a.total ? b : a));
                     try {
                       const date = new Date(busiest.day);
-                      const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const formatted = formatGSTDateShort(date);
                       return (
                         <>
                           <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{formatted}</p>
@@ -2464,7 +2465,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           <div className="text-xs text-center" style={{color: '#5A5E3E'}}>
                             <div className="font-semibold">Called</div>
                             <div className="text-xs opacity-70">
-                              {new Date(customer.calledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {formatGSTTime(customer.calledAt)}
                             </div>
                           </div>
                           <Button

@@ -1,3 +1,5 @@
+import { formatGSTDateString } from '../utils/dateFormat';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export interface DailySummary {
@@ -90,8 +92,8 @@ export async function getDailySummary(
  * Opens PDF in new tab
  */
 export function getDailySummaryPdfUrl(restaurantId: string, date: string): string {
-  // Format date as YYYY-MM-DD
-  const dateStr = new Date(date).toISOString().split('T')[0];
+  // Format date as YYYY-MM-DD in GST timezone
+  const dateStr = formatGSTDateString(date);
   return `${API_URL}/analytics/daily-summary/pdf/${dateStr}?restaurantId=${restaurantId}`;
 }
 

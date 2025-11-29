@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { X, Bell, CheckCircle, AlertCircle, Info, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { formatGSTDate } from '../utils/dateFormat';
 
 export interface InAppNotification {
   id: string;
@@ -131,7 +132,7 @@ export function InAppNotificationSystem({ onNotificationClick }: InAppNotificati
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return new Date(timestamp).toLocaleDateString();
+    return formatGSTDate(timestamp);
   };
 
   return (

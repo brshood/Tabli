@@ -1,5 +1,6 @@
 import express from 'express';
 import { Reservation } from '../models/Reservation';
+import { getTodayStartGST } from '../utils/dateFormat';
 
 export const dashboardRouter = express.Router();
 
@@ -17,8 +18,7 @@ export const dashboardRouter = express.Router();
 dashboardRouter.get('/:restaurantId/summary', async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
-    const todayStart = new Date();
-    todayStart.setHours(0,0,0,0);
+    const todayStart = getTodayStartGST(); // Use GST timezone
     const now = new Date();
 
     const [waitingCount, seatedToday, seatedDurations] = await Promise.all([

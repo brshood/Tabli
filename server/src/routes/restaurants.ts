@@ -9,6 +9,7 @@ import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { getDaysAgoStartGST } from '../utils/dateFormat';
 
 export const restaurantsRouter = express.Router();
 
@@ -17,11 +18,9 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const items = await Restaurant.find({ approvalStatus: 'approved' }).lean();
     const ids = items.map((r: any) => r._id);
     
-    // Calculate date range for last 7 days
+    // Calculate date range for last 7 days in GST timezone
     const now = new Date();
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const sevenDaysAgo = getDaysAgoStartGST(7);
     
     // Batch all queries in parallel for better performance
     const [summaries, tableCounts, waitTimeStats, queueCounts] = await Promise.all([

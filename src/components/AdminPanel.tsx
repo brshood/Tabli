@@ -18,6 +18,7 @@ import {
   type AdminRestaurantDetails
 } from '../services/adminApi';
 import { toast } from 'sonner';
+import { formatGSTDateTime } from '../utils/dateFormat';
 import { 
   LogOut, 
   Search, 
@@ -424,11 +425,11 @@ function RestaurantDetails({
               )}
               <div>
                 <Label className="text-sm font-semibold">Created</Label>
-                <p className="text-sm">{new Date(restaurant.createdAt).toLocaleString()}</p>
+                <p className="text-sm">{formatGSTDateTime(restaurant.createdAt)}</p>
               </div>
               <div>
                 <Label className="text-sm font-semibold">Updated</Label>
-                <p className="text-sm">{new Date(restaurant.updatedAt).toLocaleString()}</p>
+                <p className="text-sm">{formatGSTDateTime(restaurant.updatedAt)}</p>
               </div>
             </div>
             <div className="mt-4 border rounded-lg p-4 bg-gray-50">
@@ -552,7 +553,7 @@ function RestaurantDetails({
                                   <span className="text-xs">v{file.version}</span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  Uploaded: {new Date(file.uploadedAt).toLocaleString()}
+                                  Uploaded: {formatGSTDateTime(file.uploadedAt)}
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   Content Type: {file.contentType}
@@ -642,16 +643,16 @@ function RestaurantDetails({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs">
-                          {new Date(reservation.requestedAt).toLocaleString()}
+                          {formatGSTDateTime(reservation.requestedAt)}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {reservation.confirmedAt ? new Date(reservation.confirmedAt).toLocaleString() : 'N/A'}
+                          {reservation.confirmedAt ? formatGSTDateTime(reservation.confirmedAt) : 'N/A'}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {reservation.seatedAt ? new Date(reservation.seatedAt).toLocaleString() : 'N/A'}
+                          {reservation.seatedAt ? formatGSTDateTime(reservation.seatedAt) : 'N/A'}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {reservation.leftAt ? new Date(reservation.leftAt).toLocaleString() : 'N/A'}
+                          {reservation.leftAt ? formatGSTDateTime(reservation.leftAt) : 'N/A'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -706,7 +707,7 @@ function RestaurantDetails({
                           <p className="text-sm truncate">{rating.comment || 'N/A'}</p>
                         </TableCell>
                         <TableCell className="text-xs">
-                          {new Date(rating.createdAt).toLocaleString()}
+                          {formatGSTDateTime(rating.createdAt)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -754,7 +755,7 @@ function RestaurantDetails({
                                 )}
                               </div>
                               <div className="mt-1">
-                                Submitted: {new Date(reservation.surveyFeedback.submittedAt).toLocaleString()}
+                                Submitted: {formatGSTDateTime(reservation.surveyFeedback.submittedAt)}
                               </div>
                             </div>
                           </div>
@@ -827,7 +828,7 @@ function RestaurantDetails({
                           {table.currentReservationId || 'N/A'}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {new Date(table.createdAt).toLocaleString()}
+                          {formatGSTDateTime(table.createdAt)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -866,7 +867,7 @@ function RestaurantDetails({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs">
-                          {new Date(user.createdAt).toLocaleString()}
+                          {formatGSTDateTime(user.createdAt)}
                         </TableCell>
                       </TableRow>
                     ))}

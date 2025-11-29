@@ -8,6 +8,7 @@ import { PostBookingSurveyModal } from './PostBookingSurveyModal';
 import { useLanguage } from './LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 import { toast } from 'sonner';
+import { formatGSTDateTime } from '../utils/dateFormat';
 import { 
   Star, 
   MapPin, 
@@ -706,7 +707,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                       ))}
                     </div>
                     <div className="text-sm mb-2" style={{color: '#374151'}}>{c.comment || 'No comment'}</div>
-                    <div className="text-xs" style={{color: '#6B7280'}}>{c.name || 'Guest'} • {new Date(c.createdAt).toLocaleString()}</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>{c.name || 'Guest'} • {formatGSTDateTime(c.createdAt)}</div>
                   </div>
                 )) : (
                   <div className="text-sm text-center py-8" style={{color: '#6B7280'}}>No comments yet.</div>

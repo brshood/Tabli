@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { QueueCountdownTimer } from './QueueCountdownTimer';
 import { useLanguage } from './LanguageContext';
 import { requestPermissionAndPrepareSubscription, completeSubscription, isPushSupported, getNotificationPermission } from '../services/pushSubscription';
+import { formatGSTDate, formatGSTTime } from '../utils/dateFormat';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -414,7 +415,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return new Date(timestamp).toLocaleDateString();
+    return formatGSTDate(timestamp);
   };
 
   const formatHoldTime = (holdUntil: string) => {
@@ -455,7 +456,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-lg truncate">{reservation.restaurantName}</h3>
                 <p className="text-sm text-gray-500">
-                  {new Date(reservation.bookedAt).toLocaleDateString()} at {new Date(reservation.bookedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {formatGSTDate(reservation.bookedAt)} at {formatGSTTime(reservation.bookedAt)}
                 </p>
               </div>
             </div>
