@@ -64,7 +64,11 @@ export function ReservationStatusModal({
       if (!res.ok) throw new Error('Failed to fetch reservation');
       
       const data = await res.json();
-      const updated = data.reservation;
+      const updated = data?.reservation;
+
+      if (!updated) {
+        throw new Error('Invalid response: reservation data missing');
+      }
 
       // Update local state
       onReservationUpdate({

@@ -261,7 +261,9 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                             setComments(data.items || []);
                             setShowComments(true);
                           }
-                        } catch {}
+                        } catch (error) {
+                          console.error('Failed to load ratings:', error);
+                        }
                       }}
                     >
                       <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
@@ -398,7 +400,9 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                         setComments(data.items || []);
                         setShowComments(true);
                       }
-                    } catch {}
+                    } catch (error) {
+                      console.error('Failed to load ratings:', error);
+                    }
                   }}
                   style={{borderColor: '#6B7280', color: '#4B5563'}}
                 >
