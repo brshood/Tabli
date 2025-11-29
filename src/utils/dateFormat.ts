@@ -6,13 +6,32 @@
 const GST_TIMEZONE = 'Asia/Dubai'; // GST = UTC+4
 
 /**
+ * Normalize a date value to a valid Date object
+ * @param date Date object, ISO string, or null/undefined
+ * @returns Valid Date object or throws error
+ */
+function normalizeDate(date: Date | string | null | undefined): Date {
+  if (date === null || date === undefined) {
+    throw new Error('Date value is null or undefined');
+  }
+  
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    throw new Error(`Invalid date value: ${date}`);
+  }
+  
+  return d;
+}
+
+/**
  * Format a date as time string in GST timezone
  * @param date Date object or ISO string
  * @param options Intl.DateTimeFormatOptions
  * @returns Formatted time string
  */
 export function formatGSTTime(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   return d.toLocaleTimeString('en-US', {
     timeZone: GST_TIMEZONE,
     hour12: true,
@@ -29,7 +48,7 @@ export function formatGSTTime(date: Date | string, options?: Intl.DateTimeFormat
  * @returns Formatted date string
  */
 export function formatGSTDate(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   return d.toLocaleDateString('en-US', {
     timeZone: GST_TIMEZONE,
     ...options,
@@ -43,7 +62,7 @@ export function formatGSTDate(date: Date | string, options?: Intl.DateTimeFormat
  * @returns Formatted date and time string
  */
 export function formatGSTDateTime(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   return d.toLocaleString('en-US', {
     timeZone: GST_TIMEZONE,
     hour12: true,
@@ -57,7 +76,7 @@ export function formatGSTDateTime(date: Date | string, options?: Intl.DateTimeFo
  * @returns Formatted string like "Jan 15, 2024, 7:30 PM"
  */
 export function formatGSTDateTimeLong(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   return d.toLocaleString('en-US', {
     timeZone: GST_TIMEZONE,
     year: 'numeric',
@@ -75,7 +94,7 @@ export function formatGSTDateTimeLong(date: Date | string): string {
  * @returns Formatted string like "Jan 15"
  */
 export function formatGSTDateShort(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   return d.toLocaleDateString('en-US', {
     timeZone: GST_TIMEZONE,
     month: 'short',
@@ -97,7 +116,7 @@ export function nowGST(): Date {
  * @returns String in format YYYY-MM-DD
  */
 export function formatGSTDateString(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = normalizeDate(date);
   const gstDateStr = d.toLocaleString('en-US', {
     timeZone: GST_TIMEZONE,
     year: 'numeric',
