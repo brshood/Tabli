@@ -276,7 +276,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         
         // Complete push notification subscription if permission was granted earlier
         // (Permission was requested before async operations for iOS compatibility)
-        if (permissionGranted || Notification.permission === 'granted') {
+        if (permissionGranted || (typeof Notification !== 'undefined' && Notification.permission === 'granted')) {
           try {
             await completeSubscription({
               reservationId: reservation._id,
