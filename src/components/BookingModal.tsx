@@ -184,14 +184,42 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         return;
       }
       
-      if (!res.ok) throw new Error('reservation_failed');
-      const data = await res.json().catch(() => ({}));
+      // Try to parse response even if not ok - reservation might still be created
+      let data: any = {};
+      
+      try {
+        data = await res.json();
+      } catch (parseError) {
+        // If JSON parsing fails, always treat it as an error (even if res.ok is true)
+        // We cannot proceed without valid response data
+        console.error('Failed to parse response JSON:', parseError);
+        throw new Error('reservation_failed');
+      }
+      
       const reservation = data?.reservation;
       const position = reservation?.queuePosition;
       
+      // Validate that we have reservation data before proceeding
+      // If res.ok is true but no reservation exists, that's an error
+      // If res.ok is false but we have reservation data, that's still a success (edge case)
+      if (!reservation || !reservation._id) {
+        // No valid reservation data found - treat as failure
+        if (res.ok) {
+          // This is unexpected - API says success but no reservation data
+          console.error('API returned success status but no reservation data');
+          throw new Error('reservation_failed');
+        } else {
+          // API returned error status and no reservation data - expected failure
+          throw new Error('reservation_failed');
+        }
+      }
+      
+      // We have valid reservation data - proceed with success flow
+      console.log('Reservation created successfully:', reservation._id);
+      
       // #13 - Save reservation to localStorage for tracking
-      if (reservation) {
-        const activeReservation: ActiveReservation = {
+      // Note: reservation is guaranteed to exist here due to validation above
+      const activeReservation: ActiveReservation = {
           reservationId: reservation._id,
           restaurantId: reservation.restaurantId,
           restaurantName: restaurant?.name || 'Restaurant',
@@ -248,7 +276,6 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             window.dispatchEvent(new CustomEvent('tabli:open-status-modal'));
           }
         });
-      }
       
       const successMessage = mode === 'reserve'
         ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."

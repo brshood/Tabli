@@ -1,7 +1,7 @@
 // Enhanced Notifications Page - Shows ALL reservations + full notification history
 // Matches email notifications exactly
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -52,6 +52,12 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   }, []);
 
   const loadData = async () => {
+    // Prevent concurrent loads and infinite loops
+    if (isLoadingRef.current) {
+      return;
+    }
+    
+    isLoadingRef.current = true;
     setIsRefreshingAll(true);
     try {
       // Load reservations from history
@@ -61,6 +67,7 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
         // No reservations to refresh
         setReservations([]);
         setIsRefreshingAll(false);
+        isLoadingRef.current = false;
         return;
       }
     
@@ -73,6 +80,22 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
             const data = await response.json();
             const serverRes = data.reservation;
             
+            // Check if data actually changed before updating
+            // Note: dates are stored as strings in localStorage, so convert for comparison
+            const getTimeSafe = (date: string | Date | undefined): number | undefined => {
+              if (!date) return undefined;
+              if (typeof date === 'string') return new Date(date).getTime();
+              return date instanceof Date ? date.getTime() : undefined;
+            };
+            
+            const hasChanged = 
+              res.status !== serverRes.status ||
+              res.queuePosition !== serverRes.queuePosition ||
+              (getTimeSafe(res.holdUntil) !== getTimeSafe(serverRes.holdUntil)) ||
+              res.holdStatus !== serverRes.holdStatus ||
+              (getTimeSafe(res.leftAt) !== getTimeSafe(serverRes.leftAt)) ||
+              (getTimeSafe(res.seatedAt) !== getTimeSafe(serverRes.seatedAt));
+            
             // Update with latest data
             const updatedRes = {
               ...res,
@@ -84,7 +107,10 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
               seatedAt: serverRes.seatedAt,
             };
             
-            updateReservationInHistory(res.reservationId, updatedRes);
+            // Only update history if data actually changed to avoid triggering unnecessary events
+            if (hasChanged) {
+              updateReservationInHistory(res.reservationId, updatedRes);
+            }
             updated.push(updatedRes);
           } else if (response.status === 404) {
             // Reservation not found - it was deleted from server
@@ -130,19 +156,21 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
       toast.error('Failed to refresh reservations');
     } finally {
       setIsRefreshingAll(false);
+      isLoadingRef.current = false;
     }
   };
 
   // State to force re-render for live time updates
   const [timeUpdateTick, setTimeUpdateTick] = useState(0);
+  
+  // Ref to track if we're currently loading to prevent infinite loops
+  const isLoadingRef = useRef(false);
+  // Ref to track last load time for debouncing
+  const lastLoadTimeRef = useRef(0);
 
-  // Load data on mount and periodically
+  // Load data on mount only (no auto-refresh - user can manually refresh or wait for SSE updates)
   useEffect(() => {
     loadData();
-    
-    // Refresh every 30 seconds to avoid rate limiting (polling service handles real-time updates)
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
   }, []);
   
   // Also reload when component becomes visible
@@ -160,9 +188,15 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
   // Listen for storage events to catch SSE updates and cross-context sync (Safari/PWA)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
+      // StorageEvent only fires for OTHER tabs/windows, so safe to reload
       // Reload data when localStorage changes (from SSE updates or cross-context sync)
       if (e.key === 'tabli_active_reservation' || e.key === 'tabli_reservation_history') {
-        loadData();
+        // Debounce to prevent rapid reloads
+        const now = Date.now();
+        if (now - lastLoadTimeRef.current > 1000) {
+          lastLoadTimeRef.current = now;
+          loadData();
+        }
       }
     };
 
@@ -170,16 +204,31 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
     
     // Also listen for custom events from SSE updates
     const handleReservationUpdate = () => {
-      loadData();
-      setTimeUpdateTick(prev => prev + 1); // Force re-render for time displays
+      // Debounce to prevent rapid reloads
+      const now = Date.now();
+      if (now - lastLoadTimeRef.current > 1000) {
+        lastLoadTimeRef.current = now;
+        loadData();
+        setTimeUpdateTick(prev => prev + 1); // Force re-render for time displays
+      }
     };
     
     window.addEventListener('reservation:updated', handleReservationUpdate as any);
     
     // Listen for cross-context sync events (Safari/PWA)
+    // These can fire from the same tab, so we need to be careful
     const handleCrossContextSync = () => {
-      loadData();
-      setTimeUpdateTick(prev => prev + 1);
+      // Skip if we're already loading to prevent infinite loops
+      if (isLoadingRef.current) {
+        return;
+      }
+      // Debounce to prevent rapid reloads
+      const now = Date.now();
+      if (now - lastLoadTimeRef.current > 2000) {
+        lastLoadTimeRef.current = now;
+        loadData();
+        setTimeUpdateTick(prev => prev + 1);
+      }
     };
     
     window.addEventListener('tabli:reservation-updated', handleCrossContextSync as any);
