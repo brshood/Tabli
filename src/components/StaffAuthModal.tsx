@@ -97,7 +97,12 @@ export function StaffAuthModal({ isOpen, onClose, onAuthSuccess }: StaffAuthModa
         console.error('Login failed:', res.status, errorText);
         throw new Error('login_failed');
       }
-      return res.json();
+      try {
+        return await res.json();
+      } catch (error) {
+        console.error('Failed to parse login response:', error);
+        throw new Error('Invalid response from server');
+      }
     } catch (error: any) {
       // Re-throw errors that have specific error codes (like pending_approval, approval_denied)
       // or known error messages, so they can be handled properly in handleLogin

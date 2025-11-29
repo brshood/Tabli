@@ -71,7 +71,12 @@ async function pollReservationStatus(): Promise<void> {
     }
 
     const data = await response.json();
-    const reservation = data.reservation;
+    const reservation = data?.reservation;
+    
+    if (!reservation) {
+      console.error('[POLLING] Invalid response: missing reservation data');
+      return;
+    }
 
     // Check for status changes
     if (lastKnownStatus === null) {

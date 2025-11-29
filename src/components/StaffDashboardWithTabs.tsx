@@ -104,7 +104,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         setWaitingCount(data.waiting || 0);
         setSeatedToday(data.seatedToday || 0);
         setAvgWaitMinutes(data.avgWaitMinutes || 0);
-      } catch {}
+      } catch (error) {
+        console.error('Failed to load dashboard summary:', error);
+      }
     };
     load();
     // Poll every 5 seconds to quickly reflect table status changes
@@ -941,7 +943,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
         setAvailableTables(avail);
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to add table:', error);
+      toast.error('Failed to add table. Please try again.');
+    }
   };
 
   const removeTable = async (tableId: any) => {
@@ -1002,11 +1007,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: 'Failed to assign table' };
+        }
         throw new Error(errorData.error || 'Failed to assign table');
       }
 
       const data = await response.json();
+      if (!data?.table?.name) {
+        throw new Error('Invalid response from server');
+      }
       toast.success(`${fittingCustomer.name} seated at ${data.table.name}`);
       setTableSeatingDialogOpen(false);
 
@@ -1031,11 +1044,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: 'Failed to assign table' };
+        }
         throw new Error(errorData.error || 'Failed to assign table');
       }
 
       const data = await response.json();
+      if (!data?.table?.name) {
+        throw new Error('Invalid response from server');
+      }
       toast.success(`${customer.name} seated at ${data.table.name}`);
       setTableCustomerSelectionOpen(false);
       setTableSeatingDialogOpen(false);

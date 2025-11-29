@@ -78,7 +78,13 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
           const response = await fetch(`${API_URL}/reservations/${res.reservationId}`);
           if (response.ok) {
             const data = await response.json();
-            const serverRes = data.reservation;
+            const serverRes = data?.reservation;
+            
+            if (!serverRes) {
+              console.warn(`Reservation ${res.reservationId} missing in response`);
+              updated.push(res);
+              continue;
+            }
             
             // Check if data actually changed before updating
             // Note: dates are stored as strings in localStorage, so convert for comparison
@@ -257,7 +263,12 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
       const response = await fetch(`${API_URL}/reservations/${reservationId}`);
       if (response.ok) {
         const data = await response.json();
-        const serverRes = data.reservation;
+        const serverRes = data?.reservation;
+        
+        if (!serverRes) {
+          console.warn(`Reservation ${reservationId} missing in response`);
+          return;
+        }
         
         updateReservationInHistory(reservationId, {
           status: serverRes.status,
