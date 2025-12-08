@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Bell, Clock, Users, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Loader2, Phone, Mail, ExternalLink, Trash2 } from 'lucide-react';
+import { Bell, Clock, Users, MapPin, CheckCircle, XCircle, AlertCircle, RefreshCw, X, Loader2, Phone, Mail, ExternalLink, Trash2, Hash } from 'lucide-react';
 import { getReservationHistory, updateReservationInHistory, removeReservationFromHistory, type ReservationHistoryItem } from '../services/reservationHistory';
 import { forceRefreshReservation } from '../services/reservationPolling';
 import { toast } from 'sonner';
@@ -753,45 +753,94 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 max-h-[calc(100vh-200px)] overflow-y-auto">
-                  {notifications.length > 0 ? (
-                    <div className="space-y-2">
-                      {notifications.slice(0, 20).map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="p-3 rounded-lg border bg-white text-sm"
-                          style={{ backgroundColor: '#FFFFFF', opacity: 1 }}
-                        >
-                          <div className="flex items-start gap-2">
-                            {getNotificationIcon(notification.type)}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-1 mb-1">
-                                <h4 className="font-semibold text-xs">{notification.title}</h4>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => clearNotification(notification.id)}
-                                  className="shrink-0 h-5 w-5 p-0"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                  {/* Queue Positions Section */}
+                  {(() => {
+                    const queueReservations = activeReservations.filter(
+                      r => r.mode === 'waitlist' && typeof r.queuePosition === 'number'
+                    );
+                    
+                    if (queueReservations.length > 0) {
+                      return (
+                        <div className="mb-4 pb-4 border-b border-gray-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Hash className="h-4 w-4 text-blue-600" />
+                            <h3 className="font-semibold text-sm text-gray-800">Queue Positions</h3>
+                          </div>
+                          <div className="space-y-2">
+                            {queueReservations.map((reservation) => (
+                              <div
+                                key={reservation.reservationId}
+                                className="p-3 rounded-lg border-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-semibold text-xs text-gray-800 truncate">
+                                    {reservation.restaurantName}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-lg">
+                                    {reservation.queuePosition}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-700 font-medium">
+                                      Position in queue
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {reservation.status === 'confirmed' ? 'Checked in' : 'Waiting'}
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-600 mb-1">
-                                {notification.message}
-                              </p>
-                              <span className="text-xs text-gray-400">
-                                {formatTimestamp(notification.timestamp)}
-                              </span>
-                            </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-gray-400">
-                      <Bell className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-xs">No notifications</p>
-                    </div>
-                  )}
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Notifications Section */}
+                  <div>
+                    {notifications.length > 0 ? (
+                      <div className="space-y-2">
+                        {notifications.slice(0, 20).map((notification) => (
+                          <div
+                            key={notification.id}
+                            className="p-3 rounded-lg border bg-white text-sm"
+                            style={{ backgroundColor: '#FFFFFF', opacity: 1 }}
+                          >
+                            <div className="flex items-start gap-2">
+                              {getNotificationIcon(notification.type)}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-1 mb-1">
+                                  <h4 className="font-semibold text-xs">{notification.title}</h4>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => clearNotification(notification.id)}
+                                    className="shrink-0 h-5 w-5 p-0"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-gray-600 mb-1">
+                                  {notification.message}
+                                </p>
+                                <span className="text-xs text-gray-400">
+                                  {formatTimestamp(notification.timestamp)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-400">
+                        <Bell className="h-8 w-8 mx-auto mb-2" />
+                        <p className="text-xs">No notifications</p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>
