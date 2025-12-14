@@ -188,46 +188,24 @@ reservationsRouter.post('/', async (req, res, next) => {
       
       // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
       // Note: Frontend may send contactMethod='email' even when phone is provided
-      console.log('[RESERVATION] SMS check:', {
-        contactMethod: data.contactMethod,
-        phone: data.phone,
-        phoneIsValid: data.phone && data.phone !== '0000000000',
-        willSendSMS: data.phone && data.phone !== '0000000000',
-      });
-      
       if (data.phone && data.phone !== '0000000000') {
-        try {
-          const normalizedPhone = normalizeMsisdn(data.phone);
-          console.log('[RESERVATION] Normalized phone:', { original: data.phone, normalized: normalizedPhone });
-          
-          if (normalizedPhone) {
-            const smsMessage = data.mode === 'reserve'
-              ? getReservationConfirmationMessage({ restaurantName: restaurant.name })
-              : getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition });
-            
-            console.log('[RESERVATION] Sending SMS to:', normalizedPhone, 'Message:', smsMessage.substring(0, 50) + '...');
-            
-            await sendSmsViaEand({
-              to: normalizedPhone,
-              text: smsMessage,
-              category: 'otp',
-            });
-            
-            console.log('[RESERVATION] SMS sent successfully to:', normalizedPhone);
-          } else {
-            console.warn('[RESERVATION] Phone normalization failed for:', data.phone);
-          }
-        } catch (smsError) {
+        // Fire and forget - don't block reservation creation
+        sendSmsViaEand({
+          to: data.phone,
+          text: data.mode === 'reserve'
+            ? getReservationConfirmationMessage({ restaurantName: restaurant.name })
+            : getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition }),
+          category: 'otp',
+        }).catch((smsError) => {
           console.error('[RESERVATION] Failed to send SMS notification:', {
             error: smsError instanceof Error ? smsError.message : smsError,
             phone: data.phone,
             reservationId: doc._id,
-            stack: smsError instanceof Error ? smsError.stack : undefined,
+            hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+            hasSenderId: !!process.env.EAND_SENDER_ID,
           });
           // Don't fail reservation if SMS fails
-        }
-      } else {
-        console.log('[RESERVATION] SMS not sent - no valid phone number provided');
+        });
       }
     }
 
@@ -394,26 +372,23 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         }
 
         // Send SMS notification - table is ready
-        if (r.phone && r.phone !== '0000000000' && r.contactMethod === 'phone') {
-          try {
-            const normalizedPhone = normalizeMsisdn(r.phone);
-            if (normalizedPhone) {
-              const smsMessage = getTableReadyMessage({ restaurantName: (await Restaurant.findById(r.restaurantId).lean())?.name });
-              
-              await sendSmsViaEand({
-                to: normalizedPhone,
-                text: smsMessage,
-                category: 'otp',
-              });
-            }
-          } catch (smsError) {
+        if (r.phone && r.phone !== '0000000000') {
+          // Fire and forget - don't block status update
+          const restaurant = await Restaurant.findById(r.restaurantId).lean();
+          sendSmsViaEand({
+            to: r.phone,
+            text: getTableReadyMessage({ restaurantName: restaurant?.name }),
+            category: 'otp',
+          }).catch((smsError) => {
             console.error('[RESERVATION] Failed to send table ready SMS:', {
               error: smsError instanceof Error ? smsError.message : smsError,
               phone: r.phone,
               reservationId: r._id,
+              hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+              hasSenderId: !!process.env.EAND_SENDER_ID,
             });
             // Don't fail status update if SMS fails
-          }
+          });
         }
 
         // Send push notification - table is ready
