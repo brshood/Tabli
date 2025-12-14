@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../config/env';
+import { getAccessToken } from './eandAuthClient';
 
 export interface SmsParams {
   to: string;              // E.164 without '+', e.g. 971505612301
@@ -19,7 +20,6 @@ export interface SmsResponse {
 
 // Read config from env
 const SMS_URL = env.EAND_SMS_URL || "https://nexus.eandenterprise.com/api/v1/sms/send";
-const ACCESS_TOKEN = env.EAND_ACCESS_TOKEN;
 const SENDER_ID = env.EAND_SENDER_ID;
 const DR_CALLBACK = env.EAND_DR_CALLBACK || "http://example.com/dr";
 
@@ -50,12 +50,19 @@ function generateClientTxnId(provided?: string): string {
 
 /**
  * Normalize phone number to E.164 format without '+'
- * Input format: 5xxxxxxxx (where x is the actual input)
- * Output: 9715xxxxxxxx
+ * Removes '+' prefix and ensures digits only
+ * For external use - simple normalization
  */
-export function normalizeMsisdn(phone: string | undefined | null): string | null {
-  if (!phone) return null;
-  
+export function normalizeMsisdn(raw: string): string {
+  const trimmed = raw.trim();
+  return trimmed.startsWith("+") ? trimmed.slice(1) : trimmed;
+}
+
+/**
+ * Internal function to normalize phone number for SMS API
+ * Handles UAE number format (5xxxxxxxx -> 9715xxxxxxxx)
+ */
+function normalizePhoneForSms(phone: string): string {
   // Remove any whitespace, dashes, or other characters
   let normalized = phone.replace(/\D/g, '');
   
@@ -74,19 +81,22 @@ export function normalizeMsisdn(phone: string | undefined | null): string | null
     return `971${normalized}`;
   }
   
-  // If it's already 12 digits and starts with 971, return as is
-  if (normalized.length >= 12 && normalized.startsWith('971')) {
-    return normalized;
-  }
-  
-  // If it's 9 digits starting with 5, prepend 971
-  if (normalized.length === 9 && normalized.startsWith('5')) {
-    return `971${normalized}`;
-  }
-  
   // Return as is if it doesn't match expected patterns
-  // The API will validate it
   return normalized;
+}
+
+/**
+ * Call SMS API with a token
+ */
+async function callSmsApi(token: string, payload: any): Promise<SmsResponse> {
+  const res = await axios.post<SmsResponse>(SMS_URL, payload, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 10000,
+  });
+  return res.data;
 }
 
 /**
@@ -94,22 +104,18 @@ export function normalizeMsisdn(phone: string | undefined | null): string | null
  */
 export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
   // Validate required environment variables
-  if (!ACCESS_TOKEN) {
-    throw new Error('EAND_ACCESS_TOKEN environment variable is required');
-  }
   if (!SENDER_ID) {
-    throw new Error('EAND_SENDER_ID environment variable is required');
+    const error = 'EAND_SENDER_ID environment variable is required';
+    console.error('[EAND_SMS] Configuration error:', error);
+    throw new Error(error);
   }
   
-  // Normalize phone number
-  const normalizedPhone = normalizeMsisdn(params.to);
-  if (!normalizedPhone) {
-    throw new Error('Invalid phone number: phone number is required');
-  }
+  // Normalize phone number (handles UAE format and removes +)
+  const normalizedPhone = normalizePhoneForSms(params.to);
   
   // Validate phone number format (digits only, no +)
-  if (!/^\d+$/.test(normalizedPhone)) {
-    throw new Error(`Invalid phone number format: must be digits only (got: ${normalizedPhone})`);
+  if (!normalizedPhone || !/^\d+$/.test(normalizedPhone)) {
+    throw new Error(`Invalid phone number format: must be digits only (got: ${params.to})`);
   }
   
   // Generate clientTxnId if not provided
@@ -126,28 +132,56 @@ export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
   };
   
   try {
-    const res = await axios.post<SmsResponse>(SMS_URL, payload, {
-      headers: {
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 10000,
-    });
+    // Get access token (from cache or new login)
+    const token = await getAccessToken();
+    
+    // Try sending SMS
+    const result = await callSmsApi(token, payload);
     
     // Log success (mask phone number for privacy)
     const maskedPhone = normalizedPhone.length > 4 
       ? `${normalizedPhone.slice(0, 2)}****${normalizedPhone.slice(-2)}`
       : '****';
     console.log('[EAND_SMS] SMS sent successfully', {
-      txnId: res.data.txnId,
-      statusCode: res.data.statusCode,
-      statusMsg: res.data.statusMsg,
-      clientTxnId: res.data.clientTxnId,
+      txnId: result.txnId,
+      statusCode: result.statusCode,
+      statusMsg: result.statusMsg,
+      clientTxnId: result.clientTxnId,
       recipient: maskedPhone,
     });
     
-    return res.data;
+    return result;
   } catch (err: any) {
+    // If token expired (401), retry once with fresh token
+    if (err?.response?.status === 401) {
+      console.log('[EAND_SMS] Token expired, refreshing and retrying...');
+      try {
+        const newToken = await getAccessToken(true); // Force refresh
+        const result = await callSmsApi(newToken, payload);
+        
+        // Log success after retry
+        const maskedPhone = normalizedPhone.length > 4 
+          ? `${normalizedPhone.slice(0, 2)}****${normalizedPhone.slice(-2)}`
+          : '****';
+        console.log('[EAND_SMS] SMS sent successfully after token refresh', {
+          txnId: result.txnId,
+          statusCode: result.statusCode,
+          statusMsg: result.statusMsg,
+          clientTxnId: result.clientTxnId,
+          recipient: maskedPhone,
+        });
+        
+        return result;
+      } catch (retryErr: any) {
+        // Retry also failed
+        console.error('[EAND_SMS] Retry after token refresh also failed:', {
+          statusCode: retryErr.response?.status,
+          error: retryErr.message,
+        });
+        throw retryErr;
+      }
+    }
+    
     // Extract error message from response
     let errorMessage = err.message || 'Unknown error';
     
@@ -162,11 +196,6 @@ export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
       } else {
         errorMessage = JSON.stringify(data);
       }
-    }
-    
-    // Check for authentication errors
-    if (err.response?.status === 401 || err.response?.status === 403) {
-      errorMessage = `Authentication failed (${err.response.status}). EAND_ACCESS_TOKEN may be expired or invalid. Please refresh the token.`;
     }
     
     // Log structured error info

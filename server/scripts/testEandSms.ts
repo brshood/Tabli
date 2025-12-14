@@ -5,7 +5,8 @@
  *   tsx scripts/testEandSms.ts
  * 
  * Make sure to set these environment variables:
- *   EAND_ACCESS_TOKEN
+ *   EAND_API_EMAIL
+ *   EAND_API_PASSWORD
  *   EAND_SENDER_ID
  *   EAND_SMS_URL (optional, defaults to production URL)
  *   EAND_DR_CALLBACK (optional)
@@ -24,8 +25,13 @@ async function main() {
   console.log(`Sender ID: ${process.env.EAND_SENDER_ID || 'NOT SET'}`);
   console.log('');
   
-  if (!process.env.EAND_ACCESS_TOKEN) {
-    console.error('❌ ERROR: EAND_ACCESS_TOKEN environment variable is required');
+  if (!process.env.EAND_API_EMAIL) {
+    console.error('❌ ERROR: EAND_API_EMAIL environment variable is required');
+    process.exit(1);
+  }
+  
+  if (!process.env.EAND_API_PASSWORD) {
+    console.error('❌ ERROR: EAND_API_PASSWORD environment variable is required');
     process.exit(1);
   }
   
@@ -71,15 +77,14 @@ async function main() {
     console.error('❌ Failed to send test SMS');
     console.error('Error:', err?.message || err);
     
-    if (err.message?.includes('EAND_ACCESS_TOKEN')) {
+    if (err.message?.includes('EAND_API_EMAIL') || err.message?.includes('EAND_API_PASSWORD')) {
       console.error('');
-      console.error('💡 Tip: Make sure EAND_ACCESS_TOKEN is set in your .env file');
-      console.error('   You can obtain it from /v1/accounts/users/login endpoint');
+      console.error('💡 Tip: Make sure EAND_API_EMAIL and EAND_API_PASSWORD are set in your .env file');
     }
     
     if (err.message?.includes('401') || err.message?.includes('403')) {
       console.error('');
-      console.error('💡 Tip: Your access token may have expired. Please refresh it.');
+      console.error('💡 Tip: Authentication failed. Check your email and password credentials.');
     }
     
     process.exit(1);

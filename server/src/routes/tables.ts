@@ -173,27 +173,23 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
     }
 
     // 7.5. Send SMS notification for checkout (skip for walk-ins)
-    if (reservation.phone && reservation.phone !== '0000000000' && reservation.contactMethod === 'phone') {
-      try {
-        const normalizedPhone = normalizeMsisdn(reservation.phone);
-        if (normalizedPhone) {
-          const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
-          const smsMessage = getCheckoutMessage({ restaurantName: restaurant?.name });
-          
-          await sendSmsViaEand({
-            to: normalizedPhone,
-            text: smsMessage,
-            category: 'otp',
-          });
-        }
-      } catch (smsError) {
+    if (reservation.phone && reservation.phone !== '0000000000') {
+      // Fire and forget - don't block checkout
+      const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+      sendSmsViaEand({
+        to: reservation.phone,
+        text: getCheckoutMessage({ restaurantName: restaurant?.name }),
+        category: 'otp',
+      }).catch((smsError) => {
         console.error('[CHECKOUT] Failed to send SMS notification:', {
           error: smsError instanceof Error ? smsError.message : smsError,
           phone: reservation.phone,
           reservationId: reservationId,
+          hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+          hasSenderId: !!process.env.EAND_SENDER_ID,
         });
         // Don't fail checkout if SMS fails
-      }
+      });
     }
 
     // 8. Emit SSE notification for real-time checkout update (customer)
@@ -347,27 +343,23 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
     }
 
     // 7.5. Send SMS notification for checkout (skip for walk-ins)
-    if (reservation.phone && reservation.phone !== '0000000000' && reservation.contactMethod === 'phone') {
-      try {
-        const normalizedPhone = normalizeMsisdn(reservation.phone);
-        if (normalizedPhone) {
-          const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
-          const smsMessage = getCheckoutMessage({ restaurantName: restaurant?.name });
-          
-          await sendSmsViaEand({
-            to: normalizedPhone,
-            text: smsMessage,
-            category: 'otp',
-          });
-        }
-      } catch (smsError) {
+    if (reservation.phone && reservation.phone !== '0000000000') {
+      // Fire and forget - don't block checkout
+      const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+      sendSmsViaEand({
+        to: reservation.phone,
+        text: getCheckoutMessage({ restaurantName: restaurant?.name }),
+        category: 'otp',
+      }).catch((smsError) => {
         console.error('[CHECKOUT] Failed to send SMS notification:', {
           error: smsError instanceof Error ? smsError.message : smsError,
           phone: reservation.phone,
           reservationId: reservationId,
+          hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+          hasSenderId: !!process.env.EAND_SENDER_ID,
         });
         // Don't fail checkout if SMS fails
-      }
+      });
     }
     
     // 8. Emit SSE notification

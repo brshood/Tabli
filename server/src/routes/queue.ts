@@ -109,44 +109,22 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     
     // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
     // Note: Frontend may send contactMethod='email' even when phone is provided
-    console.log('[QUEUE] SMS check:', {
-      contactMethod: data.contactMethod,
-      phone: data.phone,
-      phoneIsValid: data.phone && data.phone !== '0000000000',
-      willSendSMS: data.phone && data.phone !== '0000000000',
-    });
-    
     if (data.phone && data.phone !== '0000000000') {
-      try {
-        const normalizedPhone = normalizeMsisdn(data.phone);
-        console.log('[QUEUE] Normalized phone:', { original: data.phone, normalized: normalizedPhone });
-        
-        if (normalizedPhone) {
-          const smsMessage = getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition });
-          
-          console.log('[QUEUE] Sending SMS to:', normalizedPhone, 'Message:', smsMessage.substring(0, 50) + '...');
-          
-          await sendSmsViaEand({
-            to: normalizedPhone,
-            text: smsMessage,
-            category: 'otp',
-          });
-          
-          console.log('[QUEUE] SMS sent successfully to:', normalizedPhone);
-        } else {
-          console.warn('[QUEUE] Phone normalization failed for:', data.phone);
-        }
-      } catch (smsError) {
+      // Fire and forget - don't block queue join
+      sendSmsViaEand({
+        to: data.phone,
+        text: getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition }),
+        category: 'otp',
+      }).catch((smsError) => {
         console.error('[QUEUE] Failed to send SMS notification:', {
           error: smsError instanceof Error ? smsError.message : smsError,
           phone: data.phone,
           reservationId: doc._id,
-          stack: smsError instanceof Error ? smsError.stack : undefined,
+          hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+          hasSenderId: !!process.env.EAND_SENDER_ID,
         });
         // Don't fail reservation if SMS fails
-      }
-    } else {
-      console.log('[QUEUE] SMS not sent - no valid phone number provided');
+      });
     }
 
     // Note: Staff notifications removed - they only get notified for actual table reservations, not waitlist entries
