@@ -128,14 +128,16 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       newErrors.partySize = 'Party size must be between 1 and 12';
     }
 
-    if (contactMethod === 'phone') {
-      const numericLocal = phoneLocal.replace(/\D/g, '');
-      if (!numericLocal || numericLocal.length < 5) {
-        newErrors.phone = 'Please enter a valid phone number';
-      }
-    } else if (contactMethod === 'email') {
+    // Phone is always required
+    const numericLocal = phoneLocal.replace(/\D/g, '');
+    if (!numericLocal || numericLocal.length < 5) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    // Email is optional, but if provided, it must be valid
+    if (email && email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || !emailRegex.test(email)) {
+      if (!emailRegex.test(email)) {
         newErrors.email = 'Please enter a valid email address';
       }
     }
@@ -179,7 +181,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             partySize,
             contactMethod,
             phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`,
-            email: email,
+            email: email && email.trim() ? email : undefined,
             gender: gender !== 'prefer-not-to-say' ? gender : undefined,
             seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
           }),
@@ -331,9 +333,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
 
   const isFormValid = () => {
     if (partySize < 1 || partySize > 12) return false;
-    // Require both phone and email
+    // Phone is required
     if (phoneLocal.replace(/\D/g, '').length < 5) return false;
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    // Email is optional, but if provided, it must be valid
+    if (email && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
     return true;
   };
 
@@ -479,9 +482,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             </RadioGroup>
           </div>
 
-          {/* Contact Input - Require both email and phone */}
+          {/* Contact Input - Phone required, email optional */}
           <div className="space-y-4">
-            {/* Phone number - Always required */}
+            {/* Phone number - Required */}
             <div className="space-y-2">
               <Label htmlFor="phoneInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>
                 Phone number <span className="text-red-500">*</span>
@@ -514,10 +517,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               )}
             </div>
 
-            {/* Email - Always required */}
+            {/* Email - Optional */}
             <div className="space-y-2">
               <Label htmlFor="emailInput" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>
-                Email address <span className="text-red-500">*</span>
+                Email address <span className="text-gray-400 text-xs">(optional)</span>
               </Label>
               <Input
                 id="emailInput"

@@ -5,6 +5,8 @@ import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
+import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
+import { getQueueJoinMessage } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
 import { env } from '../config/env';
@@ -14,14 +16,14 @@ export const queueRouter = express.Router();
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
-  phone: z.string(),
-  email: z.string().email(),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
   name: z.string().min(1).max(100).optional(),
 }).refine((data) => {
-  // Require both email and phone
-  return !!(data.email && data.phone);
+  // Require at least one contact method (phone or email)
+  return !!(data.email || (data.phone && data.phone !== '0000000000'));
 }, {
-  message: 'Both email and phone number are required',
+  message: 'At least one contact method (email or phone) is required',
   path: ['email', 'phone']
 });
 
@@ -38,11 +40,21 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       status: { $in: ['pending', 'confirmed'] }
     };
     
-    // Check by email or phone depending on contact method
+    // Check by email and/or phone to prevent duplicates
     if (data.email) {
       duplicateQuery.email = data.email;
-    } else if (data.phone) {
-      duplicateQuery.phone = data.phone;
+    }
+    if (data.phone && data.phone !== '0000000000') {
+      // If email is also provided, use $or to match either
+      if (data.email) {
+        duplicateQuery.$or = [
+          { email: data.email },
+          { phone: data.phone }
+        ];
+        delete duplicateQuery.email; // Remove direct email since we're using $or
+      } else {
+        duplicateQuery.phone = data.phone;
+      }
     }
     
     const existingReservation = await Reservation.findOne(duplicateQuery);
@@ -69,7 +81,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
 
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
     try {
-      if (isValidEmailForSending(data.email)) {
+      if (data.email && isValidEmailForSending(data.email)) {
         await sendEmail({
           to: data.email,
           subject: `Queue at ${restaurant.name}`,
@@ -95,19 +107,46 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       // emailSent remains false if email failed
     }
     
-    // #1 - Send SMS notification if phone contact method
-    if (data.contactMethod === 'phone' && data.phone) {
+    // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
+    // Note: Frontend may send contactMethod='email' even when phone is provided
+    console.log('[QUEUE] SMS check:', {
+      contactMethod: data.contactMethod,
+      phone: data.phone,
+      phoneIsValid: data.phone && data.phone !== '0000000000',
+      willSendSMS: data.phone && data.phone !== '0000000000',
+    });
+    
+    if (data.phone && data.phone !== '0000000000') {
       try {
-        const smsMessage = `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
+        const normalizedPhone = normalizeMsisdn(data.phone);
+        console.log('[QUEUE] Normalized phone:', { original: data.phone, normalized: normalizedPhone });
         
-        await sendNotification({
-          to: data.phone,
-          message: smsMessage
-        });
+        if (normalizedPhone) {
+          const smsMessage = getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition });
+          
+          console.log('[QUEUE] Sending SMS to:', normalizedPhone, 'Message:', smsMessage.substring(0, 50) + '...');
+          
+          await sendSmsViaEand({
+            to: normalizedPhone,
+            text: smsMessage,
+            category: 'otp',
+          });
+          
+          console.log('[QUEUE] SMS sent successfully to:', normalizedPhone);
+        } else {
+          console.warn('[QUEUE] Phone normalization failed for:', data.phone);
+        }
       } catch (smsError) {
-        console.error('Failed to send SMS notification:', smsError);
+        console.error('[QUEUE] Failed to send SMS notification:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: data.phone,
+          reservationId: doc._id,
+          stack: smsError instanceof Error ? smsError.stack : undefined,
+        });
         // Don't fail reservation if SMS fails
       }
+    } else {
+      console.log('[QUEUE] SMS not sent - no valid phone number provided');
     }
 
     // Note: Staff notifications removed - they only get notified for actual table reservations, not waitlist entries

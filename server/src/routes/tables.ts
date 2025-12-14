@@ -5,6 +5,8 @@ import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
+import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
+import { getCheckoutMessage } from '../services/smsMessages';
 import { env } from '../config/env';
 import { notificationEmitter } from '../services/notificationEmitter';
 
@@ -170,6 +172,30 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
       }
     }
 
+    // 7.5. Send SMS notification for checkout (skip for walk-ins)
+    if (reservation.phone && reservation.phone !== '0000000000' && reservation.contactMethod === 'phone') {
+      try {
+        const normalizedPhone = normalizeMsisdn(reservation.phone);
+        if (normalizedPhone) {
+          const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+          const smsMessage = getCheckoutMessage({ restaurantName: restaurant?.name });
+          
+          await sendSmsViaEand({
+            to: normalizedPhone,
+            text: smsMessage,
+            category: 'otp',
+          });
+        }
+      } catch (smsError) {
+        console.error('[CHECKOUT] Failed to send SMS notification:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: reservation.phone,
+          reservationId: reservationId,
+        });
+        // Don't fail checkout if SMS fails
+      }
+    }
+
     // 8. Emit SSE notification for real-time checkout update (customer)
     notificationEmitter.notifyReservation(reservationId.toString(), {
       type: 'reservation_updated',
@@ -317,6 +343,30 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
         });
       } catch (notificationError) {
         console.error('Failed to send thank-you email:', notificationError);
+      }
+    }
+
+    // 7.5. Send SMS notification for checkout (skip for walk-ins)
+    if (reservation.phone && reservation.phone !== '0000000000' && reservation.contactMethod === 'phone') {
+      try {
+        const normalizedPhone = normalizeMsisdn(reservation.phone);
+        if (normalizedPhone) {
+          const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+          const smsMessage = getCheckoutMessage({ restaurantName: restaurant?.name });
+          
+          await sendSmsViaEand({
+            to: normalizedPhone,
+            text: smsMessage,
+            category: 'otp',
+          });
+        }
+      } catch (smsError) {
+        console.error('[CHECKOUT] Failed to send SMS notification:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: reservation.phone,
+          reservationId: reservationId,
+        });
+        // Don't fail checkout if SMS fails
       }
     }
     
