@@ -204,9 +204,13 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
           <div 
             className="h-64 relative flex items-center justify-center"
             style={{
-              background: restaurant.coverImage 
-                ? `url(${restaurant.coverImage}) center/cover` 
-                : 'linear-gradient(135deg, #E5E7EB 0%, #F3F4F6 100%)'
+              backgroundColor: '#F3F4F6',
+              backgroundImage: restaurant.coverImage 
+                ? `url(${restaurant.coverImage})` 
+                : 'linear-gradient(135deg, #E5E7EB 0%, #F3F4F6 100%)',
+              backgroundSize: restaurant.coverImage ? 'contain' : 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
             }}
           >
             {!restaurant.coverImage && (
