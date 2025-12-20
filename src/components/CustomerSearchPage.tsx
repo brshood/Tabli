@@ -168,7 +168,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
             >
               <div className="h-48 relative overflow-hidden" style={restaurant.coverImage ? {backgroundColor: '#F3F4F6'} : {background: 'linear-gradient(to bottom right, #FAF8F2, #E7D7C5)'}}>
                 {restaurant.coverImage ? (
-                  <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-contain" />
+                  <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover object-center" />
                 ) : (
                   <div className="h-full flex items-center justify-center">
                     <span className="text-lg font-medium" style={{color: '#5A5E3E'}}>{restaurant.name}</span>

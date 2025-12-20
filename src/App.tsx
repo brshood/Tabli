@@ -65,8 +65,8 @@ const getCountdownParts = (totalSeconds: number): CountdownParts => {
 function AppContent() {
   const { updateRestaurantInList, allRestaurants } = useRestaurant();
   const { t, direction } = useLanguage();
-  const [currentPage, setCurrentPage] = useState<Page>('landing');
-  const [previousPage, setPreviousPage] = useState<Page>('landing');
+  const [currentPage, setCurrentPage] = useState<Page>('discover');
+  const [previousPage, setPreviousPage] = useState<Page>('discover');
   const [staffAuth, setStaffAuth] = useState<StaffAuth>({ isAuthenticated: false, user: null, restaurantId: undefined, token: undefined });
   const [staffAuthModalOpen, setStaffAuthModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -180,10 +180,10 @@ function AppContent() {
         }
       }
     } else {
-      // No hash, set initial state for landing page
-      setCurrentPage('landing');
-      window.history.replaceState({ page: 'landing' }, '', '#landing');
-      setLastProcessedHash('#landing');
+      // No hash, set initial state for discover page
+      setCurrentPage('discover');
+      window.history.replaceState({ page: 'discover' }, '', '#discover');
+      setLastProcessedHash('#discover');
     }
     
     setHasInitialized(true);
@@ -336,9 +336,9 @@ function AppContent() {
             return;
           }
         }
-        // Default to landing page
+        // Default to discover page
         setPreviousPage(currentPage);
-        setCurrentPage('landing');
+        setCurrentPage('discover');
         setSelectedRestaurant(null);
       }
     };
@@ -858,7 +858,7 @@ function AppContent() {
             transition={pageTransition}
             className="absolute inset-0 w-full page-transition overflow-x-hidden"
           >
-            <LandingPage onNavigate={navigateToPage} />
+            <DiscoverPage onNavigate={navigateToPage} />
           </motion.div>
         );
     }

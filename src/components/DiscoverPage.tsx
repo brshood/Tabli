@@ -196,7 +196,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     style={restaurant.coverImage ? {backgroundColor: '#F3F4F6'} : {background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)'}}
                   >
                     {restaurant.coverImage ? (
-                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-contain" />
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover object-center" />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
@@ -269,7 +269,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     style={restaurant.coverImage ? {} : {background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'}}
                   >
                     {restaurant.coverImage ? (
-                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-contain" />
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover object-center" />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
@@ -339,7 +339,7 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     style={restaurant.coverImage ? {} : {background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'}}
                   >
                     {restaurant.coverImage ? (
-                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-contain" />
+                      <img src={restaurant.coverImage} alt={restaurant.name} className="w-full h-full object-cover object-center" />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">

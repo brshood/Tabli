@@ -208,7 +208,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               backgroundImage: restaurant.coverImage 
                 ? `url(${restaurant.coverImage})` 
                 : 'linear-gradient(135deg, #E5E7EB 0%, #F3F4F6 100%)',
-              backgroundSize: restaurant.coverImage ? 'contain' : 'cover',
+              backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat'
             }}
