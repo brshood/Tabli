@@ -39,3 +39,12 @@ export function getCheckoutMessage(context?: SmsMessageContext): string {
   return "Thank you for using Tabli! We hope to see you again next time. Please leave a rating at https://tabliapp.com";
 }
 
+/**
+ * Get SMS message for "Removed from queue/reservation" scenario
+ * Sent when a customer is removed from the queue or reservation by staff
+ */
+export function getRemovalMessage(context?: SmsMessageContext): string {
+  const restaurantName = context?.restaurantName || 'the restaurant';
+  return `We weren't able to hold your spot at ${restaurantName} any longer. If you still plan to join us, please reply or visit us again.`;
+}
+

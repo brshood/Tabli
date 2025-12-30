@@ -6,7 +6,7 @@ import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
-import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage } from '../services/smsMessages';
+import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage, getRemovalMessage } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime, getGSTStartOfDay, getGSTEndOfDay } from '../utils/dateFormat';
 import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../services/pushNotification';
@@ -413,6 +413,33 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
       }
       if (data.status === 'cancelled' || data.status === 'no_show') r.leftAt = new Date();
       r.status = data.status;
+      
+      // Send SMS notification when reservation is cancelled (staff removal)
+      if (data.status === 'cancelled' && prevStatus !== 'cancelled') {
+        // Only send SMS if this is a staff removal (not user cancellation)
+        // User cancellations are handled by POST /reservations/:id/cancel endpoint
+        const cancellationReason = (r as any).cancellationReason || data.cancellationReason;
+        if (cancellationReason === 'staff_removed' || cancellationReason === 'no_show' || cancellationReason === 'hold_expired') {
+          if (r.phone && r.phone !== '0000000000') {
+            // Fire and forget - don't block status update
+            const restaurant = await Restaurant.findById(r.restaurantId).lean();
+            sendSmsViaEand({
+              to: r.phone,
+              text: getRemovalMessage({ restaurantName: restaurant?.name }),
+              category: 'otp',
+            }).catch((smsError) => {
+              console.error('[RESERVATION] Failed to send cancellation SMS:', {
+                error: smsError instanceof Error ? smsError.message : smsError,
+                phone: r.phone,
+                reservationId: r._id,
+                hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+                hasSenderId: !!process.env.EAND_SENDER_ID,
+              });
+              // Don't fail status update if SMS fails
+            });
+          }
+        }
+      }
     }
     const prevQueuePosition = r.queuePosition;
     if (typeof data.queuePosition === 'number') r.queuePosition = data.queuePosition;

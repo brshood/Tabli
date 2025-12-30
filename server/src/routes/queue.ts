@@ -6,7 +6,7 @@ import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../servic
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
 import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
-import { getQueueJoinMessage } from '../services/smsMessages';
+import { getQueueJoinMessage, getRemovalMessage } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
 import { env } from '../config/env';
@@ -201,6 +201,26 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     } catch (notificationError) {
       console.error('Failed to send queue removal email:', notificationError);
     }
+    
+    // Send SMS notification - removed from queue
+    if (r.phone && r.phone !== '0000000000') {
+      // Fire and forget - don't block removal
+      sendSmsViaEand({
+        to: r.phone,
+        text: getRemovalMessage({ restaurantName: restaurant?.name }),
+        category: 'otp',
+      }).catch((smsError) => {
+        console.error('[QUEUE] Failed to send removal SMS:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: r.phone,
+          reservationId: r._id,
+          hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+          hasSenderId: !!process.env.EAND_SENDER_ID,
+        });
+        // Don't fail removal if SMS fails
+      });
+    }
+    
     if (typeof oldPos === 'number') {
       await Reservation.updateMany(
         { restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending','confirmed'] }, queuePosition: { $gt: oldPos } },
