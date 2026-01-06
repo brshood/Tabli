@@ -60,7 +60,9 @@ export function normalizeMsisdn(raw: string): string {
 
 /**
  * Internal function to normalize phone number for SMS API
- * Handles UAE number format (5xxxxxxxx -> 9715xxxxxxxx)
+ * Handles UAE number format:
+ * - 5xxxxxxxx (9 digits) -> 9715xxxxxxxx
+ * - 05xxxxxxxx (10 digits) -> 9715xxxxxxxx (removes leading 0)
  */
 function normalizePhoneForSms(phone: string): string {
   // Remove any whitespace, dashes, or other characters
@@ -74,6 +76,12 @@ function normalizePhoneForSms(phone: string): string {
   // If it starts with '971', it's already in the correct format
   if (normalized.startsWith('971')) {
     return normalized;
+  }
+  
+  // If it starts with '05' and is 10 digits, remove the leading '0'
+  // This handles cases where users type 05xxxxxxxx instead of 5xxxxxxxx
+  if (normalized.startsWith('05') && normalized.length === 10) {
+    normalized = normalized.slice(1); // Remove the leading '0', now it's 5xxxxxxxx (9 digits)
   }
   
   // If it starts with '5', assume it's a UAE number and prepend '971'
