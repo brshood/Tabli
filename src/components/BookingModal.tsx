@@ -180,7 +180,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             name: customerName || undefined,
             partySize,
             contactMethod,
-            phone: `${countryCode}${phoneLocal.replace(/\D/g, '')}`,
+            phone: `${countryCode}${phoneLocal.replace(/\D/g, '').replace(/^0+/, '')}`,
             email: email && email.trim() ? email : undefined,
             gender: gender !== 'prefer-not-to-say' ? gender : undefined,
             seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
@@ -507,7 +507,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                   type="tel"
                   placeholder="Enter phone number"
                   value={phoneLocal}
-                  onChange={(e) => setPhoneLocal(e.target.value)}
+                  onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
                   className="bg-white flex-1"
                   style={{borderColor: 'var(--where2go-border)'}}
                 />
