@@ -5,6 +5,9 @@
 export interface SmsMessageContext {
   restaurantName?: string;
   queuePosition?: number;
+  customerName?: string;
+  partySize?: number;
+  seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
 }
 
 /**
@@ -46,5 +49,32 @@ export function getCheckoutMessage(context?: SmsMessageContext): string {
 export function getRemovalMessage(context?: SmsMessageContext): string {
   const restaurantName = context?.restaurantName || 'the restaurant';
   return `We weren't able to hold your spot at ${restaurantName} any longer. If you still plan to join us, please reply or visit us again.`;
+}
+
+/**
+ * Get SMS message for restaurant staff when a customer makes a reservation
+ * Sent to the restaurant's notification phone
+ */
+export function getRestaurantReservationNotification(context?: SmsMessageContext): string {
+  const customerName = context?.customerName || 'A customer';
+  const partySize = context?.partySize || 1;
+  const seating = context?.seatingPreference === 'indoor' ? ' (Indoor)' 
+    : context?.seatingPreference === 'outdoor' ? ' (Outdoor)' 
+    : '';
+  return `${customerName} just reserved a table for ${partySize}${seating}. Check your dashboard for details.`;
+}
+
+/**
+ * Get SMS message for restaurant staff when a customer joins the queue
+ * Sent to the restaurant's notification phone
+ */
+export function getRestaurantQueueNotification(context?: SmsMessageContext): string {
+  const customerName = context?.customerName || 'A customer';
+  const partySize = context?.partySize || 1;
+  const position = context?.queuePosition ? ` (#${context.queuePosition})` : '';
+  const seating = context?.seatingPreference === 'indoor' ? ' (Indoor)' 
+    : context?.seatingPreference === 'outdoor' ? ' (Outdoor)' 
+    : '';
+  return `${customerName} joined the waitlist for ${partySize}${position}${seating}. Check your dashboard.`;
 }
 

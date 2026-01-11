@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -82,9 +83,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [tableSeatingDialogOpen, setTableSeatingDialogOpen] = useState(false);
   const [tableCustomerSelectionOpen, setTableCustomerSelectionOpen] = useState(false);
   const [tableEditDialogOpen, setTableEditDialogOpen] = useState(false);
-  const [selectedTableForEdit, setSelectedTableForEdit] = useState<{ id: string; name: string; capacity: number } | null>(null);
+  const [selectedTableForEdit, setSelectedTableForEdit] = useState<{ id: string; name: string; capacity: number; location?: 'indoor' | 'outdoor' } | null>(null);
   const [tableEditName, setTableEditName] = useState('');
   const [tableEditCapacity, setTableEditCapacity] = useState(4);
+  const [tableEditLocation, setTableEditLocation] = useState<'indoor' | 'outdoor'>('indoor');
   const [customerSearchFilter, setCustomerSearchFilter] = useState('');
   const [checkingInIds, setCheckingInIds] = useState<Set<number>>(new Set());
   const [seatingIds, setSeatingIds] = useState<Set<number>>(new Set());
@@ -533,6 +535,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           id: t._id, 
           tableName: t.name, 
           capacity: t.capacity, 
+          location: t.location || 'indoor',
           isOccupied: false 
         }));
       setAvailableTables(avail);
@@ -925,13 +928,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     availableTables.some(table => customer.partySize <= table.capacity)
   );
 
-  const addTable = async (tableName: string, capacity: number) => {
+  const addTable = async (tableName: string, capacity: number, location: 'indoor' | 'outdoor' = 'indoor') => {
     try {
       if (!staffAuth.restaurantId) return;
       await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: tableName, capacity })
+        body: JSON.stringify({ name: tableName, capacity, location })
       });
       // Refresh tables
       const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`);
@@ -1091,7 +1094,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: tableEditName.trim(),
-          capacity: tableEditCapacity
+          capacity: tableEditCapacity,
+          location: tableEditLocation
         })
       });
 
@@ -1650,8 +1654,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                 </span>
                               )}
                               {customer.seatingPreference && (
-                                <span>
-                                  Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                                <span className="flex items-center">
+                                  {customer.seatingPreference === 'indoor' && <Home className="h-3 w-3 mr-1" />}
+                                  {customer.seatingPreference === 'outdoor' && <Trees className="h-3 w-3 mr-1" />}
+                                  {customer.seatingPreference === 'no-preference' ? 'Any seating' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
                                 </span>
                               )}
                             </div>
@@ -1764,7 +1770,16 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                   <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
                                 </div>
                                 <div>
-                                  <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
+                                    <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                                      backgroundColor: table.location === 'outdoor' ? '#E8F5E9' : '#E3F2FD',
+                                      color: table.location === 'outdoor' ? '#2E7D32' : '#1565C0'
+                                    }}>
+                                      {table.location === 'outdoor' ? <Trees className="h-3 w-3 inline mr-0.5" /> : <Home className="h-3 w-3 inline mr-0.5" />}
+                                      {table.location === 'outdoor' ? 'Outdoor' : 'Indoor'}
+                                    </span>
+                                  </div>
                                   <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
                                 </div>
                               </div>
@@ -1784,9 +1799,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                                   size="sm" 
                                   variant="outline"
                                   onClick={() => {
-                                    setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity });
+                                    setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity, location: table.location });
                                     setTableEditName(table.tableName);
                                     setTableEditCapacity(table.capacity);
+                                    setTableEditLocation(table.location || 'indoor');
                                     setTableEditDialogOpen(true);
                                   }}
                                   className="pill-button text-xs h-7 w-7 p-0"
@@ -2480,8 +2496,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           </div>
                         )}
                         {customer.seatingPreference && (
-                          <div>
-                            Seating: {customer.seatingPreference === 'no-preference' ? 'No preference' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
+                          <div className="flex items-center">
+                            {customer.seatingPreference === 'indoor' && <Home className="h-3 w-3 mr-1" />}
+                            {customer.seatingPreference === 'outdoor' && <Trees className="h-3 w-3 mr-1" />}
+                            {customer.seatingPreference === 'no-preference' ? 'Any seating' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
                           </div>
                         )}
                         <div className="text-xs" style={{color: '#9FA0A0'}}>
@@ -2839,6 +2857,25 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 onChange={(e) => setTableEditCapacity(Math.max(1, parseInt(e.target.value) || 1))}
                 placeholder="Number of guests"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <RadioGroup value={tableEditLocation} onValueChange={(val) => setTableEditLocation(val as 'indoor' | 'outdoor')} className="flex gap-4">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="indoor" id="editIndoor" />
+                  <Label htmlFor="editIndoor" className="flex items-center cursor-pointer">
+                    <Home className="h-4 w-4 mr-1" />
+                    Indoor
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="outdoor" id="editOutdoor" />
+                  <Label htmlFor="editOutdoor" className="flex items-center cursor-pointer">
+                    <Trees className="h-4 w-4 mr-1" />
+                    Outdoor
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           </div>
           <DialogFooter>

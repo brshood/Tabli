@@ -251,6 +251,92 @@ restaurantsRouter.delete('/:id', requireAuth, requireOwnRestaurant, async (req, 
   }
 });
 
+// PATCH /restaurants/:id/notification-phone - Update notification phone for SMS alerts
+const notificationPhoneSchema = z.object({
+  phone: z.string().min(7).max(20),
+});
+
+restaurantsRouter.patch('/:id/notification-phone', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const data = notificationPhoneSchema.parse(req.body);
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // Normalize the phone number (remove non-digits except leading +)
+    const normalizedPhone = data.phone.replace(/[^\d+]/g, '');
+
+    // Add to history if not already present
+    const existingPhones = restaurant.notificationPhones || [];
+    if (!existingPhones.includes(normalizedPhone)) {
+      existingPhones.push(normalizedPhone);
+      restaurant.notificationPhones = existingPhones;
+    }
+
+    // Set as active notification phone
+    restaurant.activeNotificationPhone = normalizedPhone;
+    await restaurant.save();
+
+    res.json({ 
+      success: true, 
+      activeNotificationPhone: restaurant.activeNotificationPhone,
+      notificationPhones: restaurant.notificationPhones,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
+    next(err);
+  }
+});
+
+// GET /restaurants/:id/notification-phones - Get notification phone settings
+restaurantsRouter.get('/:id/notification-phones', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id).select('notificationPhones activeNotificationPhone').lean();
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    res.json({
+      activeNotificationPhone: restaurant.activeNotificationPhone || null,
+      notificationPhones: restaurant.notificationPhones || [],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /restaurants/:id/notification-phone/:phone - Remove a phone from history
+restaurantsRouter.delete('/:id/notification-phone/:phone', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    const phoneToRemove = decodeURIComponent(req.params.phone);
+    const existingPhones = restaurant.notificationPhones || [];
+    restaurant.notificationPhones = existingPhones.filter(p => p !== phoneToRemove);
+
+    // If the removed phone was the active one, clear it
+    if (restaurant.activeNotificationPhone === phoneToRemove) {
+      restaurant.activeNotificationPhone = restaurant.notificationPhones[0] || undefined;
+    }
+
+    await restaurant.save();
+
+    res.json({
+      success: true,
+      activeNotificationPhone: restaurant.activeNotificationPhone || null,
+      notificationPhones: restaurant.notificationPhones,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // File validation
 const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const upload = multer({

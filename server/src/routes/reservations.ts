@@ -6,7 +6,7 @@ import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { sendNotification } from '../services/sms';
 import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
-import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage, getRemovalMessage } from '../services/smsMessages';
+import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage, getRemovalMessage, getRestaurantReservationNotification, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime, getGSTStartOfDay, getGSTEndOfDay } from '../utils/dateFormat';
 import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../services/pushNotification';
@@ -71,12 +71,7 @@ reservationsRouter.post('/', async (req, res, next) => {
     }
     
     // Parallelize independent queries for better performance
-    const [count, availableTables] = await Promise.all([
-      data.mode === 'waitlist' 
-        ? Reservation.countDocuments({ restaurantId: data.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } })
-        : Promise.resolve(0),
-      Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean()
-    ]);
+    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
     
     // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
     
@@ -103,8 +98,48 @@ reservationsRouter.post('/', async (req, res, next) => {
       }
     }
     
-    // Only assign queue position for waitlist mode
-    const queuePosition = (data.mode === 'waitlist') ? count + 1 : undefined;
+    // Calculate queue position based on seating preference for waitlist mode
+    let queuePosition: number | undefined = undefined;
+    if (data.mode === 'waitlist') {
+      const seatingPref = data.seatingPreference || 'no-preference';
+      
+      if (seatingPref === 'indoor') {
+        // Count customers in indoor queue (indoor + no-preference)
+        const indoorCount = await Reservation.countDocuments({ 
+          restaurantId: data.restaurantId, 
+          mode: 'waitlist', 
+          status: { $in: ['pending', 'confirmed'] },
+          seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+        });
+        queuePosition = indoorCount + 1;
+      } else if (seatingPref === 'outdoor') {
+        // Count customers in outdoor queue (outdoor + no-preference)
+        const outdoorCount = await Reservation.countDocuments({ 
+          restaurantId: data.restaurantId, 
+          mode: 'waitlist', 
+          status: { $in: ['pending', 'confirmed'] },
+          seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+        });
+        queuePosition = outdoorCount + 1;
+      } else {
+        // No-preference: show the smaller queue position (could be seated at either)
+        const [indoorCount, outdoorCount] = await Promise.all([
+          Reservation.countDocuments({ 
+            restaurantId: data.restaurantId, 
+            mode: 'waitlist', 
+            status: { $in: ['pending', 'confirmed'] },
+            seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+          }),
+          Reservation.countDocuments({ 
+            restaurantId: data.restaurantId, 
+            mode: 'waitlist', 
+            status: { $in: ['pending', 'confirmed'] },
+            seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+          })
+        ]);
+        queuePosition = Math.min(indoorCount, outdoorCount) + 1;
+      }
+    }
 
     const doc = await Reservation.create({
       restaurantId: data.restaurantId,
@@ -203,6 +238,35 @@ reservationsRouter.post('/', async (req, res, next) => {
             reservationId: doc._id,
             hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
             hasSenderId: !!process.env.EAND_SENDER_ID,
+          });
+          // Don't fail reservation if SMS fails
+        });
+      }
+      
+      // Send SMS notification to restaurant staff if they have notification phone configured
+      if (restaurant.activeNotificationPhone) {
+        const smsText = data.mode === 'reserve'
+          ? getRestaurantReservationNotification({
+              customerName: data.name,
+              partySize: data.partySize,
+              seatingPreference: data.seatingPreference,
+            })
+          : getRestaurantQueueNotification({
+              customerName: data.name,
+              partySize: data.partySize,
+              queuePosition,
+              seatingPreference: data.seatingPreference,
+            });
+        
+        sendSmsViaEand({
+          to: restaurant.activeNotificationPhone,
+          text: smsText,
+          category: 'otp',
+        }).catch((smsError) => {
+          console.error('[RESERVATION] Failed to send SMS to restaurant:', {
+            error: smsError instanceof Error ? smsError.message : smsError,
+            phone: restaurant.activeNotificationPhone,
+            reservationId: doc._id,
           });
           // Don't fail reservation if SMS fails
         });

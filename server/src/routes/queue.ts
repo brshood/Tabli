@@ -6,7 +6,7 @@ import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../servic
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
 import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
-import { getQueueJoinMessage, getRemovalMessage } from '../services/smsMessages';
+import { getQueueJoinMessage, getRemovalMessage, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
 import { env } from '../config/env';
@@ -19,6 +19,7 @@ const joinSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   name: z.string().min(1).max(100).optional(),
+  seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
 }).refine((data) => {
   // Require at least one contact method (phone or email)
   return !!(data.email || (data.phone && data.phone !== '0000000000'));
@@ -64,8 +65,49 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       });
     }
 
-    const count = await Reservation.countDocuments({ restaurantId: restaurant._id, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
-    const queuePosition = count + 1;
+    // Calculate queue position based on seating preference
+    // Indoor queue: indoor + no-preference customers
+    // Outdoor queue: outdoor + no-preference customers
+    // No-preference customers appear in both queues
+    const seatingPref = data.seatingPreference || 'no-preference';
+    
+    let queuePosition: number;
+    if (seatingPref === 'indoor') {
+      // Count customers in indoor queue (indoor + no-preference)
+      const indoorCount = await Reservation.countDocuments({ 
+        restaurantId: restaurant._id, 
+        mode: 'waitlist', 
+        status: { $in: ['pending', 'confirmed'] },
+        seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+      });
+      queuePosition = indoorCount + 1;
+    } else if (seatingPref === 'outdoor') {
+      // Count customers in outdoor queue (outdoor + no-preference)
+      const outdoorCount = await Reservation.countDocuments({ 
+        restaurantId: restaurant._id, 
+        mode: 'waitlist', 
+        status: { $in: ['pending', 'confirmed'] },
+        seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+      });
+      queuePosition = outdoorCount + 1;
+    } else {
+      // No-preference: show the smaller queue position (could be seated at either)
+      const [indoorCount, outdoorCount] = await Promise.all([
+        Reservation.countDocuments({ 
+          restaurantId: restaurant._id, 
+          mode: 'waitlist', 
+          status: { $in: ['pending', 'confirmed'] },
+          seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+        }),
+        Reservation.countDocuments({ 
+          restaurantId: restaurant._id, 
+          mode: 'waitlist', 
+          status: { $in: ['pending', 'confirmed'] },
+          seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+        })
+      ]);
+      queuePosition = Math.min(indoorCount, outdoorCount) + 1;
+    }
 
     const doc = await Reservation.create({
       restaurantId: restaurant._id,
@@ -77,6 +119,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       email: data.email, // Always store email
       status: 'pending',
       queuePosition,
+      seatingPreference: data.seatingPreference,
     });
 
     const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
@@ -124,6 +167,27 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
           hasSenderId: !!process.env.EAND_SENDER_ID,
         });
         // Don't fail reservation if SMS fails
+      });
+    }
+    
+    // Send SMS notification to restaurant staff if they have notification phone configured
+    if (restaurant.activeNotificationPhone) {
+      sendSmsViaEand({
+        to: restaurant.activeNotificationPhone,
+        text: getRestaurantQueueNotification({
+          customerName: data.name,
+          partySize: data.partySize,
+          queuePosition,
+          seatingPreference: data.seatingPreference,
+        }),
+        category: 'otp',
+      }).catch((smsError) => {
+        console.error('[QUEUE] Failed to send SMS to restaurant:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: restaurant.activeNotificationPhone,
+          reservationId: doc._id,
+        });
+        // Don't fail queue join if SMS fails
       });
     }
 

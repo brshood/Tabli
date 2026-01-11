@@ -39,6 +39,7 @@ export function RestaurantProfile({ user, restaurantId, token, onUserUpdate, onR
           <PersonalInformation 
             user={user}
             token={token}
+            restaurantId={restaurantId}
             onUserUpdate={onUserUpdate}
           />
         </TabsContent>

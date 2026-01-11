@@ -3,26 +3,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, Minus, Table as TableIcon } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Plus, Minus, Table as TableIcon, Home, Trees } from 'lucide-react';
 import { toast } from 'sonner';
+
+type TableLocation = 'indoor' | 'outdoor';
 
 interface TableData {
   id: number;
   tableName: string;
   capacity: number;
   isOccupied: boolean;
+  location?: TableLocation;
 }
 
 interface TableManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTable: (tableName: string, capacity: number) => void;
+  onAddTable: (tableName: string, capacity: number, location: TableLocation) => void;
   existingTables: TableData[];
 }
 
 export function TableManagementModal({ isOpen, onClose, onAddTable, existingTables }: TableManagementModalProps) {
   const [tableName, setTableName] = useState('');
   const [capacity, setCapacity] = useState(4);
+  const [location, setLocation] = useState<TableLocation>('indoor');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset form when modal closes
@@ -30,6 +35,7 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
     if (!isOpen) {
       setTableName('');
       setCapacity(4);
+      setLocation('indoor');
       setErrors({});
     }
   }, [isOpen]);
@@ -62,8 +68,8 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
   const handleSubmit = () => {
     if (!validateForm()) return;
 
-    onAddTable(tableName.trim(), capacity);
-    toast.success(`${tableName.trim()} (capacity ${capacity}) has been added`);
+    onAddTable(tableName.trim(), capacity, location);
+    toast.success(`${tableName.trim()} (${location}, capacity ${capacity}) has been added`);
     onClose();
   };
 
@@ -146,10 +152,31 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
             )}
           </div>
 
+          {/* Table Location */}
+          <div className="space-y-2">
+            <Label style={{color: '#2D2D2B'}}>Table Location</Label>
+            <RadioGroup value={location} onValueChange={(val) => setLocation(val as TableLocation)} className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="indoor" id="indoor" />
+                <Label htmlFor="indoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
+                  <Home className="h-4 w-4 mr-1" />
+                  Indoor
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="outdoor" id="outdoor" />
+                <Label htmlFor="outdoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
+                  <Trees className="h-4 w-4 mr-1" />
+                  Outdoor
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Summary */}
           <div className="p-4 rounded-lg" style={{backgroundColor: '#FAF8F2'}}>
             <p className="text-sm" style={{color: '#2D2D2B'}}>
-              <strong>Preview:</strong> "{tableName || 'Table Name'}" will be added with a capacity of {capacity} guests.
+              <strong>Preview:</strong> "{tableName || 'Table Name'}" ({location}) will be added with a capacity of {capacity} guests.
             </p>
           </div>
 

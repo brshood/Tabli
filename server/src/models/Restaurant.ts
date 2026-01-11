@@ -44,6 +44,9 @@ export interface RestaurantDocument extends Document {
   mediaRefs?: DocumentRef[];
   approvalStatus: 'pending' | 'approved' | 'denied';
   approvalNotes?: string;
+  // SMS notification settings
+  notificationPhones?: string[];  // History of phone numbers used for notifications
+  activeNotificationPhone?: string;  // Currently selected phone for receiving notifications
   createdAt: Date;
   updatedAt: Date;
 }
@@ -99,6 +102,9 @@ const restaurantSchema = new Schema<RestaurantDocument>(
       index: true,
     },
     approvalNotes: { type: String, required: false },
+    // SMS notification settings
+    notificationPhones: [{ type: String }],  // History of phone numbers
+    activeNotificationPhone: { type: String },  // Currently selected phone
   },
   { timestamps: true }
 );

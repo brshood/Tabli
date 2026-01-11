@@ -19,17 +19,31 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-const createSchema = z.object({ name: z.string(), capacity: z.number().min(1) });
+const createSchema = z.object({ 
+  name: z.string(), 
+  capacity: z.number().min(1),
+  location: z.enum(['indoor', 'outdoor']).optional().default('indoor'),
+});
 
 tablesRouter.post('/restaurants/:id/tables', async (req, res, next) => {
   try {
     const data = createSchema.parse(req.body);
-    const table = await Table.create({ restaurantId: req.params.id, name: data.name, capacity: data.capacity });
+    const table = await Table.create({ 
+      restaurantId: req.params.id, 
+      name: data.name, 
+      capacity: data.capacity,
+      location: data.location,
+    });
     res.status(201).json({ table });
   } catch (err) { next(err); }
 });
 
-const patchSchema = z.object({ status: z.enum(['available','occupied','cleaning']).optional(), capacity: z.number().min(1).optional(), name: z.string().optional() });
+const patchSchema = z.object({ 
+  status: z.enum(['available','occupied','cleaning']).optional(), 
+  capacity: z.number().min(1).optional(), 
+  name: z.string().optional(),
+  location: z.enum(['indoor', 'outdoor']).optional(),
+});
 
 tablesRouter.patch('/tables/:id', async (req, res, next) => {
   try {
