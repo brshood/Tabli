@@ -19,6 +19,49 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /restaurants/:id/tables/availability
+// Check table availability by location and party size
+tablesRouter.get('/restaurants/:id/tables/availability', async (req, res, next) => {
+  try {
+    const restaurantId = req.params.id;
+    const location = req.query.location as 'indoor' | 'outdoor' | undefined;
+    const partySize = req.query.partySize ? parseInt(req.query.partySize as string, 10) : 1;
+
+    // Validate party size
+    if (isNaN(partySize) || partySize < 1) {
+      return res.status(400).json({ error: 'Invalid party size' });
+    }
+
+    // Build query for available tables
+    const baseQuery: any = {
+      restaurantId,
+      status: 'available',
+      capacity: { $gte: partySize }
+    };
+
+    // Check both indoor and outdoor availability
+    const [indoorTables, outdoorTables] = await Promise.all([
+      Table.find({ ...baseQuery, location: 'indoor' }).lean(),
+      Table.find({ ...baseQuery, location: 'outdoor' }).lean()
+    ]);
+
+    // Prepare response
+    const result = {
+      indoor: {
+        available: indoorTables.length,
+        hasSeats: indoorTables.length > 0
+      },
+      outdoor: {
+        available: outdoorTables.length,
+        hasSeats: outdoorTables.length > 0
+      }
+    };
+
+    // If location filter is specified, still return both but client can filter
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
 const createSchema = z.object({ 
   name: z.string(), 
   capacity: z.number().min(1),

@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Minus, Users, Clock, Loader2 } from 'lucide-react';
+import { Plus, Minus, Users, Clock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -38,6 +38,11 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<number | null>(null);
   const [estimateStatus, setEstimateStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false); // #10 - Loading state
+  const [availabilityStatus, setAvailabilityStatus] = useState<{
+    indoor: { available: number; hasSeats: boolean } | null;
+    outdoor: { available: number; hasSeats: boolean } | null;
+  } | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const { t } = useLanguage();
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
@@ -107,6 +112,57 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     return `~${estimatedWaitMinutes} min`;
   })();
 
+  // Fetch table availability when seating preference or party size changes
+  useEffect(() => {
+    if (!isOpen || !restaurant || (!restaurant.indoorSeating && !restaurant.outdoorSeating)) {
+      return;
+    }
+
+    const restaurantId = (restaurant as any)?.id || (restaurant as any)?._id;
+    if (!restaurantId) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: NodeJS.Timeout;
+
+    const fetchAvailability = async () => {
+      try {
+        setAvailabilityLoading(true);
+        const url = new URL(`${API_URL}/restaurants/${restaurantId}/tables/availability`);
+        url.searchParams.set('partySize', String(partySize));
+
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          throw new Error('failed_to_fetch_availability');
+        }
+
+        const data = await res.json();
+        if (cancelled) return;
+
+        setAvailabilityStatus({
+          indoor: data.indoor || { available: 0, hasSeats: false },
+          outdoor: data.outdoor || { available: 0, hasSeats: false }
+        });
+        setAvailabilityLoading(false);
+      } catch (_error) {
+        if (cancelled) return;
+        setAvailabilityStatus(null);
+        setAvailabilityLoading(false);
+      }
+    };
+
+    // Debounce the API call to avoid excessive requests when party size changes rapidly
+    timeoutId = setTimeout(() => {
+      fetchAvailability();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [isOpen, restaurant, partySize, seatingPreference]);
+
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -118,6 +174,8 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       setSeatingPreference('no-preference');
       setGender('prefer-not-to-say');
       setErrors({});
+      setAvailabilityStatus(null);
+      setAvailabilityLoading(false);
     }
   }, [isOpen]);
 
@@ -456,6 +514,109 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                   </div>
                 )}
               </RadioGroup>
+              
+              {/* Availability Status Display */}
+              {(restaurant?.indoorSeating || restaurant?.outdoorSeating) && (
+                <div className="space-y-2 mt-2">
+                  {availabilityLoading ? (
+                    <div className="flex items-center gap-2 p-3 rounded-lg" style={{backgroundColor: 'var(--where2go-buff-light)', border: '1px solid var(--where2go-border)'}}>
+                      <Loader2 className="h-4 w-4 animate-spin" style={{color: 'var(--where2go-accent)'}} />
+                      <span className="text-sm" style={{color: 'var(--where2go-text)'}}>Checking availability...</span>
+                    </div>
+                  ) : availabilityStatus && (
+                    <>
+                      {seatingPreference === 'indoor' && restaurant?.indoorSeating && (
+                        <div className={`flex items-start gap-2 p-3 rounded-lg ${availabilityStatus.indoor?.hasSeats ? 'bg-green-50' : 'bg-orange-50'}`} style={{border: availabilityStatus.indoor?.hasSeats ? '1px solid #10b981' : '1px solid #f97316'}}>
+                          {availabilityStatus.indoor?.hasSeats ? (
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#10b981'}} />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#f97316'}} />
+                          )}
+                          <div className="flex-1">
+                            <span className="text-sm font-medium block" style={{color: availabilityStatus.indoor?.hasSeats ? '#10b981' : '#f97316'}}>
+                              {availabilityStatus.indoor?.hasSeats 
+                                ? `Free seats available - you can walk in immediately`
+                                : `All indoor seats taken - you'll be added to the queue`}
+                            </span>
+                            {availabilityStatus.indoor?.hasSeats && (
+                              <span className="text-xs block mt-0.5" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+                                {availabilityStatus.indoor.available} table{availabilityStatus.indoor.available !== 1 ? 's' : ''} available
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {seatingPreference === 'outdoor' && restaurant?.outdoorSeating && (
+                        <div className={`flex items-start gap-2 p-3 rounded-lg ${availabilityStatus.outdoor?.hasSeats ? 'bg-green-50' : 'bg-orange-50'}`} style={{border: availabilityStatus.outdoor?.hasSeats ? '1px solid #10b981' : '1px solid #f97316'}}>
+                          {availabilityStatus.outdoor?.hasSeats ? (
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#10b981'}} />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#f97316'}} />
+                          )}
+                          <div className="flex-1">
+                            <span className="text-sm font-medium block" style={{color: availabilityStatus.outdoor?.hasSeats ? '#10b981' : '#f97316'}}>
+                              {availabilityStatus.outdoor?.hasSeats 
+                                ? `Free seats available - you can walk in immediately`
+                                : `All outdoor seats taken - you'll be added to the queue`}
+                            </span>
+                            {availabilityStatus.outdoor?.hasSeats && (
+                              <span className="text-xs block mt-0.5" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+                                {availabilityStatus.outdoor.available} table{availabilityStatus.outdoor.available !== 1 ? 's' : ''} available
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {seatingPreference === 'no-preference' && (
+                        <div className="space-y-2">
+                          {restaurant?.indoorSeating && (
+                            <div className={`flex items-start gap-2 p-3 rounded-lg ${availabilityStatus.indoor?.hasSeats ? 'bg-green-50' : 'bg-orange-50'}`} style={{border: availabilityStatus.indoor?.hasSeats ? '1px solid #10b981' : '1px solid #f97316'}}>
+                              {availabilityStatus.indoor?.hasSeats ? (
+                                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#10b981'}} />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#f97316'}} />
+                              )}
+                              <div className="flex-1">
+                                <span className="text-sm font-medium block" style={{color: availabilityStatus.indoor?.hasSeats ? '#10b981' : '#f97316'}}>
+                                  <strong>Indoor:</strong> {availabilityStatus.indoor?.hasSeats 
+                                    ? `Free seats available`
+                                    : `All seats taken - queue wait`}
+                                </span>
+                                {availabilityStatus.indoor?.hasSeats && (
+                                  <span className="text-xs block mt-0.5" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+                                    {availabilityStatus.indoor.available} table{availabilityStatus.indoor.available !== 1 ? 's' : ''} available
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {restaurant?.outdoorSeating && (
+                            <div className={`flex items-start gap-2 p-3 rounded-lg ${availabilityStatus.outdoor?.hasSeats ? 'bg-green-50' : 'bg-orange-50'}`} style={{border: availabilityStatus.outdoor?.hasSeats ? '1px solid #10b981' : '1px solid #f97316'}}>
+                              {availabilityStatus.outdoor?.hasSeats ? (
+                                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#10b981'}} />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{color: '#f97316'}} />
+                              )}
+                              <div className="flex-1">
+                                <span className="text-sm font-medium block" style={{color: availabilityStatus.outdoor?.hasSeats ? '#10b981' : '#f97316'}}>
+                                  <strong>Outdoor:</strong> {availabilityStatus.outdoor?.hasSeats 
+                                    ? `Free seats available`
+                                    : `All seats taken - queue wait`}
+                                </span>
+                                {availabilityStatus.outdoor?.hasSeats && (
+                                  <span className="text-xs block mt-0.5" style={{color: 'var(--where2go-text)', opacity: 0.7}}>
+                                    {availabilityStatus.outdoor.available} table{availabilityStatus.outdoor.available !== 1 ? 's' : ''} available
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
