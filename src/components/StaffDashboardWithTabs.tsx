@@ -944,7 +944,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         setTablesCount(items.length);
         const avail = items
           .filter(t => t.status === 'available')
-          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, isOccupied: false }));
+          .map((t: any) => ({ id: t._id, tableName: t.name, capacity: t.capacity, location: t.location || 'indoor', isOccupied: false }));
         setAvailableTables(avail);
       }
     } catch (error) {
