@@ -239,7 +239,6 @@ reservationsRouter.post('/', async (req, res, next) => {
       // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
       // Note: Frontend may send contactMethod='email' even when phone is provided
       // Use reservationType to determine message type (more accurate than mode)
-      const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
       if (data.phone && data.phone !== '0000000000') {
         // Fire and forget - don't block reservation creation
         sendSmsViaEand({
@@ -263,7 +262,6 @@ reservationsRouter.post('/', async (req, res, next) => {
       // Send SMS notification to restaurant staff if they have notification phone configured
       // Use reservationType to determine message type (more accurate than mode)
       if (restaurant.activeNotificationPhone) {
-        const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
         const smsText = isWaitlist
           ? getRestaurantQueueNotification({
               customerName: data.name,
