@@ -755,8 +755,10 @@ export function NotificationsPage({ onNavigate, onRestaurantSelect }: Notificati
                 <CardContent className="p-3 max-h-[calc(100vh-200px)] overflow-y-auto">
                   {/* Queue Positions Section */}
                   {(() => {
+                    // Show queue positions for reservations with queuePosition, regardless of mode
+                    // This includes both mode='waitlist' and mode='reserve' with reservationType='waitlist'
                     const queueReservations = activeReservations.filter(
-                      r => r.mode === 'waitlist' && typeof r.queuePosition === 'number'
+                      r => typeof r.queuePosition === 'number' && r.queuePosition > 0
                     );
                     
                     if (queueReservations.length > 0) {

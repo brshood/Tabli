@@ -112,26 +112,39 @@ reservationsRouter.post('/', async (req, res, next) => {
     }
     
     // Calculate queue position based on seating preference for waitlist mode
+    // Also calculate when mode is 'reserve' but reservationType becomes 'waitlist' (no tables available)
     let queuePosition: number | undefined = undefined;
-    if (data.mode === 'waitlist') {
+    if (data.mode === 'waitlist' || reservationType === 'waitlist') {
       const seatingPref = data.seatingPreference || 'no-preference';
+      
+      // For queue position calculation, we need to count ALL waitlist reservations
+      // (both mode='waitlist' and mode='reserve' with reservationType='waitlist')
       
       if (seatingPref === 'indoor') {
         // Count customers in indoor queue (indoor + no-preference)
+        // Include both waitlist mode and reserve mode with waitlist type
         const indoorCount = await Reservation.countDocuments({ 
           restaurantId: data.restaurantId, 
-          mode: 'waitlist', 
           status: { $in: ['pending', 'confirmed'] },
-          seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+          $or: [
+            { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+            { mode: 'waitlist', seatingPreference: { $exists: false } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+          ]
         });
         queuePosition = indoorCount + 1;
       } else if (seatingPref === 'outdoor') {
         // Count customers in outdoor queue (outdoor + no-preference)
         const outdoorCount = await Reservation.countDocuments({ 
           restaurantId: data.restaurantId, 
-          mode: 'waitlist', 
           status: { $in: ['pending', 'confirmed'] },
-          seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+          $or: [
+            { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+            { mode: 'waitlist', seatingPreference: { $exists: false } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+          ]
         });
         queuePosition = outdoorCount + 1;
       } else {
@@ -139,15 +152,23 @@ reservationsRouter.post('/', async (req, res, next) => {
         const [indoorCount, outdoorCount] = await Promise.all([
           Reservation.countDocuments({ 
             restaurantId: data.restaurantId, 
-            mode: 'waitlist', 
             status: { $in: ['pending', 'confirmed'] },
-            seatingPreference: { $in: ['indoor', 'no-preference', undefined, null] }
+            $or: [
+              { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+              { mode: 'waitlist', seatingPreference: { $exists: false } },
+              { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+              { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+            ]
           }),
           Reservation.countDocuments({ 
             restaurantId: data.restaurantId, 
-            mode: 'waitlist', 
             status: { $in: ['pending', 'confirmed'] },
-            seatingPreference: { $in: ['outdoor', 'no-preference', undefined, null] }
+            $or: [
+              { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+              { mode: 'waitlist', seatingPreference: { $exists: false } },
+              { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+              { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+            ]
           })
         ]);
         queuePosition = Math.min(indoorCount, outdoorCount) + 1;
