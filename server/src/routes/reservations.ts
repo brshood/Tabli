@@ -174,7 +174,9 @@ reservationsRouter.post('/', async (req, res, next) => {
     // #3 - Send confirmation notification and track emailSent
     const restaurant = await Restaurant.findById(data.restaurantId);
     if (restaurant) {
-      const message = data.mode === 'waitlist'
+      // Use reservationType to determine if this is a queue/waitlist (more accurate than mode)
+      const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
+      const message = isWaitlist
         ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready.`
         : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
       
@@ -191,11 +193,11 @@ reservationsRouter.post('/', async (req, res, next) => {
             subject: `Reservation at ${restaurant.name}`,
             text: message,
             html: buildEmailTemplate({
-              heading: data.mode === 'waitlist'
+              heading: isWaitlist
                 ? `You're on the waitlist at ${restaurant.name}`
                 : `We've received your reservation`,
               intro: introName,
-              lines: data.mode === 'waitlist'
+              lines: isWaitlist
                 ? [
                     `You're currently #${queuePosition} in line at ${restaurant.name}.`,
                     "We'll email you again when your table is ready.",
@@ -236,13 +238,15 @@ reservationsRouter.post('/', async (req, res, next) => {
       
       // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
       // Note: Frontend may send contactMethod='email' even when phone is provided
+      // Use reservationType to determine message type (more accurate than mode)
+      const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
       if (data.phone && data.phone !== '0000000000') {
         // Fire and forget - don't block reservation creation
         sendSmsViaEand({
           to: data.phone,
-          text: data.mode === 'reserve'
-            ? getReservationConfirmationMessage({ restaurantName: restaurant.name })
-            : getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition }),
+          text: isWaitlist
+            ? getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition })
+            : getReservationConfirmationMessage({ restaurantName: restaurant.name }),
           category: 'otp',
         }).catch((smsError) => {
           console.error('[RESERVATION] Failed to send SMS notification:', {
@@ -257,17 +261,19 @@ reservationsRouter.post('/', async (req, res, next) => {
       }
       
       // Send SMS notification to restaurant staff if they have notification phone configured
+      // Use reservationType to determine message type (more accurate than mode)
       if (restaurant.activeNotificationPhone) {
-        const smsText = data.mode === 'reserve'
-          ? getRestaurantReservationNotification({
-              customerName: data.name,
-              partySize: data.partySize,
-              seatingPreference: data.seatingPreference,
-            })
-          : getRestaurantQueueNotification({
+        const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
+        const smsText = isWaitlist
+          ? getRestaurantQueueNotification({
               customerName: data.name,
               partySize: data.partySize,
               queuePosition,
+              seatingPreference: data.seatingPreference,
+            })
+          : getRestaurantReservationNotification({
+              customerName: data.name,
+              partySize: data.partySize,
               seatingPreference: data.seatingPreference,
             });
         

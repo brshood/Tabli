@@ -157,15 +157,15 @@ export function TableManagementModal({ isOpen, onClose, onAddTable, existingTabl
             <Label style={{color: '#2D2D2B'}}>Table Location</Label>
             <RadioGroup value={location} onValueChange={(val) => setLocation(val as TableLocation)} className="flex gap-4">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="indoor" id="indoor" />
-                <Label htmlFor="indoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
+                <RadioGroupItem value="indoor" id="table-add-indoor" />
+                <Label htmlFor="table-add-indoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
                   <Home className="h-4 w-4 mr-1" />
                   Indoor
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="outdoor" id="outdoor" />
-                <Label htmlFor="outdoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
+                <RadioGroupItem value="outdoor" id="table-add-outdoor" />
+                <Label htmlFor="table-add-outdoor" className="flex items-center cursor-pointer" style={{color: '#2D2D2B'}}>
                   <Trees className="h-4 w-4 mr-1" />
                   Outdoor
                 </Label>
