@@ -19,6 +19,51 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /tables/availability/:restaurantId
+// Check table availability by location and party size
+tablesRouter.get('/tables/availability/:restaurantId', async (req, res, next) => {
+  try {
+    const restaurantId = req.params.restaurantId;
+    const partySize = parseInt(req.query.partySize as string) || 1;
+    
+    // Check indoor tables
+    const indoorTables = await Table.find({
+      restaurantId,
+      location: 'indoor',
+      status: 'available',
+      capacity: { $gte: partySize }
+    }).lean();
+    
+    // Check outdoor tables
+    const outdoorTables = await Table.find({
+      restaurantId,
+      location: 'outdoor',
+      status: 'available',
+      capacity: { $gte: partySize }
+    }).lean();
+    
+    const indoorAvailable = indoorTables.length > 0;
+    const outdoorAvailable = outdoorTables.length > 0;
+    const noPreferenceAvailable = indoorAvailable || outdoorAvailable;
+    
+    res.json({
+      indoor: {
+        available: indoorAvailable,
+        count: indoorTables.length
+      },
+      outdoor: {
+        available: outdoorAvailable,
+        count: outdoorTables.length
+      },
+      noPreference: {
+        available: noPreferenceAvailable
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const createSchema = z.object({ 
   name: z.string(), 
   capacity: z.number().min(1),

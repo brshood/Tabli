@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Plus, Minus, Users, Clock, Loader2 } from 'lucide-react';
+import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { useLanguage } from './LanguageContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -38,6 +39,11 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<number | null>(null);
   const [estimateStatus, setEstimateStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false); // #10 - Loading state
+  const [availabilityStatus, setAvailabilityStatus] = useState<{
+    indoor: { available: boolean; count: number };
+    outdoor: { available: boolean; count: number };
+    noPreference: { available: boolean };
+  } | null>(null);
   const { t } = useLanguage();
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
@@ -46,6 +52,48 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   useEffect(() => {
     setLiveQueueCount(restaurant?.waitingInLine ?? null);
   }, [restaurant?.waitingInLine]);
+
+  // Fetch table availability when modal opens and party size changes
+  useEffect(() => {
+    if (!isOpen || !restaurant || mode !== 'reserve') {
+      return;
+    }
+
+    const restaurantId = (restaurant as any)?.id || (restaurant as any)?._id;
+    if (!restaurantId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAvailability = async () => {
+      try {
+        const url = new URL(`${API_URL}/tables/availability/${restaurantId}`);
+        url.searchParams.set('partySize', String(partySize));
+
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          throw new Error('failed_to_fetch_availability');
+        }
+
+        const data = await res.json();
+        if (cancelled) return;
+
+        setAvailabilityStatus(data);
+      } catch (_error) {
+        if (cancelled) return;
+        console.error('Failed to fetch table availability:', _error);
+        // Set default state on error
+        setAvailabilityStatus(null);
+      }
+    };
+
+    fetchAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, restaurant, partySize, mode]);
 
   useEffect(() => {
     if (!isOpen || mode !== 'waitlist' || !restaurant) {
@@ -118,6 +166,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       setSeatingPreference('no-preference');
       setGender('prefer-not-to-say');
       setErrors({});
+      setAvailabilityStatus(null);
     }
   }, [isOpen]);
 
@@ -439,20 +488,50 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 onValueChange={(value: 'indoor' | 'outdoor' | 'no-preference') => setSeatingPreference(value)}
                 className="flex flex-col space-y-2 sm:space-y-2"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no-preference" id="no-preference" />
-                  <Label htmlFor="no-preference" style={{color: 'var(--where2go-text)'}}>No Preference</Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no-preference" id="no-preference" />
+                    <Label htmlFor="no-preference" style={{color: 'var(--where2go-text)'}}>No Preference</Label>
+                  </div>
+                  {mode === 'reserve' && availabilityStatus && (
+                    <Badge
+                      variant={availabilityStatus.noPreference.available ? "default" : "destructive"}
+                      className={availabilityStatus.noPreference.available ? "bg-green-600 hover:bg-green-700" : ""}
+                    >
+                      {availabilityStatus.noPreference.available ? "Available" : "Queue for table"}
+                    </Badge>
+                  )}
                 </div>
                 {restaurant?.indoorSeating && (
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="indoor" id="indoor" />
-                    <Label htmlFor="indoor" style={{color: 'var(--where2go-text)'}}>Indoor</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="indoor" id="indoor" />
+                      <Label htmlFor="indoor" style={{color: 'var(--where2go-text)'}}>Indoor</Label>
+                    </div>
+                    {mode === 'reserve' && availabilityStatus && (
+                      <Badge
+                        variant={availabilityStatus.indoor.available ? "default" : "destructive"}
+                        className={availabilityStatus.indoor.available ? "bg-green-600 hover:bg-green-700" : ""}
+                      >
+                        {availabilityStatus.indoor.available ? "Available" : "Queue for table"}
+                      </Badge>
+                    )}
                   </div>
                 )}
                 {restaurant?.outdoorSeating && (
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="outdoor" id="outdoor" />
-                    <Label htmlFor="outdoor" style={{color: 'var(--where2go-text)'}}>Outdoor</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="outdoor" id="outdoor" />
+                      <Label htmlFor="outdoor" style={{color: 'var(--where2go-text)'}}>Outdoor</Label>
+                    </div>
+                    {mode === 'reserve' && availabilityStatus && (
+                      <Badge
+                        variant={availabilityStatus.outdoor.available ? "default" : "destructive"}
+                        className={availabilityStatus.outdoor.available ? "bg-green-600 hover:bg-green-700" : ""}
+                      >
+                        {availabilityStatus.outdoor.available ? "Available" : "Queue for table"}
+                      </Badge>
+                    )}
                   </div>
                 )}
               </RadioGroup>

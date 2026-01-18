@@ -70,9 +70,6 @@ reservationsRouter.post('/', async (req, res, next) => {
       }
     }
     
-    // Parallelize independent queries for better performance
-    const availableTables = await Table.find({ restaurantId: data.restaurantId, status: 'available' }).lean();
-    
     // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
     
     // Determine reservation type and status
@@ -86,14 +83,30 @@ reservationsRouter.post('/', async (req, res, next) => {
     } else {
       // For both 'reserve' and 'waitlist' modes, always set status to 'pending'
       // Determine reservationType based on mode and table availability
+      // Filter tables by seating preference location
+      const seatingPref = data.seatingPreference;
+      let tableQuery: any = {
+        restaurantId: data.restaurantId,
+        status: 'available',
+        capacity: { $gte: data.partySize }
+      };
+      
+      if (seatingPref === 'indoor') {
+        tableQuery.location = 'indoor';
+      } else if (seatingPref === 'outdoor') {
+        tableQuery.location = 'outdoor';
+      }
+      // For 'no-preference' or undefined, don't filter by location (check both)
+      
+      const availableTables = await Table.find(tableQuery).lean();
       const capacities = availableTables.map(t => t.capacity);
       const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
       
-      if (data.mode === 'reserve' && data.partySize <= maxCapacity) {
-        // Table was available when they reserved
+      if (data.mode === 'reserve' && data.partySize <= maxCapacity && availableTables.length > 0) {
+        // Table was available when they reserved for their selected location
         reservationType = 'reserved';
       } else {
-        // No table available or mode is 'waitlist'
+        // No table available for selected location or mode is 'waitlist'
         reservationType = 'waitlist';
       }
     }
@@ -760,12 +773,22 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
       
       selectedTable = requestedTable;
     } else {
-      // Auto-select best available table
-      const availableTables = await Table.find({
+      // Auto-select best available table (respect seating preference)
+      const seatingPref = reservation.seatingPreference;
+      let tableQuery: any = {
         restaurantId: reservation.restaurantId,
         status: 'available',
         capacity: { $gte: reservation.partySize }
-      }).sort({ capacity: 1 }).lean(); // Sort by capacity (smallest fit first)
+      };
+      
+      if (seatingPref === 'indoor') {
+        tableQuery.location = 'indoor';
+      } else if (seatingPref === 'outdoor') {
+        tableQuery.location = 'outdoor';
+      }
+      // For 'no-preference' or undefined, don't filter by location (check both)
+      
+      const availableTables = await Table.find(tableQuery).sort({ capacity: 1 }).lean(); // Sort by capacity (smallest fit first)
       
       if (availableTables.length === 0) {
         // Check if any tables exist that could fit the party
