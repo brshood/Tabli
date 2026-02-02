@@ -4,6 +4,7 @@ const tableSchema = new Schema({
     name: { type: String, required: true },
     capacity: { type: Number, required: true },
     status: { type: String, enum: ['available', 'occupied', 'cleaning'], default: 'available', index: true },
+    location: { type: String, enum: ['indoor', 'outdoor'], default: 'indoor' },
     currentReservationId: { type: Schema.Types.ObjectId, ref: 'Reservation' },
 }, { timestamps: true });
 // Compound indexes for better query performance

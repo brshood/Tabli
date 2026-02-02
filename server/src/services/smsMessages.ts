@@ -8,6 +8,8 @@ export interface SmsMessageContext {
   customerName?: string;
   partySize?: number;
   seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
+  /** Customer contact (phone or email) for staff notification */
+  contact?: string;
 }
 
 /**
@@ -72,9 +74,10 @@ export function getRestaurantQueueNotification(context?: SmsMessageContext): str
   const customerName = context?.customerName || 'A customer';
   const partySize = context?.partySize || 1;
   const position = context?.queuePosition ? ` (#${context.queuePosition})` : '';
-  const seating = context?.seatingPreference === 'indoor' ? ' (Indoor)' 
-    : context?.seatingPreference === 'outdoor' ? ' (Outdoor)' 
-    : '';
-  return `${customerName} joined the waitlist for ${partySize}${position}${seating}. Check your dashboard.`;
+  const seating = context?.seatingPreference === 'indoor' ? ' (Indoor)'
+    : context?.seatingPreference === 'outdoor' ? ' (Outdoor)'
+    : context?.seatingPreference === 'no-preference' ? ' (No pref)' : '';
+  const contact = context?.contact ? ` Contact: ${context.contact}.` : '';
+  return `${customerName} joined the waitlist for ${partySize}${position}${seating}.${contact} Check your dashboard.`;
 }
 

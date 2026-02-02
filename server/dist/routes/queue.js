@@ -4,7 +4,8 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
-import { sendNotification } from '../services/sms';
+import { sendSmsViaEand } from '../services/eandSmsClient';
+import { getQueueJoinMessage, getRemovalMessage, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
 import { env } from '../config/env';
@@ -12,14 +13,15 @@ export const queueRouter = express.Router();
 const joinSchema = z.object({
     partySize: z.number().min(1).max(20),
     contactMethod: z.enum(['phone', 'email']),
-    phone: z.string(),
-    email: z.string().email(),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
     name: z.string().min(1).max(100).optional(),
+    seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
 }).refine((data) => {
-    // Require both email and phone
-    return !!(data.email && data.phone);
+    // Require at least one contact method (phone or email)
+    return !!(data.email || (data.phone && data.phone !== '0000000000'));
 }, {
-    message: 'Both email and phone number are required',
+    message: 'At least one contact method (email or phone) is required',
     path: ['email', 'phone']
 });
 // POST /queue/:restaurantId/join
@@ -34,12 +36,22 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
             restaurantId: restaurant._id,
             status: { $in: ['pending', 'confirmed'] }
         };
-        // Check by email or phone depending on contact method
+        // Check by email and/or phone to prevent duplicates
         if (data.email) {
             duplicateQuery.email = data.email;
         }
-        else if (data.phone) {
-            duplicateQuery.phone = data.phone;
+        if (data.phone && data.phone !== '0000000000') {
+            // If email is also provided, use $or to match either
+            if (data.email) {
+                duplicateQuery.$or = [
+                    { email: data.email },
+                    { phone: data.phone }
+                ];
+                delete duplicateQuery.email; // Remove direct email since we're using $or
+            }
+            else {
+                duplicateQuery.phone = data.phone;
+            }
         }
         const existingReservation = await Reservation.findOne(duplicateQuery);
         if (existingReservation) {
@@ -47,8 +59,69 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
                 error: 'You already have an active reservation at this restaurant'
             });
         }
-        const count = await Reservation.countDocuments({ restaurantId: restaurant._id, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] } });
-        const queuePosition = count + 1;
+        // Calculate queue position based on seating preference
+        // Indoor queue: indoor + no-preference customers
+        // Outdoor queue: outdoor + no-preference customers
+        // No-preference customers appear in both queues
+        const seatingPref = data.seatingPreference || 'no-preference';
+        let queuePosition;
+        if (seatingPref === 'indoor') {
+            // Count customers in indoor queue (indoor + no-preference + missing field)
+            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
+            const indoorCount = await Reservation.countDocuments({
+                restaurantId: restaurant._id,
+                status: { $in: ['pending', 'confirmed'] },
+                $or: [
+                    { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                    { mode: 'waitlist', seatingPreference: { $exists: false } },
+                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+                ]
+            });
+            queuePosition = indoorCount + 1;
+        }
+        else if (seatingPref === 'outdoor') {
+            // Count customers in outdoor queue (outdoor + no-preference + missing field)
+            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
+            const outdoorCount = await Reservation.countDocuments({
+                restaurantId: restaurant._id,
+                status: { $in: ['pending', 'confirmed'] },
+                $or: [
+                    { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                    { mode: 'waitlist', seatingPreference: { $exists: false } },
+                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+                ]
+            });
+            queuePosition = outdoorCount + 1;
+        }
+        else {
+            // No-preference: show the smaller queue position (could be seated at either)
+            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
+            const [indoorCount, outdoorCount] = await Promise.all([
+                Reservation.countDocuments({
+                    restaurantId: restaurant._id,
+                    status: { $in: ['pending', 'confirmed'] },
+                    $or: [
+                        { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                        { mode: 'waitlist', seatingPreference: { $exists: false } },
+                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+                    ]
+                }),
+                Reservation.countDocuments({
+                    restaurantId: restaurant._id,
+                    status: { $in: ['pending', 'confirmed'] },
+                    $or: [
+                        { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                        { mode: 'waitlist', seatingPreference: { $exists: false } },
+                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+                    ]
+                })
+            ]);
+            queuePosition = Math.min(indoorCount, outdoorCount) + 1;
+        }
         const doc = await Reservation.create({
             restaurantId: restaurant._id,
             mode: 'waitlist',
@@ -59,10 +132,11 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
             email: data.email, // Always store email
             status: 'pending',
             queuePosition,
+            seatingPreference: data.seatingPreference,
         });
         const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
         try {
-            if (isValidEmailForSending(data.email)) {
+            if (data.email && isValidEmailForSending(data.email)) {
                 await sendEmail({
                     to: data.email,
                     subject: `Queue at ${restaurant.name}`,
@@ -87,19 +161,46 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
             console.error('Queue join notify failed:', err?.message);
             // emailSent remains false if email failed
         }
-        // #1 - Send SMS notification if phone contact method
-        if (data.contactMethod === 'phone' && data.phone) {
-            try {
-                const smsMessage = `Hello! You've been added to the waitlist at ${restaurant.name}. We'll let you know as soon as your table is ready. Thank you for your patience!`;
-                await sendNotification({
-                    to: data.phone,
-                    message: smsMessage
+        // #1 - Send SMS notification if valid phone number is provided (regardless of contactMethod)
+        // Note: Frontend may send contactMethod='email' even when phone is provided
+        if (data.phone && data.phone !== '0000000000') {
+            // Fire and forget - don't block queue join
+            sendSmsViaEand({
+                to: data.phone,
+                text: getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition }),
+                category: 'otp',
+            }).catch((smsError) => {
+                console.error('[QUEUE] Failed to send SMS notification:', {
+                    error: smsError instanceof Error ? smsError.message : smsError,
+                    phone: data.phone,
+                    reservationId: doc._id,
+                    hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+                    hasSenderId: !!process.env.EAND_SENDER_ID,
                 });
-            }
-            catch (smsError) {
-                console.error('Failed to send SMS notification:', smsError);
                 // Don't fail reservation if SMS fails
-            }
+            });
+        }
+        // Send SMS notification to restaurant staff if they have notification phone configured
+        if (restaurant.activeNotificationPhone) {
+            const contact = data.phone && data.phone !== '0000000000' ? data.phone : (data.email || undefined);
+            sendSmsViaEand({
+                to: restaurant.activeNotificationPhone,
+                text: getRestaurantQueueNotification({
+                    customerName: data.name,
+                    partySize: data.partySize,
+                    queuePosition,
+                    seatingPreference: data.seatingPreference,
+                    contact,
+                }),
+                category: 'otp',
+            }).catch((smsError) => {
+                console.error('[QUEUE] Failed to send SMS to restaurant:', {
+                    error: smsError instanceof Error ? smsError.message : smsError,
+                    phone: restaurant.activeNotificationPhone,
+                    reservationId: doc._id,
+                });
+                // Don't fail queue join if SMS fails
+            });
         }
         // Note: Staff notifications removed - they only get notified for actual table reservations, not waitlist entries
         res.status(201).json({ reservation: doc });
@@ -182,6 +283,24 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
         }
         catch (notificationError) {
             console.error('Failed to send queue removal email:', notificationError);
+        }
+        // Send SMS notification - removed from queue
+        if (r.phone && r.phone !== '0000000000') {
+            // Fire and forget - don't block removal
+            sendSmsViaEand({
+                to: r.phone,
+                text: getRemovalMessage({ restaurantName: restaurant?.name }),
+                category: 'otp',
+            }).catch((smsError) => {
+                console.error('[QUEUE] Failed to send removal SMS:', {
+                    error: smsError instanceof Error ? smsError.message : smsError,
+                    phone: r.phone,
+                    reservationId: r._id,
+                    hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+                    hasSenderId: !!process.env.EAND_SENDER_ID,
+                });
+                // Don't fail removal if SMS fails
+            });
         }
         if (typeof oldPos === 'number') {
             await Reservation.updateMany({ restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending', 'confirmed'] }, queuePosition: { $gt: oldPos } }, { $inc: { queuePosition: -1 } });

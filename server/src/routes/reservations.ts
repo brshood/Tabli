@@ -4,7 +4,6 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
-import { sendNotification } from '../services/sms';
 import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
 import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage, getRemovalMessage, getRestaurantReservationNotification, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
@@ -83,25 +82,37 @@ reservationsRouter.post('/', async (req, res, next) => {
     } else {
       // For both 'reserve' and 'waitlist' modes, always set status to 'pending'
       // Determine reservationType based on mode and table availability
-      // Filter tables by seating preference location
+      // Respect staff overrides (indoorFull/outdoorFull) - when set, that section is treated as full
+      const restaurantOverrides = await Restaurant.findById(data.restaurantId).select('indoorFull outdoorFull').lean();
+      const indoorOverride = (restaurantOverrides as any)?.indoorFull === true;
+      const outdoorOverride = (restaurantOverrides as any)?.outdoorFull === true;
+
       const seatingPref = data.seatingPreference;
       let tableQuery: any = {
         restaurantId: data.restaurantId,
         status: 'available',
         capacity: { $gte: data.partySize }
       };
-      
+
       if (seatingPref === 'indoor') {
         tableQuery.location = 'indoor';
       } else if (seatingPref === 'outdoor') {
         tableQuery.location = 'outdoor';
       }
-      // For 'no-preference' or undefined, don't filter by location (check both)
-      
-      const availableTables = await Table.find(tableQuery).lean();
-      const capacities = availableTables.map(t => t.capacity);
+
+      let availableTables = await Table.find(tableQuery).lean();
+      if (seatingPref === 'indoor' && indoorOverride) availableTables = [];
+      else if (seatingPref === 'outdoor' && outdoorOverride) availableTables = [];
+      else if (!seatingPref || seatingPref === 'no-preference') {
+        // For no-preference: filter out tables from any section marked full (one or both)
+        availableTables = availableTables.filter((t: any) =>
+          !((t.location === 'indoor' && indoorOverride) || (t.location === 'outdoor' && outdoorOverride))
+        );
+      }
+
+      const capacities = availableTables.map((t: any) => t.capacity);
       const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
-      
+
       if (data.mode === 'reserve' && data.partySize <= maxCapacity && availableTables.length > 0) {
         // Table was available when they reserved for their selected location
         reservationType = 'reserved';
@@ -283,12 +294,14 @@ reservationsRouter.post('/', async (req, res, next) => {
       // Send SMS notification to restaurant staff if they have notification phone configured
       // Use reservationType to determine message type (more accurate than mode)
       if (restaurant.activeNotificationPhone) {
+        const contact = data.phone && data.phone !== '0000000000' ? data.phone : (data.email || undefined);
         const smsText = isWaitlist
           ? getRestaurantQueueNotification({
               customerName: data.name,
               partySize: data.partySize,
               queuePosition,
               seatingPreference: data.seatingPreference,
+              contact,
             })
           : getRestaurantReservationNotification({
               customerName: data.name,
@@ -658,11 +671,12 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     }
     
     // Send SMS notification if customer provided phone
-    if (reservation.phone && reservation.contactMethod === 'phone') {
+    if (reservation.phone && reservation.phone !== '0000000000') {
       try {
-        await sendNotification({
+        await sendSmsViaEand({
           to: reservation.phone,
-          message: `Your ${reservation.reservationType === 'reserved' ? 'reservation' : 'waitlist position'} at ${restaurantName} has been cancelled. We hope to see you again soon!`
+          text: `Your ${reservation.reservationType === 'reserved' ? 'reservation' : 'waitlist position'} at ${restaurantName} has been cancelled. We hope to see you again soon!`,
+          category: 'otp',
         });
       } catch (smsError) {
         console.error('Failed to send cancellation SMS:', smsError);
@@ -718,25 +732,54 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     const message = req.body?.message || `Your table at ${restaurantName} is ready! Please arrive within 15 minutes to secure your reservation.`;
     const subject = req.body?.subject || 'Your table is ready';
     
+    let emailSent = false;
     if (r.email && isValidEmailForSending(r.email)) {
       try {
-      await sendEmail({
+        await sendEmail({
           to: r.email as string,
-        subject,
-        text: message,
-        html: buildEmailTemplate({
-          heading: subject,
-          intro: `Hi${r.name ? ` ${r.name}` : ''},`,
-          lines: [message],
+          subject,
+          text: message,
+          html: buildEmailTemplate({
+            heading: subject,
+            intro: `Hi${r.name ? ` ${r.name}` : ''},`,
+            lines: [message],
             includeNotificationsLink: true,
-        }),
-      });
+          }),
+        });
+        emailSent = true;
       } catch (emailError) {
         console.error('Failed to send manual notification email:', emailError);
       }
     }
-    
-    res.json({ success: true });
+
+    let smsSent = false;
+    const hasValidPhone = r.phone && r.phone !== '0000000000';
+    if (hasValidPhone) {
+      const smsText = req.body?.message || getTableReadyMessage({ restaurantName });
+      try {
+        await sendSmsViaEand({
+          to: r.phone as string,
+          text: smsText,
+          category: 'otp',
+        });
+        smsSent = true;
+      } catch (smsError) {
+        console.error('[RESERVATION] Failed to send notify SMS:', {
+          error: smsError instanceof Error ? smsError.message : smsError,
+          phone: r.phone,
+          reservationId: r._id,
+        });
+      }
+    }
+
+    if (!emailSent && !smsSent) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid contact method. Customer has no valid phone number or email address to receive the notification.',
+      });
+    }
+
+    res.json({ success: true, via: emailSent && smsSent ? 'email_and_sms' : emailSent ? 'email' : 'sms' });
   } catch (err) { next(err); }
 });
 

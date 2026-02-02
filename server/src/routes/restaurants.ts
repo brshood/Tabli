@@ -121,12 +121,16 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     };
     
     // Enrich with imageUrl - only if profile picture exists
+    // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue, not Reserve)
     const enriched = items.map((r: any) => {
       const imageFileId = getImageFileId(r);
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
       const s = summaryById.get(String(r._id));
       const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
-      const availableTables = tableCountById.get(String(r._id)) || 0;
+      let availableTables = tableCountById.get(String(r._id)) || 0;
+      if (r.indoorFull === true && r.outdoorFull === true) {
+        availableTables = 0; // Staff marked both full → customers see Queue button
+      }
       const avgWaitTime = waitTimeById.get(String(r._id)) || null;
       const waitingInLine = queueCountById.get(String(r._id)) || 0;
       return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine };
@@ -176,7 +180,8 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
     
     // Parallelize independent queries for better performance
-    const [availableTables, s, waitingInLine] = await Promise.all([
+    // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue)
+    const [rawAvailableTables, s, waitingInLine] = await Promise.all([
       Table.countDocuments({ restaurantId: item._id, status: 'available' }),
       Rating.aggregate([
         { $match: { restaurantId: new ObjectId(req.params.id) } },
@@ -191,6 +196,10 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
     ]);
     
     const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
+    let availableTables = rawAvailableTables;
+    if ((item as any).indoorFull === true && (item as any).outdoorFull === true) {
+      availableTables = 0; // Staff marked both full → customers see Queue button
+    }
     res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine } });
   } catch (err) { next(err); }
 });
@@ -304,6 +313,47 @@ restaurantsRouter.get('/:id/notification-phones', requireAuth, requireOwnRestaur
       notificationPhones: restaurant.notificationPhones || [],
     });
   } catch (err) {
+    next(err);
+  }
+});
+
+// GET /restaurants/:id/availability-override - Get current indoor/outdoor full state
+restaurantsRouter.get('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id).select('indoorFull outdoorFull').lean();
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+    res.json({
+      indoorFull: (restaurant as any).indoorFull ?? false,
+      outdoorFull: (restaurant as any).outdoorFull ?? false,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /restaurants/:id/availability-override - Staff toggles for indoor/outdoor full
+const availabilityOverrideSchema = z.object({
+  indoorFull: z.boolean().optional(),
+  outdoorFull: z.boolean().optional(),
+});
+
+restaurantsRouter.patch('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const data = availabilityOverrideSchema.parse(req.body);
+    const restaurant = await Restaurant.findByIdAndUpdate(
+      req.params.id,
+      { $set: data },
+      { new: true }
+    );
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+    res.json({
+      indoorFull: (restaurant as any).indoorFull ?? false,
+      outdoorFull: (restaurant as any).outdoorFull ?? false,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
     next(err);
   }
 });

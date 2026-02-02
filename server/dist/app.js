@@ -24,25 +24,18 @@ import { adminRouter } from './routes/admin';
 import { contactRouter } from './routes/contact';
 import { sseRouter } from './routes/sse';
 import { pushRouter } from './routes/push';
-// STRESS TEST MODE: Temporarily increased limits for busy day simulation
-// TODO: Revert these after stress testing or make them environment-configurable
-const STRESS_TEST_MODE = process.env.STRESS_TEST_MODE === 'true';
-// Global rate limiter: 
-// - Normal: 10000 requests per 15 minutes (increased 10x from 1000)
-// - Stress Test: 50000 requests per 15 minutes (50x increase)
+// Global rate limiter: 10000 requests per 15 minutes
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: STRESS_TEST_MODE ? 50000 : 10000,
+    max: 10000,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Staff limiter for frequently polled routes:
-// - Normal: 20000 requests per 15 minutes (increased 10x from 2000)
-// - Stress Test: 100000 requests per 15 minutes (50x increase)
+// Staff limiter for frequently polled routes: 20000 requests per 15 minutes
 const staffLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: STRESS_TEST_MODE ? 100000 : 20000,
+    max: 20000,
     message: { error: 'Too many requests to staff dashboard, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -56,12 +49,10 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-// Reservations limiter:
-// - Normal: 5000 requests per 5 minutes (increased 10x from 500)
-// - Stress Test: 25000 requests per 5 minutes (50x increase)
+// Reservations limiter: 5000 requests per 5 minutes
 const reservationsLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: STRESS_TEST_MODE ? 25000 : 5000,
+    max: 5000,
     message: { error: 'Too many reservation actions, please slow down.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -95,13 +86,7 @@ export function createApp() {
     app.use('/media', mediaRouter);
     // Apply staff limiter to frequently polled routes
     app.use('/reservations', staffLimiter, reservationsLimiter, reservationsRouter);
-    // Apply staff limiter to queue route for consistency during stress tests
-    if (STRESS_TEST_MODE) {
-        app.use('/queue', staffLimiter, queueRouter);
-    }
-    else {
-        app.use('/queue', queueRouter);
-    }
+    app.use('/queue', queueRouter);
     app.use('/qr', qrRouter);
     app.use('/analytics', staffLimiter, analyticsRouter);
     app.use('/dashboard', staffLimiter, dashboardRouter);

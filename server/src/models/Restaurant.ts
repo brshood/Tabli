@@ -47,6 +47,9 @@ export interface RestaurantDocument extends Document {
   // SMS notification settings
   notificationPhones?: string[];  // History of phone numbers used for notifications
   activeNotificationPhone?: string;  // Currently selected phone for receiving notifications
+  // Staff occupancy overrides: when true, that section is treated as full (customers queue)
+  indoorFull?: boolean;
+  outdoorFull?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,6 +108,9 @@ const restaurantSchema = new Schema<RestaurantDocument>(
     // SMS notification settings
     notificationPhones: [{ type: String }],  // History of phone numbers
     activeNotificationPhone: { type: String },  // Currently selected phone
+    // Staff occupancy overrides
+    indoorFull: { type: Boolean, default: false },
+    outdoorFull: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

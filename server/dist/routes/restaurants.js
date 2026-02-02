@@ -9,16 +9,15 @@ import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { getDaysAgoStartGST } from '../utils/dateFormat';
 export const restaurantsRouter = express.Router();
 restaurantsRouter.get('/', async (_req, res, next) => {
     try {
         const items = await Restaurant.find({ approvalStatus: 'approved' }).lean();
         const ids = items.map((r) => r._id);
-        // Calculate date range for last 7 days
+        // Calculate date range for last 7 days in GST timezone
         const now = new Date();
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const sevenDaysAgo = getDaysAgoStartGST(7);
         // Batch all queries in parallel for better performance
         const [summaries, tableCounts, waitTimeStats, queueCounts] = await Promise.all([
             Rating.aggregate([
@@ -107,12 +106,16 @@ restaurantsRouter.get('/', async (_req, res, next) => {
             return null;
         };
         // Enrich with imageUrl - only if profile picture exists
+        // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue, not Reserve)
         const enriched = items.map((r) => {
             const imageFileId = getImageFileId(r);
             const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
             const s = summaryById.get(String(r._id));
             const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
-            const availableTables = tableCountById.get(String(r._id)) || 0;
+            let availableTables = tableCountById.get(String(r._id)) || 0;
+            if (r.indoorFull === true && r.outdoorFull === true) {
+                availableTables = 0; // Staff marked both full → customers see Queue button
+            }
             const avgWaitTime = waitTimeById.get(String(r._id)) || null;
             const waitingInLine = queueCountById.get(String(r._id)) || 0;
             return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine };
@@ -155,7 +158,8 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
         const imageFileId = getImageFileId(item);
         const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
         // Parallelize independent queries for better performance
-        const [availableTables, s, waitingInLine] = await Promise.all([
+        // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue)
+        const [rawAvailableTables, s, waitingInLine] = await Promise.all([
             Table.countDocuments({ restaurantId: item._id, status: 'available' }),
             Rating.aggregate([
                 { $match: { restaurantId: new ObjectId(req.params.id) } },
@@ -169,6 +173,10 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
             })
         ]);
         const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
+        let availableTables = rawAvailableTables;
+        if (item.indoorFull === true && item.outdoorFull === true) {
+            availableTables = 0; // Staff marked both full → customers see Queue button
+        }
         res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine } });
     }
     catch (err) {
@@ -225,6 +233,120 @@ restaurantsRouter.delete('/:id', requireAuth, requireOwnRestaurant, async (req, 
             return res.status(404).json({ error: 'Restaurant not found' });
         }
         res.json({ success: true, message: 'Restaurant profile deleted' });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+// PATCH /restaurants/:id/notification-phone - Update notification phone for SMS alerts
+const notificationPhoneSchema = z.object({
+    phone: z.string().min(7).max(20),
+});
+restaurantsRouter.patch('/:id/notification-phone', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const data = notificationPhoneSchema.parse(req.body);
+        const restaurant = await Restaurant.findById(req.params.id);
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        // Normalize the phone number (remove non-digits except leading +)
+        const normalizedPhone = data.phone.replace(/[^\d+]/g, '');
+        // Add to history if not already present
+        const existingPhones = restaurant.notificationPhones || [];
+        if (!existingPhones.includes(normalizedPhone)) {
+            existingPhones.push(normalizedPhone);
+            restaurant.notificationPhones = existingPhones;
+        }
+        // Set as active notification phone
+        restaurant.activeNotificationPhone = normalizedPhone;
+        await restaurant.save();
+        res.json({
+            success: true,
+            activeNotificationPhone: restaurant.activeNotificationPhone,
+            notificationPhones: restaurant.notificationPhones,
+        });
+    }
+    catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: err.errors[0].message });
+        }
+        next(err);
+    }
+});
+// GET /restaurants/:id/notification-phones - Get notification phone settings
+restaurantsRouter.get('/:id/notification-phones', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const restaurant = await Restaurant.findById(req.params.id).select('notificationPhones activeNotificationPhone').lean();
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        res.json({
+            activeNotificationPhone: restaurant.activeNotificationPhone || null,
+            notificationPhones: restaurant.notificationPhones || [],
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+// GET /restaurants/:id/availability-override - Get current indoor/outdoor full state
+restaurantsRouter.get('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const restaurant = await Restaurant.findById(req.params.id).select('indoorFull outdoorFull').lean();
+        if (!restaurant)
+            return res.status(404).json({ error: 'Restaurant not found' });
+        res.json({
+            indoorFull: restaurant.indoorFull ?? false,
+            outdoorFull: restaurant.outdoorFull ?? false,
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+// PATCH /restaurants/:id/availability-override - Staff toggles for indoor/outdoor full
+const availabilityOverrideSchema = z.object({
+    indoorFull: z.boolean().optional(),
+    outdoorFull: z.boolean().optional(),
+});
+restaurantsRouter.patch('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const data = availabilityOverrideSchema.parse(req.body);
+        const restaurant = await Restaurant.findByIdAndUpdate(req.params.id, { $set: data }, { new: true });
+        if (!restaurant)
+            return res.status(404).json({ error: 'Restaurant not found' });
+        res.json({
+            indoorFull: restaurant.indoorFull ?? false,
+            outdoorFull: restaurant.outdoorFull ?? false,
+        });
+    }
+    catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: err.errors[0].message });
+        }
+        next(err);
+    }
+});
+// DELETE /restaurants/:id/notification-phone/:phone - Remove a phone from history
+restaurantsRouter.delete('/:id/notification-phone/:phone', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+    try {
+        const restaurant = await Restaurant.findById(req.params.id);
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+        const phoneToRemove = decodeURIComponent(req.params.phone);
+        const existingPhones = restaurant.notificationPhones || [];
+        restaurant.notificationPhones = existingPhones.filter(p => p !== phoneToRemove);
+        // If the removed phone was the active one, clear it
+        if (restaurant.activeNotificationPhone === phoneToRemove) {
+            restaurant.activeNotificationPhone = restaurant.notificationPhones[0] || undefined;
+        }
+        await restaurant.save();
+        res.json({
+            success: true,
+            activeNotificationPhone: restaurant.activeNotificationPhone || null,
+            notificationPhones: restaurant.notificationPhones,
+        });
     }
     catch (err) {
         next(err);

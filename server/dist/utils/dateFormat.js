@@ -2,7 +2,7 @@
  * Format date/time in UAE/GST timezone (Asia/Dubai, UTC+4)
  * All dates should be displayed in UAE timezone for consistency
  */
-const GST_TIMEZONE = 'Asia/Dubai'; // GST = UTC+4
+export const GST_TIMEZONE = 'Asia/Dubai'; // GST = UTC+4
 /**
  * Format a date as time string in UAE timezone
  * @param date Date object (will be converted to UAE time)
@@ -111,4 +111,91 @@ export function getTodayStartGST() {
     // Create a date string in ISO format that represents midnight in GST
     const gstMidnight = new Date(`${year}-${month}-${day}T00:00:00+04:00`);
     return gstMidnight;
+}
+/**
+ * Get the hour in GST timezone from a Date object
+ * @param date Date object
+ * @returns Hour (0-23) in GST timezone
+ */
+export function getGSTHour(date) {
+    return parseInt(date.toLocaleString('en-US', {
+        timeZone: GST_TIMEZONE,
+        hour: '2-digit',
+        hour12: false
+    }), 10);
+}
+/**
+ * Get the date components (year, month, day) in GST timezone
+ * @param date Date object
+ * @returns Object with year, month (1-12), day
+ */
+export function getGSTDateComponents(date) {
+    const gstDateStr = date.toLocaleString('en-US', {
+        timeZone: GST_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    const [month, day, year] = gstDateStr.split('/').map(Number);
+    return { year, month, day };
+}
+/**
+ * Get start of a specific date in GST timezone (midnight GST)
+ * @param date Date object (time portion is ignored)
+ * @returns Date object representing midnight GST for that date
+ */
+export function getGSTStartOfDay(date) {
+    const { year, month, day } = getGSTDateComponents(date);
+    return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+04:00`);
+}
+/**
+ * Get end of a specific date in GST timezone (23:59:59.999 GST)
+ * @param date Date object (time portion is ignored)
+ * @returns Date object representing end of day GST for that date
+ */
+export function getGSTEndOfDay(date) {
+    const { year, month, day } = getGSTDateComponents(date);
+    return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59.999+04:00`);
+}
+/**
+ * Get start of yesterday in GST timezone
+ * @returns Date object representing midnight GST yesterday
+ */
+export function getYesterdayStartGST() {
+    const now = new Date();
+    const { year, month, day } = getGSTDateComponents(now);
+    const yesterday = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+04:00`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+}
+/**
+ * Get start of N days ago in GST timezone
+ * @param daysAgo Number of days to go back
+ * @returns Date object representing midnight GST N days ago
+ */
+export function getDaysAgoStartGST(daysAgo) {
+    const todayStart = getTodayStartGST();
+    const result = new Date(todayStart);
+    result.setDate(result.getDate() - daysAgo);
+    return result;
+}
+/**
+ * Get start of N months ago in GST timezone
+ * @param monthsAgo Number of months to go back
+ * @returns Date object representing midnight GST N months ago
+ */
+export function getMonthsAgoStartGST(monthsAgo) {
+    const todayStart = getTodayStartGST();
+    const result = new Date(todayStart);
+    result.setMonth(result.getMonth() - monthsAgo);
+    return result;
+}
+/**
+ * Format date as YYYY-MM-DD string in GST timezone
+ * @param date Date object
+ * @returns String in format YYYY-MM-DD
+ */
+export function formatGSTDateString(date) {
+    const { year, month, day } = getGSTDateComponents(date);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }

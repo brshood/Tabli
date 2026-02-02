@@ -4,6 +4,8 @@ import { Table } from '../models/Table';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
+import { sendSmsViaEand } from '../services/eandSmsClient';
+import { getCheckoutMessage } from '../services/smsMessages';
 import { env } from '../config/env';
 import { notificationEmitter } from '../services/notificationEmitter';
 export const tablesRouter = express.Router();
@@ -16,18 +18,77 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
         next(err);
     }
 });
-const createSchema = z.object({ name: z.string(), capacity: z.number().min(1) });
+// GET /tables/availability/:restaurantId
+// Check table availability by location and party size
+// Respects staff overrides (indoorFull/outdoorFull) - when set, that section is treated as full
+tablesRouter.get('/tables/availability/:restaurantId', async (req, res, next) => {
+    try {
+        const restaurantId = req.params.restaurantId;
+        const partySize = parseInt(req.query.partySize) || 1;
+        const [restaurant, indoorTables, outdoorTables] = await Promise.all([
+            Restaurant.findById(restaurantId).select('indoorFull outdoorFull').lean(),
+            Table.find({
+                restaurantId,
+                location: 'indoor',
+                status: 'available',
+                capacity: { $gte: partySize }
+            }).lean(),
+            Table.find({
+                restaurantId,
+                location: 'outdoor',
+                status: 'available',
+                capacity: { $gte: partySize }
+            }).lean(),
+        ]);
+        const indoorOverride = restaurant?.indoorFull === true;
+        const outdoorOverride = restaurant?.outdoorFull === true;
+        const indoorAvailable = !indoorOverride && indoorTables.length > 0;
+        const outdoorAvailable = !outdoorOverride && outdoorTables.length > 0;
+        const noPreferenceAvailable = indoorAvailable || outdoorAvailable;
+        res.json({
+            indoor: {
+                available: indoorAvailable,
+                count: indoorOverride ? 0 : indoorTables.length
+            },
+            outdoor: {
+                available: outdoorAvailable,
+                count: outdoorOverride ? 0 : outdoorTables.length
+            },
+            noPreference: {
+                available: noPreferenceAvailable
+            }
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+const createSchema = z.object({
+    name: z.string(),
+    capacity: z.number().min(1),
+    location: z.enum(['indoor', 'outdoor']).optional().default('indoor'),
+});
 tablesRouter.post('/restaurants/:id/tables', async (req, res, next) => {
     try {
         const data = createSchema.parse(req.body);
-        const table = await Table.create({ restaurantId: req.params.id, name: data.name, capacity: data.capacity });
+        const table = await Table.create({
+            restaurantId: req.params.id,
+            name: data.name,
+            capacity: data.capacity,
+            location: data.location,
+        });
         res.status(201).json({ table });
     }
     catch (err) {
         next(err);
     }
 });
-const patchSchema = z.object({ status: z.enum(['available', 'occupied', 'cleaning']).optional(), capacity: z.number().min(1).optional(), name: z.string().optional() });
+const patchSchema = z.object({
+    status: z.enum(['available', 'occupied', 'cleaning']).optional(),
+    capacity: z.number().min(1).optional(),
+    name: z.string().optional(),
+    location: z.enum(['indoor', 'outdoor']).optional(),
+});
 tablesRouter.patch('/tables/:id', async (req, res, next) => {
     try {
         const data = patchSchema.parse(req.body);
@@ -157,6 +218,25 @@ tablesRouter.post('/tables/:id/checkout', async (req, res, next) => {
                 console.error('Failed to send thank-you email:', notificationError);
             }
         }
+        // 7.5. Send SMS notification for checkout (skip for walk-ins)
+        if (reservation.phone && reservation.phone !== '0000000000') {
+            // Fire and forget - don't block checkout
+            const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+            sendSmsViaEand({
+                to: reservation.phone,
+                text: getCheckoutMessage({ restaurantName: restaurant?.name }),
+                category: 'otp',
+            }).catch((smsError) => {
+                console.error('[CHECKOUT] Failed to send SMS notification:', {
+                    error: smsError instanceof Error ? smsError.message : smsError,
+                    phone: reservation.phone,
+                    reservationId: reservationId,
+                    hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+                    hasSenderId: !!process.env.EAND_SENDER_ID,
+                });
+                // Don't fail checkout if SMS fails
+            });
+        }
         // 8. Emit SSE notification for real-time checkout update (customer)
         notificationEmitter.notifyReservation(reservationId.toString(), {
             type: 'reservation_updated',
@@ -285,6 +365,25 @@ tablesRouter.post('/tables/checkout-by-reservation/:reservationId', async (req, 
             catch (notificationError) {
                 console.error('Failed to send thank-you email:', notificationError);
             }
+        }
+        // 7.5. Send SMS notification for checkout (skip for walk-ins)
+        if (reservation.phone && reservation.phone !== '0000000000') {
+            // Fire and forget - don't block checkout
+            const restaurant = await Restaurant.findById(reservation.restaurantId).lean();
+            sendSmsViaEand({
+                to: reservation.phone,
+                text: getCheckoutMessage({ restaurantName: restaurant?.name }),
+                category: 'otp',
+            }).catch((smsError) => {
+                console.error('[CHECKOUT] Failed to send SMS notification:', {
+                    error: smsError instanceof Error ? smsError.message : smsError,
+                    phone: reservation.phone,
+                    reservationId: reservationId,
+                    hasAccessToken: !!process.env.EAND_ACCESS_TOKEN,
+                    hasSenderId: !!process.env.EAND_SENDER_ID,
+                });
+                // Don't fail checkout if SMS fails
+            });
         }
         // 8. Emit SSE notification
         notificationEmitter.notifyReservation(reservationId.toString(), {

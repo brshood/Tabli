@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
-import { getTodayStartGST, nowGST } from '../utils/dateFormat';
+import { getTodayStartGST, nowGST, getDaysAgoStartGST } from '../utils/dateFormat';
 const DEFAULT_DWELL_MINUTES = 45;
 const DEFAULT_SEED_WAIT_MINUTES = 20; // Default seed wait time when no history exists
 const HISTORY_WINDOW_DAYS = 30;
@@ -44,8 +44,7 @@ async function getWaitTimeSeed(restaurantId) {
     // Look for previous day's average wait time (time from requestedAt to seatedAt)
     // Try yesterday first, then go back up to 7 days
     for (let daysBack = 1; daysBack <= 7; daysBack++) {
-        const checkDateStart = new Date(todayStart);
-        checkDateStart.setDate(checkDateStart.getDate() - daysBack);
+        const checkDateStart = getDaysAgoStartGST(daysBack);
         const checkDateEnd = new Date(checkDateStart.getTime() + 24 * 60 * 60 * 1000);
         // Get seated reservations from that day to calculate average wait time
         const prevDaySeated = await Reservation.find({
@@ -88,8 +87,7 @@ export async function estimateWaitTimes(restaurantId, options = {}) {
     }
     const now = nowGST();
     const nowMs = now.getTime();
-    const historyWindowStart = new Date(now);
-    historyWindowStart.setDate(historyWindowStart.getDate() - HISTORY_WINDOW_DAYS);
+    const historyWindowStart = getDaysAgoStartGST(HISTORY_WINDOW_DAYS);
     // Get wait time seed for new day (if no checkouts today yet)
     const waitTimeSeed = await getWaitTimeSeed(restaurantObjectId);
     const [waitlist, seatedReservations, tables, dwellAgg] = await Promise.all([

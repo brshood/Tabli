@@ -27,4 +27,11 @@ export const env = {
     VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:tabli.team@gmail.com',
+    // E& Enterprise Nexus SMS configuration
+    EAND_API_EMAIL: process.env.EAND_API_EMAIL,
+    EAND_API_PASSWORD: process.env.EAND_API_PASSWORD,
+    EAND_LOGIN_URL: process.env.EAND_LOGIN_URL || 'https://nexus.eandenterprise.com/api/v1/accounts/users/login',
+    EAND_SMS_URL: process.env.EAND_SMS_URL || 'https://nexus.eandenterprise.com/api/v1/sms/send',
+    EAND_SENDER_ID: process.env.EAND_SENDER_ID,
+    EAND_DR_CALLBACK: process.env.EAND_DR_CALLBACK || 'http://example.com/dr',
 };

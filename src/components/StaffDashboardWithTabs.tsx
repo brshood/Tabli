@@ -95,6 +95,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [enablingNotifications, setEnablingNotifications] = useState(false);
+  const [indoorFull, setIndoorFull] = useState(false);
+  const [outdoorFull, setOutdoorFull] = useState(false);
+  const [callNextDialogOpen, setCallNextDialogOpen] = useState(false);
+  const [callNextCustomer, setCallNextCustomer] = useState<any>(null);
+  const [callNextLoading, setCallNextLoading] = useState(false);
 
   useEffect(() => {
     let timer: any;
@@ -130,17 +135,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   // Note: This must be after loadReservationsFromDB and loadTablesFromDB are defined
   // We'll add this effect after those function definitions
 
-  // Load tables list for totals and availability
+  // Load availability override on mount when auth is ready (also refreshed on SSE)
   useEffect(() => {
-    if (!staffAuth?.restaurantId) return;
-    let timer: any;
-    const load = async () => {
-      await loadTablesFromDB();
-    };
-    load(); // Load immediately
-    timer = setInterval(loadTablesFromDB, 30000);
-    return () => clearInterval(timer);
-  }, [API_URL, staffAuth?.restaurantId]);
+    if (!staffAuth?.restaurantId || !staffAuth?.token) return;
+    loadAvailabilityOverride();
+  }, [API_URL, staffAuth?.restaurantId, staffAuth?.token]);
 
   // Load analytics (overview and peak hours)
   useEffect(() => {
@@ -269,6 +268,100 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
+  const toggleIndoorFull = async () => {
+    if (!staffAuth?.restaurantId || !staffAuth?.token) return;
+    const next = !indoorFull;
+    try {
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${staffAuth.token}`,
+        },
+        body: JSON.stringify({ indoorFull: next }),
+      });
+      if (res.ok) {
+        setIndoorFull(next);
+        toast.success(next ? 'Indoor marked full' : 'Indoor has space');
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update indoor');
+    }
+  };
+
+  const toggleOutdoorFull = async () => {
+    if (!staffAuth?.restaurantId || !staffAuth?.token) return;
+    const next = !outdoorFull;
+    try {
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${staffAuth.token}`,
+        },
+        body: JSON.stringify({ outdoorFull: next }),
+      });
+      if (res.ok) {
+        setOutdoorFull(next);
+        toast.success(next ? 'Outdoor marked full' : 'Outdoor has space');
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update outdoor');
+    }
+  };
+
+  const openCallNextDialog = async () => {
+    // Event-driven: refresh data on button click before picking first eligible
+    const [wl, override] = await Promise.all([
+      loadReservationsFromDB(),
+      loadAvailabilityOverride(),
+    ]);
+    const indoorVal = override?.indoorFull ?? indoorFull;
+    const outdoorVal = override?.outdoorFull ?? outdoorFull;
+    const next = getFirstEligibleFromData(wl, indoorVal, outdoorVal);
+    if (!next) {
+      if (wl.length === 0) toast.info('No customers in queue');
+      else toast.info('No one can be called right now (restaurant full)');
+      return;
+    }
+    setCallNextCustomer(next);
+    setCallNextDialogOpen(true);
+  };
+
+  const handleCallNextConfirm = async () => {
+    if (!callNextCustomer || !staffAuth?.restaurantId) return;
+    setCallNextLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/reservations/${callNextCustomer.reservationId}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Your table is ready! We'll hold it for you for about 10-15 minutes. See you soon!`,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to send notification');
+      }
+      const result = await res.json();
+      const viaLabel = result.via === 'email_and_sms' ? 'Email & SMS' : result.via === 'email' ? 'Email' : 'SMS';
+      toast.success(`${viaLabel} sent to ${callNextCustomer.name}`);
+      setCallNextDialogOpen(false);
+      setCallNextCustomer(null);
+      await loadReservationsFromDB();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send SMS');
+    } finally {
+      setCallNextLoading(false);
+    }
+  };
+
   // Check in customer - starts 15-minute hold
   const checkInCustomer = async (id: number) => {
     const customer = waitlist.find(item => item.id === id);
@@ -381,19 +474,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   };
   
   // Helper function to reload reservations from database
-  const loadReservationsFromDB = async () => {
+  const loadReservationsFromDB = async (): Promise<any[]> => {
     try {
-      if (!staffAuth?.restaurantId) return;
+      if (!staffAuth?.restaurantId) return [];
       
-      // Fetch both reservations and tables to properly map table names
-      // Add timestamp to prevent caching
       const timestamp = new Date().getTime();
-      const [resRes, tablesRes] = await Promise.all([
-        fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId, _t: timestamp.toString() }).toString()}`),
-        fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/tables`)
-      ]);
-      
-      if (!resRes.ok) return;
+      const resRes = await fetch(`${API_URL}/reservations?${new URLSearchParams({ restaurantId: staffAuth.restaurantId, _t: timestamp.toString() }).toString()}`);
+      if (!resRes.ok) return [];
       const resData = await resRes.json();
       const items: any[] = resData.items || [];
       
@@ -427,44 +514,44 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           }
         }
       }
-      
-      // Create a map of tableId -> table name
-      const tableMap = new Map<string, string>();
-      if (tablesRes.ok) {
-        const tablesData = await tablesRes.json();
-        const tables: any[] = tablesData.items || [];
-        tables.forEach((t: any) => {
-          tableMap.set(t._id, t.name);
-        });
-      }
-      
+
       // Derive waitlist from database state
       const filteredItems = items
         .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
         .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0));
       
       // #7 - Deduplicate by email/phone (keep most recent per unique contact)
-      const seenContacts = new Map<string, any>();
-      const deduplicatedItems = [];
+      // Use both email and phone maps so same person with different contact info is deduplicated
+      const emailToReservation = new Map<string, any>();
+      const phoneToReservation = new Map<string, any>();
+      const deduplicatedItems: any[] = [];
+      
+      const removeFromMaps = (item: any) => {
+        if (item?.email) emailToReservation.delete(item.email);
+        if (item?.phone && item.phone !== '0000000000') phoneToReservation.delete(item.phone);
+      };
+      const addToMaps = (item: any) => {
+        if (item?.email) emailToReservation.set(item.email, item);
+        if (item?.phone && item.phone !== '0000000000') phoneToReservation.set(item.phone, item);
+      };
       
       for (const r of filteredItems) {
-        const contactKey = r.email || r.phone || `unnamed-${r._id}`;
+        const existingByEmail = r.email ? emailToReservation.get(r.email) : undefined;
+        const existingByPhone = (r.phone && r.phone !== '0000000000') ? phoneToReservation.get(r.phone) : undefined;
+        const existing = existingByEmail || existingByPhone;
         
-        if (!seenContacts.has(contactKey)) {
-          seenContacts.set(contactKey, r);
+        if (!existing) {
           deduplicatedItems.push(r);
+          addToMaps(r);
         } else {
-          // Keep the most recent reservation
-          const existing = seenContacts.get(contactKey);
           const existingTime = new Date(existing.requestedAt).getTime();
           const currentTime = new Date(r.requestedAt).getTime();
-          
           if (currentTime > existingTime) {
-            // Replace with more recent
             const index = deduplicatedItems.findIndex(item => item._id === existing._id);
             if (index !== -1) {
+              removeFromMaps(existing);
               deduplicatedItems[index] = r;
-              seenContacts.set(contactKey, r);
+              addToMaps(r);
             }
           }
         }
@@ -479,42 +566,39 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         phone: r.phone || '',
         email: r.email || '',
         joined: formatGSTTime(r.requestedAt),
+        requestedAt: r.requestedAt ? new Date(r.requestedAt).getTime() : 0,
         contactMethod: (r.contactMethod || 'phone') as any,
         gender: r.gender,
         seatingPreference: r.seatingPreference,
         calledAt: r.calledAt ? new Date(r.calledAt) : null,
         reservationType: r.reservationType,
         holdTimeExpires: Date.now() + 10 * 60000,
-        status: r.status, // Include status to show appropriate buttons
+        status: r.status,
         holdUntil: r.holdUntil ? new Date(r.holdUntil) : null,
       }));
       setWaitlist(wl);
-      
-      // Derive seated tables from database state (reservations with leftAt === null)
-      // IMPORTANT: Only include reservations that have a valid tableId
-      const seated = items
-        .filter(r => r.status === 'seated' && !r.leftAt && r.tableId)
-        .map((r, idx) => {
-          const tableName = r.tableId && tableMap.has(r.tableId) 
-            ? tableMap.get(r.tableId)! 
-            : 'Table';
-          
-          return {
-            id: idx + 1,
-            reservationId: r._id,
-            tableId: r.tableId ? String(r.tableId) : undefined, // Ensure tableId is always a string
-            table: tableName,
-            guests: r.name || 'Seated Party',
-            partySize: r.partySize || 2,
-            capacity: r.partySize || 4,
-            seatedTime: r.seatedAt ? formatGSTTime(r.seatedAt) : '--:--',
-            duration: '—',
-          };
-        });
-      setSeatedTables(seated);
+      return wl;
     } catch (error) {
       console.error('Failed to reload reservations:', error);
     }
+    return [];
+  };
+
+  const getFirstEligibleFromData = (
+    wl: any[],
+    indoorFullVal: boolean,
+    outdoorFullVal: boolean
+  ): any => {
+    if (wl.length === 0) return null;
+    const sorted = [...wl].sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
+    if (indoorFullVal && outdoorFullVal) return null;
+    if (indoorFullVal) {
+      return sorted.find((c) => c.seatingPreference === 'outdoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? null;
+    }
+    if (outdoorFullVal) {
+      return sorted.find((c) => c.seatingPreference === 'indoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? null;
+    }
+    return sorted[0] ?? null;
   };
   
   // Helper function to reload tables from database
@@ -544,18 +628,43 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
+  const loadAvailabilityOverride = async (): Promise<{ indoorFull: boolean; outdoorFull: boolean } | null> => {
+    if (!staffAuth?.restaurantId || !staffAuth?.token) return null;
+    try {
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
+        headers: { Authorization: `Bearer ${staffAuth.token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const indoor = data.indoorFull ?? false;
+        const outdoor = data.outdoorFull ?? false;
+        setIndoorFull(indoor);
+        setOutdoorFull(outdoor);
+        return { indoorFull: indoor, outdoorFull: outdoor };
+      }
+    } catch (e) {
+      console.error('Failed to load availability override:', e);
+    }
+    return null;
+  };
+
   // Setup SSE connection for real-time staff notifications
-  // Placed after loadReservationsFromDB and loadTablesFromDB are defined
   useEffect(() => {
     if (!staffAuth?.restaurantId) return;
 
-    // Helper to refresh all data
     const refreshAllData = async () => {
-      await Promise.all([loadReservationsFromDB(), loadTablesFromDB()]);
+      await Promise.all([
+        loadReservationsFromDB(),
+        loadTablesFromDB(),
+        loadAvailabilityOverride(),
+      ]);
     };
 
     // Start SSE connection with callback to refresh data on events
     startStaffSSE(staffAuth.restaurantId, refreshAllData);
+
+    // Initial load (event-driven: no periodic polling for tables/availability)
+    refreshAllData();
 
     // Cleanup: stop SSE when component unmounts or restaurantId changes
     return () => {
@@ -1293,235 +1402,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
-            {/* Notification Permission Prompt */}
-            {showNotificationPrompt && notificationPermission === 'default' && isPushSupported() && (
-              <Card className="card-shadow border-0 rounded-3xl bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 mt-1">
-                      <Bell className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-blue-900 mb-2">
-                        Enable Push Notifications
-                      </h3>
-                      <p className="text-sm text-blue-800 mb-4">
-                        Get instant alerts when customers reserve tables, even when the app is closed. 
-                        Perfect for staying on top of reservations while working.
-                      </p>
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={handleEnableNotifications}
-                          disabled={enablingNotifications}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                          size="sm"
-                        >
-                          {enablingNotifications ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Enabling...
-                            </>
-                          ) : (
-                            <>
-                              <Bell className="h-4 w-4 mr-2" />
-                              Enable Notifications
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => setShowNotificationPrompt(false)}
-                          variant="outline"
-                          size="sm"
-                          className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                          disabled={enablingNotifications}
-                        >
-                          Not Now
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Permission Denied Message */}
-            {notificationPermission === 'denied' && (
-              <Card className="card-shadow border-0 rounded-3xl bg-yellow-50 border-2 border-yellow-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-yellow-800">
-                        Notifications are currently disabled. To enable them, go to your browser settings and allow notifications for this site.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Actions */}
-            <Card className="card-shadow border-0 rounded-3xl">
-              <CardHeader>
-                <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <div className="flex flex-wrap gap-4">
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={openGuestSelectionModal}
-                    style={{backgroundColor: '#3F4427'}}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Select the Guest from the Waitlist
-                  </Button>
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={handleAutoAssignTable}
-                    disabled={!canAutoAssign}
-                    style={{
-                      backgroundColor: canAutoAssign ? '#5A5E3E' : '#9FA0A0',
-                      cursor: canAutoAssign ? 'pointer' : 'not-allowed'
-                    }}
-                  >
-                    <Table className="h-4 w-4 mr-2" />
-                    Auto-Assign Table
-                  </Button>
-                  <Button 
-                    className="pill-button text-white" 
-                    style={{backgroundColor: '#B889A6'}}
-                    onClick={() => setDailySummaryDialogOpen(true)}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Daily Summary
-                  </Button>
-                  <Button 
-                    className="pill-button text-white"
-                    onClick={() => setMenuManagementModalOpen(true)}
-                    style={{backgroundColor: '#5A5E3E'}}
-                  >
-                    <Menu className="h-4 w-4 mr-2" />
-                    Edit Menu Items
-                  </Button>
-                    <Button 
-                      className="pill-button text-white"
-                      style={{backgroundColor: '#B7410E'}}
-                      onClick={() => setClearQueueDialogOpen(true)}
-                    >
-                      Clear Queue
-                    </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* KPI Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="relative">
-                {/* Shadow effect square */}
-                <div 
-                  className="absolute top-2 left-2 rounded-2xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    width: 'calc(100% - 8px)',
-                    height: 'calc(100% - 8px)',
-                    zIndex: 0,
-                    opacity: 0.6
-                  }}
-                ></div>
-                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
-                  <CardContent className="p-6 text-center">
-                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
-                      <Clock className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
-                    </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{waitingCount}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>People Waiting</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="relative">
-                {/* Shadow effect square */}
-                <div 
-                  className="absolute top-2 left-2 rounded-2xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    width: 'calc(100% - 8px)',
-                    height: 'calc(100% - 8px)',
-                    zIndex: 0,
-                    opacity: 0.6
-                  }}
-                ></div>
-                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
-                  <CardContent className="p-6 text-center">
-                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
-                      <Users className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
-                    </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{seatedToday}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>Tables Seated</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="relative">
-                {/* Shadow effect square */}
-                <div 
-                  className="absolute top-2 left-2 rounded-2xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    width: 'calc(100% - 8px)',
-                    height: 'calc(100% - 8px)',
-                    zIndex: 0,
-                    opacity: 0.6
-                  }}
-                ></div>
-                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
-                  <CardContent className="p-6 text-center">
-                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
-                      <Table className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
-                    </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{tablesCount}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>Total Tables</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="relative">
-                {/* Shadow effect square */}
-                <div 
-                  className="absolute top-2 left-2 rounded-2xl"
-                  style={{
-                    backgroundColor: '#F0DC82',
-                    width: 'calc(100% - 8px)',
-                    height: 'calc(100% - 8px)',
-                    zIndex: 0,
-                    opacity: 0.6
-                  }}
-                ></div>
-                <Card className="card-shadow border-0 rounded-2xl relative" style={{zIndex: 2, backgroundColor: '#FFFFFF'}}>
-                  <CardContent className="p-6 text-center">
-                    <div className="rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--where2go-buff)'}}>
-                      <CheckCircle className="h-8 w-8" style={{color: 'var(--where2go-accent)'}} />
-                    </div>
-                    <div className="text-3xl font-bold mb-1" style={{color: 'var(--where2go-text)'}}>{availableTables.length}</div>
-                    <div style={{color: 'var(--where2go-text)'}}>Available Tables</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-
-            {/* Full Width Stacked Layout */}
-            <div className="space-y-8">
-              {/* Waitlist */}
-              <Card className="card-shadow border-0 rounded-3xl">
+            {/* Two-column: Left = Queue, Right = Buttons */}
+            <div className="grid md:grid-cols-2 gap-6 min-h-[400px]">
+              {/* Left: Queue Panel */}
+              <Card className="card-shadow border-0 rounded-3xl flex flex-col">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
                     <Clock className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
                     Waitlist ({waitlist.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                <CardContent className="p-6 pt-0 flex-1 flex flex-col min-h-0">
+                  <div className="space-y-4 flex-1 overflow-y-auto min-h-[300px] max-h-[500px]">
                     {waitlist.map((customer) => (
                       <div key={customer.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                         <div className="flex items-center justify-between mb-3">
@@ -1574,56 +1466,6 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                             </div>
                             
                             <div className="flex gap-2">
-                              {(customer as any).status === 'pending' ? (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => checkInCustomer(customer.id)}
-                                  disabled={checkingInIds.has(customer.id)}
-                                  className="pill-button text-xs text-white"
-                                  style={{backgroundColor: '#B8860B'}}
-                                  title="Check in customer - starts 15 minute hold"
-                                >
-                                  {checkingInIds.has(customer.id) ? (
-                                    <>
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      Checking In...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      Check In
-                                    </>
-                                  )}
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => seatCustomer(customer.id)}
-                                    disabled={seatingIds.has(customer.id)}
-                                    className="pill-button text-xs text-white"
-                                    style={{backgroundColor: '#3F4427'}}
-                                    title="Customer checked in - assign table"
-                                  >
-                                    {seatingIds.has(customer.id) ? (
-                                      <>
-                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                        Seating...
-                                      </>
-                                    ) : (
-                                      'Seat Now'
-                                    )}
-                                  </Button>
-                                  {(customer as any).holdUntil && (
-                                    <Badge 
-                                      className="px-2 py-1 text-xs"
-                                      style={{backgroundColor: '#FEF3C7', color: '#92400E'}}
-                                    >
-                                      Hold: {formatGSTTime((customer as any).holdUntil)}
-                                    </Badge>
-                                  )}
-                                </>
-                              )}
                               <Button 
                                 size="sm" 
                                 variant="outline"
@@ -1676,168 +1518,61 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 </CardContent>
               </Card>
 
-              {/* Tables Management - Combined Currently Seated and Available Tables */}
-              <Card className="card-shadow border-0 rounded-3xl">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
-                      <Table className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
-                      Tables
-                    </CardTitle>
-                    <Button
-                      size="sm"
-                      onClick={() => setTableManagementModalOpen(true)}
-                      className="pill-button text-white h-8 w-8 p-0"
-                      style={{backgroundColor: '#3F4427'}}
-                      title="Add new table"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Left Half - Currently Seated */}
-                    <div className="space-y-4">
-                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
-                        <Table className="h-4 w-4 mr-2" />
-                        Currently Seated ({seatedTables.length})
-                      </h5>
-                      <div className="space-y-4 max-h-96 overflow-y-auto">
-                        {seatedTables.map((table) => (
-                          <div key={table.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center">
-                                <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                  <Table className="h-5 w-5" style={{color: '#5A5E3E'}} />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{table.table}</h4>
-                                  <p className="text-sm" style={{color: '#2D2D2B'}}>{table.guests} • Party of {table.partySize}/{table.capacity}</p>
-                                </div>
-                              </div>
-                              <Badge className="px-2 py-1 rounded-full text-xs" style={{backgroundColor: '#B889A6', color: '#5A5E3E'}}>
-                                {table.duration}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm" style={{color: '#2D2D2B'}}>
-                                Seated at {table.seatedTime}
-                              </div>
-                              
-                              <Button 
-                                size="sm" 
-                                onClick={() => checkOutTable(table.id)}
-                                disabled={checkingOutIds.has(table.id)}
-                                className="pill-button text-xs text-white"
-                                style={{backgroundColor: '#3F4427'}}
-                              >
-                                {checkingOutIds.has(table.id) ? (
-                                  <>
-                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    Checking Out...
-                                  </>
-                                ) : (
-                                  'Check Out'
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {seatedTables.length === 0 && (
-                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No occupied tables</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right Half - Available Tables */}
-                    <div className="space-y-4">
-                      <h5 className="text-sm font-medium uppercase tracking-wide flex items-center" style={{color: '#2D2D2B'}}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Available Tables ({availableTables.length})
-                      </h5>
-                      <div className="space-y-4 max-h-96 overflow-y-auto">
-                        {availableTables.map((table) => (
-                          <div key={table.id} className="rounded-2xl p-3 border" style={{backgroundColor: '#E7D7C5', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <div className="rounded-full w-8 h-8 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
-                                  <Table className="h-4 w-4" style={{color: '#5A5E3E'}} />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-medium" style={{color: '#2D2D2B'}}>{table.tableName}</h4>
-                                    <span className="text-xs px-1.5 py-0.5 rounded" style={{
-                                      backgroundColor: table.location === 'outdoor' ? '#E8F5E9' : '#E3F2FD',
-                                      color: table.location === 'outdoor' ? '#2E7D32' : '#1565C0'
-                                    }}>
-                                      {table.location === 'outdoor' ? <Trees className="h-3 w-3 inline mr-0.5" /> : <Home className="h-3 w-3 inline mr-0.5" />}
-                                      {table.location === 'outdoor' ? 'Outdoor' : 'Indoor'}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs" style={{color: '#2D2D2B'}}>Capacity: {table.capacity} guests</p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => openTableSeatingDialog(table.id)}
-                                  className="pill-button text-xs h-7 px-2 text-white"
-                                  style={{backgroundColor: '#3F4427'}}
-                                  title="Seat customer at this table"
-                                >
-                                  <UserPlus className="h-3 w-3 mr-1" />
-                                  Seat
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedTableForEdit({ id: table.id, name: table.tableName, capacity: table.capacity, location: table.location });
-                                    setTableEditName(table.tableName);
-                                    setTableEditCapacity(table.capacity);
-                                    setTableEditLocation(table.location || 'indoor');
-                                    setTableEditDialogOpen(true);
-                                  }}
-                                  className="pill-button text-xs h-7 w-7 p-0"
-                                  style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
-                                  title="Edit table"
-                                >
-                                  <Settings className="h-3 w-3" />
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => removeTable(table.id)}
-                                  className="pill-button text-xs h-7 w-7 p-0"
-                                  style={{borderColor: '#D77A61', color: '#D77A61'}}
-                                  title="Remove table"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {availableTables.length === 0 && (
-                          <div className="text-center py-4" style={{color: '#9FA0A0'}}>
-                            <Table className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">No available tables</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Right: Indoor/Outdoor toggle buttons + Call Next */}
+              <div className="flex flex-col gap-4 h-full">
+                <div className="flex gap-4 flex-1 min-h-0">
+                  <Button
+                    variant="outline"
+                    className="flex-1 flex flex-col items-center justify-center gap-3 py-10 px-6 text-xl rounded-2xl transition-all min-h-[180px]"
+                    style={indoorFull ? { backgroundColor: '#5A5E3E', color: 'white', borderColor: '#5A5E3E' } : { backgroundColor: '#E8E4DC', borderColor: 'rgba(90, 94, 62, 0.35)', color: '#2D2D2B' }}
+                    onClick={toggleIndoorFull}
+                  >
+                    <Home className="h-12 w-12" />
+                    <span className="font-semibold">Indoor</span>
+                    <span className="text-base opacity-90">{indoorFull ? 'Full' : 'Has space'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 flex flex-col items-center justify-center gap-3 py-10 px-6 text-xl rounded-2xl transition-all min-h-[180px]"
+                    style={outdoorFull ? { backgroundColor: '#5A5E3E', color: 'white', borderColor: '#5A5E3E' } : { backgroundColor: '#E8E4DC', borderColor: 'rgba(90, 94, 62, 0.35)', color: '#2D2D2B' }}
+                    onClick={toggleOutdoorFull}
+                  >
+                    <Trees className="h-12 w-12" />
+                    <span className="font-semibold">Outdoor</span>
+                    <span className="text-base opacity-90">{outdoorFull ? 'Full' : 'Has space'}</span>
+                  </Button>
+                </div>
+                <Button
+                  className="pill-button text-white w-full py-6 text-lg"
+                  style={{ backgroundColor: '#3F4427' }}
+                  onClick={openCallNextDialog}
+                  disabled={indoorFull && outdoorFull}
+                >
+                  <Phone className="h-5 w-5 mr-2" />
+                  Call Next in Line
+                </Button>
+              </div>
             </div>
+
+            {/* Call Next confirmation dialog */}
+            <Dialog open={callNextDialogOpen} onOpenChange={setCallNextDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Call Next in Line</DialogTitle>
+                  <DialogDescription>
+                    {callNextCustomer && (
+                      <>Send SMS to {callNextCustomer.name} (party of {callNextCustomer.partySize}) at {callNextCustomer.phone || callNextCustomer.email}? They will be notified their table is ready.</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCallNextDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleCallNextConfirm} disabled={callNextLoading} style={{ backgroundColor: '#3F4427' }}>
+                    {callNextLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</> : 'Send SMS'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-8">
@@ -2231,674 +1966,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         </Tabs>
       </div>
 
-      {/* Table Management Modal */}
-      <TableManagementModal
-        isOpen={tableManagementModalOpen}
-        onClose={() => setTableManagementModalOpen(false)}
-        onAddTable={addTable}
-        existingTables={getAllTables()}
-      />
+      {/* Removed: Seat Walk-In, Daily Summary, Guest Selection, Phone Display, Clear Queue, Table Seating, Table Edit modals */}
 
-      {/* Menu Management Modal */}
-      <MenuManagementModal
-        isOpen={menuManagementModalOpen}
-        onClose={() => setMenuManagementModalOpen(false)}
-        restaurantId={staffAuth.restaurantId}
-      />
+      {/* Clear Queue - removed */}
 
-      {/* Seat Walk-In Modal */}
-      <Dialog open={seatWalkInModalOpen} onOpenChange={setSeatWalkInModalOpen}>
-        <DialogContent className="sm:max-w-md mx-4" style={{backgroundColor: '#F3E5AB', borderColor: 'rgba(60, 60, 60, 0.2)'}}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center" style={{color: '#2D2D2B'}}>
-              <UserPlus className="h-5 w-5 mr-2" />
-              Seat Walk-In Guest
-            </DialogTitle>
-            <DialogDescription style={{color: '#2D2D2B'}}>
-              {selectedTableForSeating && (
-                <>Seating guest at <strong>{selectedTableForSeating.tableName}</strong> (capacity: {selectedTableForSeating.capacity})</>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* Party Size */}
-            <div className="space-y-2">
-              <Label htmlFor="partySize" style={{color: '#2D2D2B'}}>
-                Party Size <span className="text-red-500">*</span>
-              </Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWalkInPartySize(Math.max(1, walkInPartySize - 1))}
-                  className="h-9 w-9 p-0"
-                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <Input
-                  id="partySize"
-                  type="number"
-                  min="1"
-                  max={selectedTableForSeating?.capacity || 20}
-                  value={walkInPartySize}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 1;
-                    const max = selectedTableForSeating?.capacity || 20;
-                    setWalkInPartySize(Math.max(1, Math.min(max, value)));
-                  }}
-                  className="bg-input-background text-center"
-                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const max = selectedTableForSeating?.capacity || 20;
-                    setWalkInPartySize(Math.min(max, walkInPartySize + 1));
-                  }}
-                  className="h-9 w-9 p-0"
-                  style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
-                  disabled={walkInPartySize >= (selectedTableForSeating?.capacity || 20)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {walkInFormErrors.partySize && (
-                <p className="text-sm text-red-600">{walkInFormErrors.partySize}</p>
-              )}
-              {selectedTableForSeating && (
-                <p className="text-xs" style={{color: '#2D2D2B', opacity: 0.7}}>
-                  Maximum capacity: {selectedTableForSeating.capacity} guests
-                </p>
-              )}
-            </div>
-
-            {/* Customer Name */}
-            <div className="space-y-2">
-              <Label htmlFor="customerName" style={{color: '#2D2D2B'}}>
-                Customer Name (Optional)
-              </Label>
-              <Input
-                id="customerName"
-                type="text"
-                placeholder="Enter customer name or leave blank"
-                value={walkInCustomerName}
-                onChange={(e) => setWalkInCustomerName(e.target.value)}
-                className="bg-input-background"
-                style={{borderColor: 'rgba(183, 65, 14, 0.3)'}}
-              />
-              <p className="text-xs" style={{color: '#2D2D2B', opacity: 0.7}}>
-                If left blank, will default to "Walk-in Customer"
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSeatWalkInModalOpen(false);
-                setSelectedTableForSeating(null);
-                setWalkInPartySize(2);
-                setWalkInCustomerName('');
-                setWalkInFormErrors({});
-              }}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSeatWalkIn}
-              disabled={seatingWalkIn}
-              className="text-white"
-              style={{backgroundColor: '#3F4427'}}
-            >
-              {seatingWalkIn ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Seating...
-                </>
-              ) : (
-                'Seat Guest'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Daily Summary Dialog */}
-      <Dialog open={dailySummaryDialogOpen} onOpenChange={setDailySummaryDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Generate Daily Summary</DialogTitle>
-            <DialogDescription>
-              Select a date to generate a daily summary report. The report will open as a PDF in a new tab.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center py-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date: Date | undefined) => date && setSelectedDate(date)}
-              disabled={(date: Date) => date > new Date()}
-              className="rounded-md border"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDailySummaryDialogOpen(false);
-                setSelectedDate(new Date());
-              }}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!staffAuth.restaurantId) {
-                  toast.error('Restaurant ID not found');
-                  return;
-                }
-
-                setGeneratingPdf(true);
-                try {
-                  // Format date as YYYY-MM-DD using local date (not UTC to avoid timezone offset)
-                  const year = selectedDate.getFullYear();
-                  const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                  const day = String(selectedDate.getDate()).padStart(2, '0');
-                  const dateStr = `${year}-${month}-${day}`;
-                  
-                  // Generate summary first (this ensures data is calculated and stored)
-                  await generateDailySummary(staffAuth.restaurantId, dateStr);
-                  
-                  // Open PDF in new tab
-                  openDailySummaryPdf(staffAuth.restaurantId, dateStr);
-                  
-                  toast.success('Daily summary PDF generated successfully');
-                  setDailySummaryDialogOpen(false);
-                } catch (error: any) {
-                  // Handle "no data" errors specifically
-                  const errorData = error.message || 'Failed to generate daily summary';
-                  if (errorData.includes('No data available') || errorData.includes('No reservations found') || errorData.includes('did not exist')) {
-                    toast.error(errorData);
-                  } else {
-                    toast.error(errorData || 'Failed to generate daily summary');
-                  }
-                } finally {
-                  setGeneratingPdf(false);
-                }
-              }}
-              disabled={generatingPdf}
-              className="text-white"
-              style={{backgroundColor: '#3F4427'}}
-            >
-              {generatingPdf ? 'Generating...' : 'Generate PDF'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Guest Selection Modal */}
-      <Dialog open={guestSelectionModalOpen} onOpenChange={setGuestSelectionModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select Guest from Waitlist</DialogTitle>
-            <DialogDescription>
-              Choose a guest to invite. An email will be sent or a phone number will be displayed based on their contact method.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            {waitlist.length === 0 ? (
-              <p className="text-center py-8" style={{color: '#9FA0A0'}}>No customers in waitlist</p>
-            ) : (
-              waitlist.map((customer) => (
-                <div
-                  key={customer.id}
-                  className="p-4 rounded-lg border"
-                  style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
-                        <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
-                          {customer.name}
-                        </h4>
-                      </div>
-                      <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
-                        <div>Party of {customer.partySize}</div>
-                        <div className="flex flex-col gap-1">
-                          {customer.email && (
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              <span>{customer.email}</span>
-                            </div>
-                          )}
-                          {customer.phone && (
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              <span>{customer.phone}</span>
-                            </div>
-                          )}
-                          {!customer.email && !customer.phone && (
-                            <span className="text-gray-400">No contact info</span>
-                          )}
-                        </div>
-                        {customer.gender && (
-                          <div>
-                            Gender: {customer.gender === 'prefer-not-to-say' ? 'Prefer not to say' : customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1)}
-                          </div>
-                        )}
-                        {customer.seatingPreference && (
-                          <div className="flex items-center">
-                            {customer.seatingPreference === 'indoor' && <Home className="h-3 w-3 mr-1" />}
-                            {customer.seatingPreference === 'outdoor' && <Trees className="h-3 w-3 mr-1" />}
-                            {customer.seatingPreference === 'no-preference' ? 'Any seating' : customer.seatingPreference.charAt(0).toUpperCase() + customer.seatingPreference.slice(1)}
-                          </div>
-                        )}
-                        <div className="text-xs" style={{color: '#9FA0A0'}}>
-                          Joined {customer.joined}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {customer.calledAt ? (
-                        <>
-                          <div className="text-xs text-center" style={{color: '#5A5E3E'}}>
-                            <div className="font-semibold">Called</div>
-                            <div className="text-xs opacity-70">
-                              {formatGSTTime(customer.calledAt)}
-                            </div>
-                          </div>
-                          <Button
-                            onClick={() => toggleCalledStatus(customer.reservationId, true)}
-                            variant="outline"
-                            size="sm"
-                            className="pill-button text-xs"
-                            style={{borderColor: '#5A5E3E', color: '#5A5E3E'}}
-                          >
-                            Unmark
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          onClick={() => handleInviteGuest(customer)}
-                          className="pill-button text-white text-sm"
-                          style={{backgroundColor: '#3F4427'}}
-                          disabled={!customer.email && !customer.phone}
-                        >
-                          Invite
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setGuestSelectionModalOpen(false)}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Phone Display Modal */}
-      <Dialog open={phoneDisplayModalOpen} onOpenChange={setPhoneDisplayModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Call Guest</DialogTitle>
-            <DialogDescription>
-              Contact information for the selected guest
-            </DialogDescription>
-          </DialogHeader>
-          {selectedGuestForCall && (
-            <div className="py-6">
-              <div className="text-center space-y-4">
-                <div>
-                  <User className="h-12 w-12 mx-auto mb-2" style={{color: '#5A5E3E'}} />
-                  <h3 className="text-lg font-semibold" style={{color: '#2D2D2B'}}>
-                    {selectedGuestForCall.name}
-                  </h3>
-                </div>
-                <div className="p-4 rounded-lg" style={{backgroundColor: '#F5F5F5'}}>
-                  <Phone className="h-6 w-6 mx-auto mb-2" style={{color: '#3F4427'}} />
-                  <a
-                    href={`tel:${selectedGuestForCall.phone}`}
-                    className="text-2xl font-bold block hover:opacity-80 transition-opacity"
-                    style={{color: '#3F4427'}}
-                  >
-                    {selectedGuestForCall.phone}
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setPhoneDisplayModalOpen(false);
-                setSelectedGuestForCall(null);
-              }}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Close
-            </Button>
-            {selectedGuestForCall && (
-              <>
-                <Button
-                  onClick={() => {
-                    window.location.href = `tel:${selectedGuestForCall.phone}`;
-                  }}
-                  className="pill-button text-white"
-                  style={{backgroundColor: '#3F4427'}}
-                >
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call
-                </Button>
-                <Button
-                  onClick={markAsCalled}
-                  className="pill-button text-white"
-                  style={{backgroundColor: '#5A5E3E'}}
-                >
-                  Mark as Called
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Clear Queue Confirmation Dialog */}
-      <Dialog open={clearQueueDialogOpen} onOpenChange={setClearQueueDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl" style={{color: '#2D2D2B'}}>
-              Clear Queue
-            </DialogTitle>
-            <DialogDescription className="text-base pt-2" style={{color: '#5A5E3E'}}>
-              Are you sure you want to clear the entire waitlist? This will cancel all pending and confirmed reservations in the queue.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="p-4 rounded-lg border" style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FFF9F0'}}>
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 mt-0.5" style={{color: '#B7410E'}} />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold mb-1" style={{color: '#2D2D2B'}}>
-                    This action cannot be undone
-                  </p>
-                  <p className="text-xs" style={{color: '#5A5E3E'}}>
-                    All customers in the waitlist will be notified that their spot has been cancelled. 
-                    {waitlist.length > 0 && (
-                      <span className="font-semibold"> {waitlist.length} {waitlist.length === 1 ? 'customer' : 'customers'} will be affected.</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setClearQueueDialogOpen(false)}
-              className="pill-button"
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleClearQueue}
-              className="pill-button text-white"
-              style={{backgroundColor: '#B7410E'}}
-            >
-              Yes, Clear Queue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Table Seating Dialog */}
-      <Dialog open={tableSeatingDialogOpen} onOpenChange={setTableSeatingDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Seat at {selectedTableForSeating?.tableName}</DialogTitle>
-            <DialogDescription>
-              Choose how to seat a customer at this table (capacity: {selectedTableForSeating?.capacity} guests)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            {canAutoAssignFromTable && (
-              <Button
-                onClick={handleAutoAssignFromWaitlist}
-                className="pill-button text-white w-full"
-                style={{backgroundColor: '#5A5E3E'}}
-              >
-                <Table className="h-4 w-4 mr-2" />
-                Auto-Assign from Waitlist
-              </Button>
-            )}
-            {canAutoAssignFromTable && (
-              <Button
-                onClick={() => {
-                  setTableCustomerSelectionOpen(true);
-                  setCustomerSearchFilter('');
-                }}
-                className="pill-button text-white w-full"
-                style={{backgroundColor: '#3F4427'}}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Select Customer Manually
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                setTableSeatingDialogOpen(false);
-                if (selectedTableForSeating) {
-                  openSeatWalkInModal(selectedTableForSeating.id);
-                }
-              }}
-              className="pill-button text-white w-full"
-              style={{backgroundColor: '#B889A6'}}
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Seat Walk-In Guest
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setTableSeatingDialogOpen(false)}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Customer Selection for Table Modal */}
-      <Dialog open={tableCustomerSelectionOpen} onOpenChange={setTableCustomerSelectionOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select Customer for {selectedTableForSeating?.tableName}</DialogTitle>
-            <DialogDescription>
-              Select a customer from the waitlist to seat at this table (capacity: {selectedTableForSeating?.capacity} guests)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Search by name, phone, or email..."
-              value={customerSearchFilter}
-              onChange={(e) => setCustomerSearchFilter(e.target.value)}
-              className="mb-4"
-            />
-            <div className="space-y-3">
-              {getFittingCustomers().length === 0 ? (
-                <p className="text-center py-8" style={{color: '#9FA0A0'}}>
-                  {customerSearchFilter ? 'No matching customers found' : 'No customers in waitlist fit this table'}
-                </p>
-              ) : (
-                getFittingCustomers().map((customer) => (
-                  <div
-                    key={customer.id}
-                    className="p-4 rounded-lg border"
-                    style={{borderColor: 'rgba(183, 65, 14, 0.2)', backgroundColor: '#FEFEFE'}}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <User className="h-5 w-5" style={{color: '#5A5E3E'}} />
-                          <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
-                            {customer.name}
-                          </h4>
-                          {customer.reservationType && (
-                            <Badge 
-                              className="px-2 py-0.5 rounded-full text-xs"
-                              style={{
-                                backgroundColor: customer.reservationType === 'reserved' ? '#3F4427' : '#B889A6',
-                                color: '#FFFFFF'
-                              }}
-                            >
-                              {customer.reservationType === 'reserved' ? 'Reserved' : 'Waitlist'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="space-y-1 text-sm" style={{color: '#2D2D2B'}}>
-                          <div>Party of {customer.partySize}</div>
-                          <div className="flex flex-col gap-1">
-                            {customer.email && (
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                <span>{customer.email}</span>
-                              </div>
-                            )}
-                            {customer.phone && (
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4" />
-                                <span>{customer.phone}</span>
-                              </div>
-                            )}
-                            {!customer.email && !customer.phone && (
-                              <span className="text-gray-400">No contact info</span>
-                            )}
-                          </div>
-                          <div className="text-xs" style={{color: '#9FA0A0'}}>
-                            Joined {customer.joined}
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => handleSeatCustomerFromWaitlist(customer)}
-                        className="pill-button text-white text-sm"
-                        style={{backgroundColor: '#3F4427'}}
-                      >
-                        Seat
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setTableCustomerSelectionOpen(false);
-                setCustomerSearchFilter('');
-              }}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Table Edit Dialog */}
-      <Dialog open={tableEditDialogOpen} onOpenChange={setTableEditDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Edit Table</DialogTitle>
-            <DialogDescription>
-              Update table information
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="tableEditName">Table Name</Label>
-              <Input
-                id="tableEditName"
-                value={tableEditName}
-                onChange={(e) => setTableEditName(e.target.value)}
-                placeholder="Table name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tableEditCapacity">Capacity</Label>
-              <Input
-                id="tableEditCapacity"
-                type="number"
-                min="1"
-                value={tableEditCapacity}
-                onChange={(e) => setTableEditCapacity(Math.max(1, parseInt(e.target.value) || 1))}
-                placeholder="Number of guests"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <RadioGroup value={tableEditLocation} onValueChange={(val) => setTableEditLocation(val as 'indoor' | 'outdoor')} className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="indoor" id="editIndoor" />
-                  <Label htmlFor="editIndoor" className="flex items-center cursor-pointer">
-                    <Home className="h-4 w-4 mr-1" />
-                    Indoor
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="outdoor" id="editOutdoor" />
-                  <Label htmlFor="editOutdoor" className="flex items-center cursor-pointer">
-                    <Trees className="h-4 w-4 mr-1" />
-                    Outdoor
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setTableEditDialogOpen(false);
-                setSelectedTableForEdit(null);
-              }}
-              style={{borderColor: 'rgba(183, 65, 14, 0.3)', color: '#2D2D2B'}}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditTable}
-              className="pill-button text-white"
-              style={{backgroundColor: '#3F4427'}}
-            >
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -21,39 +21,43 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
 
 // GET /tables/availability/:restaurantId
 // Check table availability by location and party size
+// Respects staff overrides (indoorFull/outdoorFull) - when set, that section is treated as full
 tablesRouter.get('/tables/availability/:restaurantId', async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
     const partySize = parseInt(req.query.partySize as string) || 1;
-    
-    // Check indoor tables
-    const indoorTables = await Table.find({
-      restaurantId,
-      location: 'indoor',
-      status: 'available',
-      capacity: { $gte: partySize }
-    }).lean();
-    
-    // Check outdoor tables
-    const outdoorTables = await Table.find({
-      restaurantId,
-      location: 'outdoor',
-      status: 'available',
-      capacity: { $gte: partySize }
-    }).lean();
-    
-    const indoorAvailable = indoorTables.length > 0;
-    const outdoorAvailable = outdoorTables.length > 0;
+
+    const [restaurant, indoorTables, outdoorTables] = await Promise.all([
+      Restaurant.findById(restaurantId).select('indoorFull outdoorFull').lean(),
+      Table.find({
+        restaurantId,
+        location: 'indoor',
+        status: 'available',
+        capacity: { $gte: partySize }
+      }).lean(),
+      Table.find({
+        restaurantId,
+        location: 'outdoor',
+        status: 'available',
+        capacity: { $gte: partySize }
+      }).lean(),
+    ]);
+
+    const indoorOverride = (restaurant as any)?.indoorFull === true;
+    const outdoorOverride = (restaurant as any)?.outdoorFull === true;
+
+    const indoorAvailable = !indoorOverride && indoorTables.length > 0;
+    const outdoorAvailable = !outdoorOverride && outdoorTables.length > 0;
     const noPreferenceAvailable = indoorAvailable || outdoorAvailable;
-    
+
     res.json({
       indoor: {
         available: indoorAvailable,
-        count: indoorTables.length
+        count: indoorOverride ? 0 : indoorTables.length
       },
       outdoor: {
         available: outdoorAvailable,
-        count: outdoorTables.length
+        count: outdoorOverride ? 0 : outdoorTables.length
       },
       noPreference: {
         available: noPreferenceAvailable

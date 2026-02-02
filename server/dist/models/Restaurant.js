@@ -49,5 +49,11 @@ const restaurantSchema = new Schema({
         index: true,
     },
     approvalNotes: { type: String, required: false },
+    // SMS notification settings
+    notificationPhones: [{ type: String }], // History of phone numbers
+    activeNotificationPhone: { type: String }, // Currently selected phone
+    // Staff occupancy overrides
+    indoorFull: { type: Boolean, default: false },
+    outdoorFull: { type: Boolean, default: false },
 }, { timestamps: true });
 export const Restaurant = mongoose.models.Restaurant || mongoose.model('Restaurant', restaurantSchema);
