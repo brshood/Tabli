@@ -328,8 +328,8 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
               <div className="text-center border-x" style={{borderColor: '#D1D5DB'}}>
                 {restaurant.status === 'available' ? (
                   <>
-                    <div className="text-2xl font-bold mb-1" style={{color: '#22C55E'}}>{restaurant.tablesAvailable}</div>
-                    <div className="text-xs" style={{color: '#6B7280'}}>Available</div>
+                    <div className="text-2xl font-bold mb-1" style={{color: '#22C55E'}}>Available</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>Status</div>
                   </>
                 ) : (
                   <>

@@ -183,9 +183,9 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                   </div>
                 )}
 
-                {/* Available tables badge */}
+                {/* Availability badge (no table counts) */}
                 <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#000000', color: '#FFFFFF'}}>
-                  {restaurant.tablesAvailable} {t('status.available')}
+                  {restaurant.status === 'available' ? t('search.available') : t('search.waitlist.only')}
                 </div>
                 
                 {/* Fire icon for restaurants with >5 people waiting */}
