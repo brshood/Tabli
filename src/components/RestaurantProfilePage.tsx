@@ -325,10 +325,10 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 <div className="text-2xl font-bold mb-1" style={{color: '#1F2937'}}>{restaurant.rating}</div>
                 <div className="text-xs" style={{color: '#6B7280'}}>Rating</div>
               </div>
-              <div className="text-center border-x" style={{borderColor: '#D1D5DB'}}>
+              <div className="text-center border-x px-1 min-w-0" style={{borderColor: '#D1D5DB'}}>
                 {restaurant.status === 'available' ? (
                   <>
-                    <div className="text-2xl font-bold mb-1" style={{color: '#22C55E'}}>Available</div>
+                    <div className="text-sm font-bold mb-1 break-words" style={{color: '#22C55E'}}>Available</div>
                     <div className="text-xs" style={{color: '#6B7280'}}>Status</div>
                   </>
                 ) : (
