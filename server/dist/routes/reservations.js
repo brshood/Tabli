@@ -80,25 +80,29 @@ reservationsRouter.post('/', async (req, res, next) => {
             const indoorOverride = restaurantOverrides?.indoorFull === true;
             const outdoorOverride = restaurantOverrides?.outdoorFull === true;
             const seatingPref = data.seatingPreference;
-            let tableQuery = {
+            const baseQuery = {
                 restaurantId: data.restaurantId,
                 status: 'available',
                 capacity: { $gte: data.partySize }
             };
+            let tableQuery = baseQuery;
             if (seatingPref === 'indoor') {
-                tableQuery.location = 'indoor';
+                // Include tables with location 'indoor' or missing (schema default is indoor)
+                tableQuery = { ...baseQuery, $or: [{ location: 'indoor' }, { location: { $exists: false } }, { location: null }] };
             }
             else if (seatingPref === 'outdoor') {
-                tableQuery.location = 'outdoor';
+                tableQuery = { ...baseQuery, location: 'outdoor' };
             }
+            // For no-preference: no location filter - check both sections
             let availableTables = await Table.find(tableQuery).lean();
             if (seatingPref === 'indoor' && indoorOverride)
                 availableTables = [];
             else if (seatingPref === 'outdoor' && outdoorOverride)
                 availableTables = [];
             else if (!seatingPref || seatingPref === 'no-preference') {
-                // For no-preference: filter out tables from any section marked full (one or both)
-                availableTables = availableTables.filter((t) => !((t.location === 'indoor' && indoorOverride) || (t.location === 'outdoor' && outdoorOverride)));
+                // For no-preference: filter out tables from any section marked full
+                // Treat tables without location as indoor (schema default)
+                availableTables = availableTables.filter((t) => !(((t.location === 'indoor' || !t.location) && indoorOverride) || (t.location === 'outdoor' && outdoorOverride)));
             }
             const capacities = availableTables.map((t) => t.capacity);
             const maxCapacity = capacities.length ? Math.max(...capacities) : 0;

@@ -70,8 +70,11 @@ export function createApp() {
         crossOriginResourcePolicy: { policy: 'cross-origin' },
     }));
     app.use(compression());
+    const corsOrigins = env.NODE_ENV === 'development' && env.CORS_ORIGIN?.startsWith('http://localhost:3000')
+        ? ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001']
+        : env.CORS_ORIGIN;
     app.use(cors({
-        origin: env.CORS_ORIGIN,
+        origin: corsOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization']

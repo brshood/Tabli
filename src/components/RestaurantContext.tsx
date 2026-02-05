@@ -156,9 +156,9 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             outdoorSeating: true,
           };
         });
-        if (!cancelled && mapped.length) {
+        if (!cancelled) {
           setAllRestaurants(mapped);
-          setCurrentRestaurant(mapped[0]);
+          setCurrentRestaurant(mapped.length ? mapped[0] : defaultRestaurant);
         }
       } catch (error) {
         // Failed to load restaurants from API

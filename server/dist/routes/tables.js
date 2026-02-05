@@ -27,11 +27,12 @@ tablesRouter.get('/tables/availability/:restaurantId', async (req, res, next) =>
         const partySize = parseInt(req.query.partySize) || 1;
         const [restaurant, indoorTables, outdoorTables] = await Promise.all([
             Restaurant.findById(restaurantId).select('indoorFull outdoorFull').lean(),
+            // Indoor: include location='indoor' or missing (schema default)
             Table.find({
                 restaurantId,
-                location: 'indoor',
                 status: 'available',
-                capacity: { $gte: partySize }
+                capacity: { $gte: partySize },
+                $or: [{ location: 'indoor' }, { location: { $exists: false } }, { location: null }]
             }).lean(),
             Table.find({
                 restaurantId,

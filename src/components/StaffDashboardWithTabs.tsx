@@ -515,9 +515,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         }
       }
 
-      // Derive waitlist from database state
+      // Derive waitlist from database state (exclude reserved tables - only show queue/waitlist)
       const filteredItems = items
-        .filter(r => (r.status === 'pending' || r.status === 'confirmed'))
+        .filter(r => (r.status === 'pending' || r.status === 'confirmed') && r.reservationType !== 'reserved')
         .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0));
       
       // #7 - Deduplicate by email/phone (keep most recent per unique contact)
