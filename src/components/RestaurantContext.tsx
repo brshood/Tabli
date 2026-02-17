@@ -125,6 +125,20 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             waitTime = `~${r.avgWaitTime} min`;
           }
           
+          const hasAvailableTables = (r.availableTables && r.availableTables > 0);
+          const hasQueue = (r.waitingInLine && r.waitingInLine > 0);
+          const isOverrideFull = (r.indoorFull === true && r.outdoorFull === true);
+
+          // Business rule for status:
+          // - "available" when there are free tables
+          // - OR when there is no queue yet and staff have NOT marked both sections as full
+          // - otherwise "waitlist"
+          const status: 'available' | 'waitlist' =
+            (hasAvailableTables && !isOverrideFull) ||
+            (!hasAvailableTables && !hasQueue && !isOverrideFull)
+              ? 'available'
+              : 'waitlist';
+
           return {
             id: r._id || r.id,
             name: r.name,
@@ -137,7 +151,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             locationUrl: r.locationUrl || '',
             rating: r.ratingSummary?.average ?? 0,
             ratingCount: r.ratingSummary?.count ?? 0,
-            status: (r.availableTables && r.availableTables > 0) ? 'available' : 'waitlist',
+            status,
             waitTime: waitTime,
             tablesAvailable: r.availableTables || 0,
             image: 'restaurant-generic',
