@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant';
 import { Rating } from '../models/Rating';
 import { Reservation } from '../models/Reservation';
-import { Table } from '../models/Table';
 import multer from 'multer';
 import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
@@ -23,14 +22,10 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const sevenDaysAgo = getDaysAgoStartGST(7);
     
     // Batch all queries in parallel for better performance
-    const [summaries, tableCounts, waitTimeStats, queueCounts] = await Promise.all([
+    const [summaries, waitTimeStats, queueCounts] = await Promise.all([
       Rating.aggregate([
         { $match: { restaurantId: { $in: ids } } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
-      ]),
-      Table.aggregate([
-        { $match: { restaurantId: { $in: ids }, status: 'available' } },
-        { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
       ]),
       // Calculate average wait time for each restaurant from last 7 days
       Reservation.aggregate([
@@ -80,9 +75,6 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const summaryById = new Map<string, { count: number; avg: number }>();
     summaries.forEach((s: any) => summaryById.set(String(s._id), { count: s.count, avg: s.avg }));
     
-    const tableCountById = new Map<string, number>();
-    tableCounts.forEach((t: any) => tableCountById.set(String(t._id), t.count));
-    
     const waitTimeById = new Map<string, number>();
     waitTimeStats.forEach((w: any) => {
       waitTimeById.set(String(w._id), Math.round(w.avgWaitTime));
@@ -121,16 +113,14 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     };
     
     // Enrich with imageUrl - only if profile picture exists
-    // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue, not Reserve)
+    // Customer listing: "has seating" from staff toggles only (not physical table counts)
     const enriched = items.map((r: any) => {
       const imageFileId = getImageFileId(r);
       const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
       const s = summaryById.get(String(r._id));
       const ratingSummary = s ? { count: s.count, average: Number(s.avg.toFixed(2)) } : { count: 0, average: 0 };
-      let availableTables = tableCountById.get(String(r._id)) || 0;
-      if (r.indoorFull === true && r.outdoorFull === true) {
-        availableTables = 0; // Staff marked both full → customers see Queue button
-      }
+      const bothSectionsFull = r.indoorFull === true && r.outdoorFull === true;
+      const availableTables = bothSectionsFull ? 0 : 1;
       const avgWaitTime = waitTimeById.get(String(r._id)) || null;
       const waitingInLine = queueCountById.get(String(r._id)) || 0;
       return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine };
@@ -179,10 +169,7 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
     const imageFileId = getImageFileId(item);
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
     
-    // Parallelize independent queries for better performance
-    // Respect staff overrides: when both indoorFull and outdoorFull, treat as 0 available (show Queue)
-    const [rawAvailableTables, s, waitingInLine] = await Promise.all([
-      Table.countDocuments({ restaurantId: item._id, status: 'available' }),
+    const [s, waitingInLine] = await Promise.all([
       Rating.aggregate([
         { $match: { restaurantId: new ObjectId(req.params.id) } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
@@ -196,10 +183,8 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
     ]);
     
     const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
-    let availableTables = rawAvailableTables;
-    if ((item as any).indoorFull === true && (item as any).outdoorFull === true) {
-      availableTables = 0; // Staff marked both full → customers see Queue button
-    }
+    const bothSectionsFull = (item as any).indoorFull === true && (item as any).outdoorFull === true;
+    const availableTables = bothSectionsFull ? 0 : 1;
     res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine } });
   } catch (err) { next(err); }
 });

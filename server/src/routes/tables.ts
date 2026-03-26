@@ -20,49 +20,36 @@ tablesRouter.get('/restaurants/:id/tables', async (req, res, next) => {
 });
 
 // GET /tables/availability/:restaurantId
-// Check table availability by location and party size
-// Respects staff overrides (indoorFull/outdoorFull) - when set, that section is treated as full
+// Customer-facing section availability: staff toggles only (indoorFull/outdoorFull).
+// partySize query is ignored for availability booleans (kept for API compatibility).
 tablesRouter.get('/tables/availability/:restaurantId', async (req, res, next) => {
   try {
     const restaurantId = req.params.restaurantId;
-    const partySize = parseInt(req.query.partySize as string) || 1;
 
-    const [restaurant, indoorTables, outdoorTables] = await Promise.all([
-      Restaurant.findById(restaurantId).select('indoorFull outdoorFull').lean(),
-      // Indoor: include location='indoor' or missing (schema default)
-      Table.find({
-        restaurantId,
-        status: 'available',
-        capacity: { $gte: partySize },
-        $or: [{ location: 'indoor' }, { location: { $exists: false } }, { location: null }]
-      }).lean(),
-      Table.find({
-        restaurantId,
-        location: 'outdoor',
-        status: 'available',
-        capacity: { $gte: partySize }
-      }).lean(),
-    ]);
+    const restaurant = await Restaurant.findById(restaurantId).select('indoorFull outdoorFull').lean();
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
 
-    const indoorOverride = (restaurant as any)?.indoorFull === true;
-    const outdoorOverride = (restaurant as any)?.outdoorFull === true;
+    const indoorFull = (restaurant as any)?.indoorFull === true;
+    const outdoorFull = (restaurant as any)?.outdoorFull === true;
 
-    const indoorAvailable = !indoorOverride && indoorTables.length > 0;
-    const outdoorAvailable = !outdoorOverride && outdoorTables.length > 0;
+    const indoorAvailable = !indoorFull;
+    const outdoorAvailable = !outdoorFull;
     const noPreferenceAvailable = indoorAvailable || outdoorAvailable;
 
     res.json({
       indoor: {
         available: indoorAvailable,
-        count: indoorOverride ? 0 : indoorTables.length
+        count: indoorAvailable ? 1 : 0,
       },
       outdoor: {
         available: outdoorAvailable,
-        count: outdoorOverride ? 0 : outdoorTables.length
+        count: outdoorAvailable ? 1 : 0,
       },
       noPreference: {
-        available: noPreferenceAvailable
-      }
+        available: noPreferenceAvailable,
+      },
     });
   } catch (err) {
     next(err);

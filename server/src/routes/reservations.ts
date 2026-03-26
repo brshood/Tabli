@@ -81,53 +81,30 @@ reservationsRouter.post('/', async (req, res, next) => {
       // Don't set reservationType for walk-ins
     } else {
       // For both 'reserve' and 'waitlist' modes, always set status to 'pending'
-      // Determine reservationType based on mode and table availability
-      // Respect staff overrides (indoorFull/outdoorFull) - when set, that section is treated as full
+      // reservationType from staff section toggles only (not Table documents)
       const restaurantOverrides = await Restaurant.findById(data.restaurantId).select('indoorFull outdoorFull').lean();
-      const indoorOverride = (restaurantOverrides as any)?.indoorFull === true;
-      const outdoorOverride = (restaurantOverrides as any)?.outdoorFull === true;
+      const indoorFull = (restaurantOverrides as any)?.indoorFull === true;
+      const outdoorFull = (restaurantOverrides as any)?.outdoorFull === true;
 
       const seatingPref = data.seatingPreference;
-      const baseQuery: any = {
-        restaurantId: data.restaurantId,
-        status: 'available',
-        capacity: { $gte: data.partySize }
-      };
 
-      let tableQuery: any = baseQuery;
-      if (seatingPref === 'indoor') {
-        // Include tables with location 'indoor' or missing (schema default is indoor)
-        tableQuery = { ...baseQuery, $or: [{ location: 'indoor' }, { location: { $exists: false } }, { location: null }] };
-      } else if (seatingPref === 'outdoor') {
-        tableQuery = { ...baseQuery, location: 'outdoor' };
-      }
-      // For no-preference: no location filter - check both sections
-
-      let availableTables = await Table.find(tableQuery).lean();
-      if (seatingPref === 'indoor' && indoorOverride) availableTables = [];
-      else if (seatingPref === 'outdoor' && outdoorOverride) availableTables = [];
-      else if (!seatingPref || seatingPref === 'no-preference') {
-        // For no-preference: filter out tables from any section marked full
-        // Treat tables without location as indoor (schema default)
-        availableTables = availableTables.filter((t: any) =>
-          !(((t.location === 'indoor' || !t.location) && indoorOverride) || (t.location === 'outdoor' && outdoorOverride))
-        );
-      }
-
-      const capacities = availableTables.map((t: any) => t.capacity);
-      const maxCapacity = capacities.length ? Math.max(...capacities) : 0;
-
-      if (data.mode === 'reserve' && data.partySize <= maxCapacity && availableTables.length > 0) {
-        // Table was available when they reserved for their selected location
-        reservationType = 'reserved';
-      } else {
-        // No table available for selected location or mode is 'waitlist'
+      if (data.mode === 'waitlist') {
         reservationType = 'waitlist';
+      } else {
+        let sectionHasSpace = false;
+        if (seatingPref === 'indoor') {
+          sectionHasSpace = !indoorFull;
+        } else if (seatingPref === 'outdoor') {
+          sectionHasSpace = !outdoorFull;
+        } else {
+          sectionHasSpace = !indoorFull || !outdoorFull;
+        }
+        reservationType = sectionHasSpace ? 'reserved' : 'waitlist';
       }
     }
     
     // Calculate queue position based on seating preference for waitlist mode
-    // Also calculate when mode is 'reserve' but reservationType becomes 'waitlist' (no tables available)
+    // Also when mode is 'reserve' but reservationType is 'waitlist' (staff marked section(s) full)
     let queuePosition: number | undefined = undefined;
     if (data.mode === 'waitlist' || reservationType === 'waitlist') {
       const seatingPref = data.seatingPreference || 'no-preference';

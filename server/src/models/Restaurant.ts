@@ -47,7 +47,7 @@ export interface RestaurantDocument extends Document {
   // SMS notification settings
   notificationPhones?: string[];  // History of phone numbers used for notifications
   activeNotificationPhone?: string;  // Currently selected phone for receiving notifications
-  // Staff occupancy overrides: when true, that section is treated as full (customers queue)
+  // Staff section toggles: when true, that section is treated as full for customers (queue / no reserve for that section)
   indoorFull?: boolean;
   outdoorFull?: boolean;
   createdAt: Date;
