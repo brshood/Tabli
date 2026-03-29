@@ -23,6 +23,7 @@ const createSchema = z.object({
   email: z.string().email().optional(),
   gender: z.enum(['male', 'female', 'prefer-not-to-say']).optional(),
   seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
+  customerNotes: z.string().max(500).optional(),
 }).refine((data) => {
   // Require at least one contact method (phone or email)
   // Walk-ins use placeholder '0000000000' for phone
@@ -182,6 +183,7 @@ reservationsRouter.post('/', async (req, res, next) => {
       gender: data.gender,
       seatingPreference: data.seatingPreference,
       reservationType,
+      customerNotes: data.customerNotes?.trim() || undefined,
     });
 
     // #3 - Send confirmation notification and track emailSent
@@ -189,9 +191,11 @@ reservationsRouter.post('/', async (req, res, next) => {
     if (restaurant) {
       // Use reservationType to determine if this is a queue/waitlist (more accurate than mode)
       const isWaitlist = reservationType === 'waitlist' || data.mode === 'waitlist';
+      const holdLine =
+        'When your table is ready, please arrive within 10–15 minutes after we notify you, or we may need to offer it to the next guest.';
       const message = isWaitlist
-        ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready.`
-        : `Your reservation request for ${restaurant.name} has been received. We'll contact you shortly to confirm.`;
+        ? `Thank you for joining the queue at ${restaurant.name}! You're #${queuePosition} in line. We'll notify you when your table is ready. ${holdLine}`
+        : `Your table at ${restaurant.name} is reserved. ${holdLine} We'll contact you when it's time to head over.`;
       
       try {
         if (data.email && isValidEmailForSending(data.email)) {
@@ -214,10 +218,12 @@ reservationsRouter.post('/', async (req, res, next) => {
                 ? [
                     `You're currently #${queuePosition} in line at ${restaurant.name}.`,
                     "We'll email you again when your table is ready.",
+                    holdLine,
                     'Need to cancel? Click the button below.',
                   ]
                 : [
-                    `Thanks for choosing ${restaurant.name}. We're reviewing your reservation request and will confirm shortly.`,
+                    `Thanks for choosing ${restaurant.name}. Your table is held for you.`,
+                    holdLine,
                     'Need to cancel? Click the button below.',
                   ],
               actionText: 'Cancel Reservation',
@@ -288,6 +294,7 @@ reservationsRouter.post('/', async (req, res, next) => {
               customerName: data.name,
               partySize: data.partySize,
               seatingPreference: data.seatingPreference,
+              contact,
             });
         
         sendSmsViaEand({
@@ -392,6 +399,7 @@ const patchSchema = z.object({
   tableId: z.string().optional(),
   leftAt: z.string().optional(), // Allow explicit setting of leftAt for checkout
   calledAt: z.string().nullable().optional(), // Allow setting calledAt timestamp (null to unmark)
+  arrivedAt: z.string().nullable().optional(),
   cancellationReason: z.enum(['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed']).optional(),
 });
 
@@ -546,6 +554,9 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     if (data.calledAt !== undefined) {
       (r as any).calledAt = (data.calledAt === null || data.calledAt === '') ? null : new Date(data.calledAt);
     }
+    if (data.arrivedAt !== undefined) {
+      (r as any).arrivedAt = (data.arrivedAt === null || data.arrivedAt === '') ? undefined : new Date(data.arrivedAt);
+    }
     // Handle cancellationReason if provided
     if (data.cancellationReason) {
       (r as any).cancellationReason = data.cancellationReason;
@@ -587,6 +598,8 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         leftAt: r.leftAt,
         seatedAt: r.seatedAt,
         cancellationReason: (r as any).cancellationReason,
+        calledAt: (r as any).calledAt,
+        arrivedAt: (r as any).arrivedAt,
       }
     });
     
@@ -759,6 +772,22 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
         error: 'No valid contact method. Customer has no valid phone number or email address to receive the notification.',
       });
     }
+
+    r.calledAt = new Date();
+    await r.save();
+
+    notificationEmitter.notifyReservation((r._id as any).toString(), {
+      type: 'reservation_updated',
+      reservation: {
+        _id: (r._id as any).toString(),
+        status: r.status,
+        queuePosition: r.queuePosition,
+        holdUntil: r.holdUntil,
+        holdStatus: r.holdStatus,
+        calledAt: r.calledAt,
+        arrivedAt: (r as any).arrivedAt,
+      },
+    });
 
     res.json({ success: true, via: emailSent && smsSent ? 'email_and_sms' : emailSent ? 'email' : 'sms' });
   } catch (err) { next(err); }

@@ -100,6 +100,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [callNextDialogOpen, setCallNextDialogOpen] = useState(false);
   const [callNextCustomer, setCallNextCustomer] = useState<any>(null);
   const [callNextLoading, setCallNextLoading] = useState(false);
+  const [calledQueue, setCalledQueue] = useState<any[]>([]);
+  const [reservedBookings, setReservedBookings] = useState<any[]>([]);
 
   useEffect(() => {
     let timer: any;
@@ -327,7 +329,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     const next = getFirstEligibleFromData(wl, indoorVal, outdoorVal);
     if (!next) {
       if (wl.length === 0) toast.info('No customers in queue');
-      else toast.info('No one can be called right now (restaurant full)');
+      else toast.info('No one available to call right now');
       return;
     }
     setCallNextCustomer(next);
@@ -515,17 +517,35 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         }
       }
 
-      // Derive waitlist from database state (exclude reserved tables - only show queue/waitlist)
-      const filteredItems = items
-        .filter(r => (r.status === 'pending' || r.status === 'confirmed') && r.reservationType !== 'reserved')
-        .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0));
-      
-      // #7 - Deduplicate by email/phone (keep most recent per unique contact)
-      // Use both email and phone maps so same person with different contact info is deduplicated
+      // Queue (waitlist): not yet called; FCFS by requestedAt. Reserved table requests are listed separately.
+      const pendingStatuses = (r: any) => r.status === 'pending' || r.status === 'confirmed';
+
+      const reservedRows = items
+        .filter(r => pendingStatuses(r) && r.reservationType === 'reserved')
+        .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
+
+      const calledRows = items
+        .filter(r =>
+          pendingStatuses(r) &&
+          r.reservationType !== 'reserved' &&
+          r.calledAt &&
+          !r.arrivedAt
+        )
+        .sort((a, b) => new Date(a.calledAt).getTime() - new Date(b.calledAt).getTime());
+
+      const queueCandidates = items
+        .filter(r =>
+          pendingStatuses(r) &&
+          r.reservationType !== 'reserved' &&
+          !r.calledAt
+        )
+        .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
+
+      // Deduplicate by email/phone — keep earliest join (first come first served)
       const emailToReservation = new Map<string, any>();
       const phoneToReservation = new Map<string, any>();
       const deduplicatedItems: any[] = [];
-      
+
       const removeFromMaps = (item: any) => {
         if (item?.email) emailToReservation.delete(item.email);
         if (item?.phone && item.phone !== '0000000000') phoneToReservation.delete(item.phone);
@@ -534,19 +554,19 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         if (item?.email) emailToReservation.set(item.email, item);
         if (item?.phone && item.phone !== '0000000000') phoneToReservation.set(item.phone, item);
       };
-      
-      for (const r of filteredItems) {
+
+      for (const r of queueCandidates) {
         const existingByEmail = r.email ? emailToReservation.get(r.email) : undefined;
         const existingByPhone = (r.phone && r.phone !== '0000000000') ? phoneToReservation.get(r.phone) : undefined;
         const existing = existingByEmail || existingByPhone;
-        
+
         if (!existing) {
           deduplicatedItems.push(r);
           addToMaps(r);
         } else {
           const existingTime = new Date(existing.requestedAt).getTime();
           const currentTime = new Date(r.requestedAt).getTime();
-          if (currentTime > existingTime) {
+          if (currentTime < existingTime) {
             const index = deduplicatedItems.findIndex(item => item._id === existing._id);
             if (index !== -1) {
               removeFromMaps(existing);
@@ -556,9 +576,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           }
         }
       }
-      
-      const wl = deduplicatedItems.map((r, idx) => ({
+
+      const mapRow = (r: any, idx: number, orderNum: number) => ({
         id: idx + 1,
+        orderIndex: orderNum,
         reservationId: r._id,
         name: r.name || 'Queue Customer',
         partySize: r.partySize || 2,
@@ -575,8 +596,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         holdTimeExpires: Date.now() + 10 * 60000,
         status: r.status,
         holdUntil: r.holdUntil ? new Date(r.holdUntil) : null,
-      }));
+        customerNotes: (r.customerNotes || '').trim(),
+      });
+
+      const wl = deduplicatedItems.map((r, idx) => mapRow(r, idx, idx + 1));
       setWaitlist(wl);
+
+      setCalledQueue(
+        calledRows.map((r, idx) => ({
+          ...mapRow(r, idx, idx + 1),
+          calledAtLabel: r.calledAt ? formatGSTTime(r.calledAt) : '—',
+        }))
+      );
+
+      setReservedBookings(
+        reservedRows.map((r, idx) => mapRow(r, idx, idx + 1))
+      );
+
       return wl;
     } catch (error) {
       console.error('Failed to reload reservations:', error);
@@ -591,14 +627,33 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   ): any => {
     if (wl.length === 0) return null;
     const sorted = [...wl].sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
-    if (indoorFullVal && outdoorFullVal) return null;
+    // When both sections are full, still call the next guest in line (FCFS); they are notified to wait for a table.
+    if (indoorFullVal && outdoorFullVal) return sorted[0] ?? null;
     if (indoorFullVal) {
-      return sorted.find((c) => c.seatingPreference === 'outdoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? null;
+      return sorted.find((c) => c.seatingPreference === 'outdoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? sorted[0] ?? null;
     }
     if (outdoorFullVal) {
-      return sorted.find((c) => c.seatingPreference === 'indoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? null;
+      return sorted.find((c) => c.seatingPreference === 'indoor' || c.seatingPreference === 'no-preference' || !c.seatingPreference) ?? sorted[0] ?? null;
     }
     return sorted[0] ?? null;
+  };
+
+  const markCustomerArrived = async (reservationId: string, name: string) => {
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arrivedAt: new Date().toISOString() }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to mark arrival');
+      }
+      await loadReservationsFromDB();
+      toast.success(`${name} marked as arrived`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to mark arrival');
+    }
   };
   
   // Helper function to reload tables from database
@@ -1409,7 +1464,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl flex items-center" style={{color: '#2D2D2B'}}>
                     <Clock className="h-6 w-6 mr-2" style={{color: '#5A5E3E'}} />
-                    Waitlist ({waitlist.length})
+                    Queue — first come, first served ({waitlist.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 flex-1 flex flex-col min-h-0">
@@ -1423,7 +1478,10 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>{customer.name}</h4>
+                                <h4 className="font-semibold" style={{color: '#2D2D2B'}}>
+                                  <span className="text-[#5A5E3E] mr-1">{customer.orderIndex}.</span>
+                                  {customer.name}
+                                </h4>
                                 {customer.reservationType && (
                                   <Badge 
                                     className="px-2 py-0.5 rounded-full text-xs"
@@ -1504,6 +1562,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               )}
                             </div>
                           )}
+                          {customer.customerNotes ? (
+                            <p className="text-xs mt-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(184, 137, 166, 0.15)', color: '#2D2D2B' }}>
+                              <span className="font-medium">Note: </span>{customer.customerNotes}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -1546,12 +1609,102 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   className="pill-button text-white w-full py-6 text-lg"
                   style={{ backgroundColor: '#3F4427' }}
                   onClick={openCallNextDialog}
-                  disabled={indoorFull && outdoorFull}
                 >
                   <Phone className="h-5 w-5 mr-2" />
                   Call Next in Line
                 </Button>
               </div>
+            </div>
+
+            {/* Called — awaiting arrival & pending reservations */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="card-shadow border-0 rounded-3xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl flex items-center gap-2" style={{ color: '#2D2D2B' }}>
+                    <Phone className="h-5 w-5" style={{ color: '#5A5E3E' }} />
+                    Called — please arrive ({calledQueue.length})
+                  </CardTitle>
+                  <p className="text-sm" style={{ color: '#6b6b6b' }}>
+                    Guests notified to come. Tap ✓ when they arrive.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
+                  {calledQueue.map((c) => (
+                    <div
+                      key={c.reservationId}
+                      className="flex items-center justify-between gap-3 rounded-2xl p-3 border"
+                      style={{ backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)' }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold truncate" style={{ color: '#2D2D2B' }}>
+                          {c.orderIndex}. {c.name}
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: '#5A5E3E' }}>
+                          Called {c.calledAtLabel} · {c.phone || c.email || '—'}
+                        </div>
+                        {c.customerNotes ? (
+                          <p className="text-xs mt-1" style={{ color: '#2D2D2B' }}>
+                            Note: {c.customerNotes}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="shrink-0 rounded-full h-10 w-10 p-0 text-lg"
+                        style={{ backgroundColor: '#3F4427', color: '#fff' }}
+                        title="Mark arrived"
+                        onClick={() => markCustomerArrived(c.reservationId, c.name)}
+                      >
+                        ✓
+                      </Button>
+                    </div>
+                  ))}
+                  {calledQueue.length === 0 && (
+                    <p className="text-sm text-center py-6" style={{ color: '#9FA0A0' }}>
+                      No one has been called yet. Use &quot;Call Next in Line&quot; to notify the next guest.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="card-shadow border-0 rounded-3xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl flex items-center gap-2" style={{ color: '#2D2D2B' }}>
+                    <Users className="h-5 w-5" style={{ color: '#5A5E3E' }} />
+                    Pending table reservations ({reservedBookings.length})
+                  </CardTitle>
+                  <p className="text-sm" style={{ color: '#6b6b6b' }}>
+                    Numbered order of guests who booked when a table was available.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
+                  {reservedBookings.map((c) => (
+                    <div
+                      key={c.reservationId}
+                      className="rounded-2xl p-3 border"
+                      style={{ backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)' }}
+                    >
+                      <div className="font-semibold" style={{ color: '#2D2D2B' }}>
+                        {c.orderIndex}. {c.name}
+                      </div>
+                      <p className="text-sm mt-1" style={{ color: '#2D2D2B' }}>
+                        Party of {c.partySize} · {c.phone || c.email || '—'}
+                      </p>
+                      {c.customerNotes ? (
+                        <p className="text-xs mt-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(63, 68, 39, 0.08)' }}>
+                          Note: {c.customerNotes}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                  {reservedBookings.length === 0 && (
+                    <p className="text-sm text-center py-6" style={{ color: '#9FA0A0' }}>
+                      No pending table reservations.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Call Next confirmation dialog */}
@@ -1561,7 +1714,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <DialogTitle>Call Next in Line</DialogTitle>
                   <DialogDescription>
                     {callNextCustomer && (
-                      <>Send SMS to {callNextCustomer.name} (party of {callNextCustomer.partySize}) at {callNextCustomer.phone || callNextCustomer.email}? They will be notified their table is ready.</>
+                      <>
+                        Send notification to <strong>{callNextCustomer.name}</strong> (party of {callNextCustomer.partySize}).
+                        {' '}Contact: <strong>{callNextCustomer.phone || callNextCustomer.email || '—'}</strong>.
+                        {' '}They will be told their table is ready and to arrive within about 10–15 minutes.
+                      </>
                     )}
                   </DialogDescription>
                 </DialogHeader>

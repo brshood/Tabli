@@ -35,6 +35,10 @@ export interface ReservationDocument extends Document {
     improvements?: string;
     submittedAt: Date;
   };
+  /** Optional note from customer when joining queue / reserving */
+  customerNotes?: string;
+  /** Staff marked guest as arrived after "call next" */
+  arrivedAt?: Date;
 }
 
 const reservationSchema = new Schema<ReservationDocument>(
@@ -68,6 +72,8 @@ const reservationSchema = new Schema<ReservationDocument>(
       improvements: String,
       submittedAt: Date,
     },
+    customerNotes: { type: String, maxlength: 500 },
+    arrivedAt: Date,
   },
   { timestamps: true }
 );

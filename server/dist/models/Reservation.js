@@ -29,6 +29,8 @@ const reservationSchema = new Schema({
         improvements: String,
         submittedAt: Date,
     },
+    customerNotes: { type: String, maxlength: 500 },
+    arrivedAt: Date,
 }, { timestamps: true });
 // Compound indexes for better query performance
 reservationSchema.index({ restaurantId: 1, status: 1 }); // For filtering by restaurant and status

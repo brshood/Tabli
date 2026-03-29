@@ -17,7 +17,7 @@ export interface SmsMessageContext {
  * Sent when a customer joins the waitlist
  */
 export function getQueueJoinMessage(context?: SmsMessageContext): string {
-  return "Thanks for joining our waitlist! We'll let you know when your table's ready. Check your spot via the link below:\n\nhttps://tabliapp.com/#notifications";
+  return "Thanks for joining our waitlist! When we notify you, please arrive within about 10–15 minutes. Track your spot:\n\nhttps://tabliapp.com/#notifications";
 }
 
 /**
@@ -33,7 +33,8 @@ export function getTableReadyMessage(context?: SmsMessageContext): string {
  * Sent when a customer makes a reservation (not waitlist)
  */
 export function getReservationConfirmationMessage(context?: SmsMessageContext): string {
-  return "Thank you for booking with us! Please make your way to your table.";
+  const name = context?.restaurantName ? ` at ${context.restaurantName}` : '';
+  return `Thank you for booking${name}! When your table is ready, please arrive within 10–15 minutes after we notify you.`;
 }
 
 /**
@@ -63,7 +64,8 @@ export function getRestaurantReservationNotification(context?: SmsMessageContext
   const seating = context?.seatingPreference === 'indoor' ? ' (Indoor)' 
     : context?.seatingPreference === 'outdoor' ? ' (Outdoor)' 
     : '';
-  return `${customerName} just reserved a table for ${partySize}${seating}. Check your dashboard for details.`;
+  const contact = context?.contact ? ` Contact: ${context.contact}.` : '';
+  return `${customerName} reserved a table for ${partySize}${seating}.${contact} Check your dashboard.`;
 }
 
 /**

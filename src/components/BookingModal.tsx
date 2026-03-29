@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -39,6 +40,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   const [estimatedWaitMinutes, setEstimatedWaitMinutes] = useState<number | null>(null);
   const [estimateStatus, setEstimateStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false); // #10 - Loading state
+  const [customerNotes, setCustomerNotes] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState<{
     indoor: { available: boolean; count: number };
     outdoor: { available: boolean; count: number };
@@ -167,6 +169,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
       setGender('prefer-not-to-say');
       setErrors({});
       setAvailabilityStatus(null);
+      setCustomerNotes('');
     }
   }, [isOpen]);
 
@@ -233,6 +236,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
             email: email && email.trim() ? email : undefined,
             gender: gender !== 'prefer-not-to-say' ? gender : undefined,
             seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
+            customerNotes: customerNotes.trim() || undefined,
           }),
           signal: controller.signal
         });
@@ -355,11 +359,16 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           }
         });
       
-      const successMessage = mode === 'reserve'
-        ? "Your reservation request has been submitted! We'll contact you shortly with confirmation."
-        : (typeof position === 'number'
-            ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
-            : "You've been added to the queue! We'll notify you when your table is ready.");
+      const successMessage =
+        mode === 'reserve'
+          ? (reservation?.reservationType === 'waitlist'
+              ? (typeof position === 'number'
+                  ? `You're in the queue! Your position is #${position}. We'll notify you when it's your turn.`
+                  : "You've been added to the queue! We'll notify you when your table is ready.")
+              : "Your table is reserved! When we notify you, please arrive within about 10–15 minutes.")
+          : (typeof position === 'number'
+              ? `You're in the queue! Your position is #${position}. When it's your turn, you'll have about 10–15 minutes to arrive after we notify you.`
+              : "You've been added to the queue! When it's your turn, you'll have about 10–15 minutes to arrive after we notify you.");
       toast.success(successMessage);
       if (onSuccess) {
         onSuccess(reservation?._id, reservation?.restaurantId);
@@ -615,6 +624,22 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
                 <p className="text-sm text-red-600">{errors.email}</p>
               )}
             </div>
+          </div>
+
+          {/* Optional note for staff */}
+          <div className="space-y-2">
+            <Label htmlFor="queueNotes" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>
+              Note for the restaurant <span className="text-gray-400 text-xs font-normal">(optional)</span>
+            </Label>
+            <Textarea
+              id="queueNotes"
+              placeholder="Allergies, occasion, seating needs…"
+              value={customerNotes}
+              onChange={(e) => setCustomerNotes(e.target.value.slice(0, 500))}
+              className="bg-white min-h-[80px] resize-y"
+              style={{borderColor: 'var(--where2go-border)'}}
+              maxLength={500}
+            />
           </div>
 
           {/* Disclaimer */}
