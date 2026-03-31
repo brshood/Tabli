@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
@@ -365,6 +366,8 @@ reservationsRouter.get('/:id', async (req, res, next) => {
   }
 });
 
+const CALLED_LIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 reservationsRouter.get('/', async (req, res, next) => {
   try {
     const { restaurantId, status, date } = req.query as any;
@@ -379,6 +382,30 @@ reservationsRouter.get('/', async (req, res, next) => {
       const end = getGSTEndOfDay(startDate);
       filter.requestedAt = { $gte: startDate, $lte: end };
     }
+
+    // Auto-close "called" waitlist rows older than 24h (staff "Called — please arrive" board)
+    if (restaurantId && mongoose.Types.ObjectId.isValid(String(restaurantId))) {
+      const cutoff = new Date(Date.now() - CALLED_LIST_MAX_AGE_MS);
+      const now = new Date();
+      await Reservation.updateMany(
+        {
+          restaurantId: new mongoose.Types.ObjectId(String(restaurantId)),
+          status: { $in: ['pending', 'confirmed'] },
+          calledAt: { $exists: true, $ne: null, $lt: cutoff },
+          reservationType: { $ne: 'reserved' },
+          $or: [{ arrivedAt: { $exists: false } }, { arrivedAt: null }],
+        },
+        {
+          $set: {
+            status: 'cancelled',
+            leftAt: now,
+            cancellationReason: 'called_list_expired',
+          },
+          $unset: { calledAt: '', queuePosition: '' },
+        }
+      );
+    }
+
     const items = await Reservation.find(filter).sort({ requestedAt: 1 }).lean();
     
     // Ensure ObjectIds are converted to strings for easier frontend handling
@@ -400,7 +427,7 @@ const patchSchema = z.object({
   leftAt: z.string().optional(), // Allow explicit setting of leftAt for checkout
   calledAt: z.string().nullable().optional(), // Allow setting calledAt timestamp (null to unmark)
   arrivedAt: z.string().nullable().optional(),
-  cancellationReason: z.enum(['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed']).optional(),
+  cancellationReason: z.enum(['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed', 'called_list_expired', 'called_list_cleared']).optional(),
 });
 
 reservationsRouter.patch('/:id', async (req, res, next) => {
@@ -523,7 +550,11 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
         // Only send SMS if this is a staff removal (not user cancellation)
         // User cancellations are handled by POST /reservations/:id/cancel endpoint
         const cancellationReason = (r as any).cancellationReason || data.cancellationReason;
-        if (cancellationReason === 'staff_removed' || cancellationReason === 'no_show' || cancellationReason === 'hold_expired') {
+        if (
+          cancellationReason === 'staff_removed' ||
+          cancellationReason === 'no_show' ||
+          cancellationReason === 'hold_expired'
+        ) {
           if (r.phone && r.phone !== '0000000000') {
             // Fire and forget - don't block status update
             const restaurant = await Restaurant.findById(r.restaurantId).lean();

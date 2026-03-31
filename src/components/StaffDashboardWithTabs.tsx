@@ -655,6 +655,29 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       toast.error(e.message || 'Failed to mark arrival');
     }
   };
+
+  const removeCalledGuest = async (reservationId: string, name: string) => {
+    if (!window.confirm(`Remove "${name}" from the called list? This cancels their waitlist entry.`)) return;
+    try {
+      const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancelled',
+          cancellationReason: 'called_list_cleared',
+          calledAt: null,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to remove guest');
+      }
+      await loadReservationsFromDB();
+      toast.success(`Removed ${name} from called list`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to remove guest');
+    }
+  };
   
   // Helper function to reload tables from database
   const loadTablesFromDB = async () => {
@@ -1625,7 +1648,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     Called — please arrive ({calledQueue.length})
                   </CardTitle>
                   <p className="text-sm" style={{ color: '#6b6b6b' }}>
-                    Guests notified to come. Tap ✓ when they arrive.
+                    Guests notified to come. Tap ✓ when they arrive. Entries older than 24 hours clear automatically; use the trash icon to remove one manually.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
@@ -1648,16 +1671,29 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           </p>
                         ) : null}
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="shrink-0 rounded-full h-10 w-10 p-0 text-lg"
-                        style={{ backgroundColor: '#3F4427', color: '#fff' }}
-                        title="Mark arrived"
-                        onClick={() => markCustomerArrived(c.reservationId, c.name)}
-                      >
-                        ✓
-                      </Button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full h-10 w-10 p-0"
+                          style={{ borderColor: 'rgba(90, 94, 62, 0.35)', color: '#5A5E3E' }}
+                          title="Remove from called list"
+                          onClick={() => removeCalledGuest(c.reservationId, c.name)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="rounded-full h-10 w-10 p-0 text-lg"
+                          style={{ backgroundColor: '#3F4427', color: '#fff' }}
+                          title="Mark arrived"
+                          onClick={() => markCustomerArrived(c.reservationId, c.name)}
+                        >
+                          ✓
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {calledQueue.length === 0 && (

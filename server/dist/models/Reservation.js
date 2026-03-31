@@ -21,7 +21,7 @@ const reservationSchema = new Schema({
     emailSent: { type: Boolean, default: false }, // #3 - Track if confirmation email was sent
     holdUntil: Date, // #2 - When hold expires (15 min from check-in)
     holdStatus: { type: String, enum: ['active', 'expired', 'confirmed'] }, // #2 - Hold state tracking
-    cancellationReason: { type: String, enum: ['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed'] }, // Track why reservation was cancelled
+    cancellationReason: { type: String, enum: ['user_cancelled', 'daily_reset', 'no_show', 'hold_expired', 'staff_removed', 'called_list_expired', 'called_list_cleared'] }, // Track why reservation was cancelled
     // Survey feedback fields
     surveyFeedback: {
         hearAboutUs: String,
