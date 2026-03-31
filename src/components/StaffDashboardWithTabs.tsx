@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, Trash2, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -1648,7 +1648,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     Called — please arrive ({calledQueue.length})
                   </CardTitle>
                   <p className="text-sm" style={{ color: '#6b6b6b' }}>
-                    Guests notified to come. Tap ✓ when they arrive. Entries older than 24 hours clear automatically; use the trash icon to remove one manually.
+                    Guests notified to come. Tap ✓ when they arrive. Entries older than 24 hours clear automatically; tap ✕ to remove one manually.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
@@ -1681,7 +1681,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           title="Remove from called list"
                           onClick={() => removeCalledGuest(c.reservationId, c.name)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <X className="h-4 w-4" />
                         </Button>
                         <Button
                           type="button"
