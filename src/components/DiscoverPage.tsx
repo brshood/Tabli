@@ -92,17 +92,30 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const trendingRestaurants = allRestaurants
-    .filter(r => r.weeklyAverageCustomers > 50)
-    .sort((a, b) => b.weeklyAverageCustomers - a.weeklyAverageCustomers);
-  
-  const popularRestaurants = allRestaurants
-    .filter(r => r.waitingInLine > 5)
-    .sort((a, b) => b.waitingInLine - a.waitingInLine);
-  
-  const topRatedRestaurants = allRestaurants
-    .filter(r => r.rating >= 4.7)
-    .sort((a, b) => b.rating - a.rating);
+  /** Top entries per section — no minimum thresholds; cap list length for performance. */
+  const DISCOVER_SECTION_LIMIT = 24;
+
+  const trendingRestaurants = [...allRestaurants]
+    .sort((a, b) => {
+      const w = b.weeklyAverageCustomers - a.weeklyAverageCustomers;
+      if (w !== 0) return w;
+      const rc = (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+      if (rc !== 0) return rc;
+      return b.rating - a.rating;
+    })
+    .slice(0, DISCOVER_SECTION_LIMIT);
+
+  const popularRestaurants = [...allRestaurants]
+    .sort((a, b) => b.waitingInLine - a.waitingInLine)
+    .slice(0, DISCOVER_SECTION_LIMIT);
+
+  const topRatedRestaurants = [...allRestaurants]
+    .sort((a, b) => {
+      const dr = b.rating - a.rating;
+      if (dr !== 0) return dr;
+      return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+    })
+    .slice(0, DISCOVER_SECTION_LIMIT);
 
   const handleCardClick = (restaurant: any) => {
     setSelectedCard(restaurant.id);
