@@ -316,11 +316,12 @@ restaurantsRouter.get('/:id/notification-phones', requireAuth, requireOwnRestaur
 // GET /restaurants/:id/availability-override - Get current indoor/outdoor full state
 restaurantsRouter.get('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id).select('indoorFull outdoorFull').lean();
+    const restaurant = await Restaurant.findById(req.params.id).select('indoorFull outdoorFull closedForCustomers').lean();
     if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
     res.json({
       indoorFull: (restaurant as any).indoorFull ?? false,
       outdoorFull: (restaurant as any).outdoorFull ?? false,
+      closedForCustomers: (restaurant as any).closedForCustomers ?? false,
     });
   } catch (err) {
     next(err);
@@ -331,6 +332,7 @@ restaurantsRouter.get('/:id/availability-override', requireAuth, requireOwnResta
 const availabilityOverrideSchema = z.object({
   indoorFull: z.boolean().optional(),
   outdoorFull: z.boolean().optional(),
+  closedForCustomers: z.boolean().optional(),
 });
 
 restaurantsRouter.patch('/:id/availability-override', requireAuth, requireOwnRestaurant, async (req, res, next) => {
@@ -345,6 +347,7 @@ restaurantsRouter.patch('/:id/availability-override', requireAuth, requireOwnRes
     res.json({
       indoorFull: (restaurant as any).indoorFull ?? false,
       outdoorFull: (restaurant as any).outdoorFull ?? false,
+      closedForCustomers: (restaurant as any).closedForCustomers ?? false,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {

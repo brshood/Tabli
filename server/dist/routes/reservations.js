@@ -64,6 +64,12 @@ reservationsRouter.post('/', async (req, res, next) => {
                     error: 'You already have an active reservation at this restaurant'
                 });
             }
+            const closedCheck = await Restaurant.findById(data.restaurantId).select('closedForCustomers').lean();
+            if (closedCheck?.closedForCustomers === true) {
+                return res.status(403).json({
+                    error: 'This restaurant is not accepting new bookings right now.',
+                });
+            }
         }
         // Detect walk-ins (staff-initiated manual seating) by placeholder phone number
         // Determine reservation type and status

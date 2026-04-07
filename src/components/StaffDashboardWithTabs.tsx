@@ -97,12 +97,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [enablingNotifications, setEnablingNotifications] = useState(false);
   const [indoorFull, setIndoorFull] = useState(false);
   const [outdoorFull, setOutdoorFull] = useState(false);
+  const [closedForCustomers, setClosedForCustomers] = useState(false);
   const [callNextDialogOpen, setCallNextDialogOpen] = useState(false);
   const [callNextCustomer, setCallNextCustomer] = useState<any>(null);
   const [callNextLoading, setCallNextLoading] = useState(false);
   const [calledQueue, setCalledQueue] = useState<any[]>([]);
   const [reservedBookings, setReservedBookings] = useState<any[]>([]);
-  const isRestaurantClosed = indoorFull && outdoorFull;
+  const isRestaurantClosed = closedForCustomers;
 
   useEffect(() => {
     let timer: any;
@@ -321,7 +322,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
   const toggleRestaurantClosed = async () => {
     if (!staffAuth?.restaurantId || !staffAuth?.token) return;
-    const nextClosed = !isRestaurantClosed;
+    const nextClosed = !closedForCustomers;
     try {
       const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
         method: 'PATCH',
@@ -329,15 +330,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
           'Content-Type': 'application/json',
           Authorization: `Bearer ${staffAuth.token}`,
         },
-        body: JSON.stringify({ indoorFull: nextClosed, outdoorFull: nextClosed }),
+        body: JSON.stringify({ closedForCustomers: nextClosed }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to update restaurant status');
       }
-      setIndoorFull(nextClosed);
-      setOutdoorFull(nextClosed);
-      toast.success(nextClosed ? 'Restaurant marked as closed' : 'Restaurant marked as open');
+      setClosedForCustomers(nextClosed);
+      toast.success(nextClosed ? 'Restaurant marked as closed for customers' : 'Restaurant open for customers');
     } catch (e: any) {
       toast.error(e.message || 'Failed to update restaurant status');
     }
@@ -748,7 +748,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const loadAvailabilityOverride = async (): Promise<{ indoorFull: boolean; outdoorFull: boolean } | null> => {
+  const loadAvailabilityOverride = async (): Promise<{ indoorFull: boolean; outdoorFull: boolean; closedForCustomers: boolean } | null> => {
     if (!staffAuth?.restaurantId || !staffAuth?.token) return null;
     try {
       const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
@@ -758,9 +758,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         const data = await res.json();
         const indoor = data.indoorFull ?? false;
         const outdoor = data.outdoorFull ?? false;
+        const closed = data.closedForCustomers ?? false;
         setIndoorFull(indoor);
         setOutdoorFull(outdoor);
-        return { indoorFull: indoor, outdoorFull: outdoor };
+        setClosedForCustomers(closed);
+        return { indoorFull: indoor, outdoorFull: outdoor, closedForCustomers: closed };
       }
     } catch (e) {
       console.error('Failed to load availability override:', e);

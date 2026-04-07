@@ -44,6 +44,8 @@ export interface Restaurant {
   waitTimeMinMinutes?: number;
   waitTimeMaxMinutes?: number;
   waitTimeDisplayText?: string;
+  /** Staff "Close restaurant" — blocks customer bookings; not the same as section full */
+  closedForCustomers?: boolean;
 }
 
 interface RestaurantContextType {
@@ -97,6 +99,7 @@ const defaultRestaurant: Restaurant = {
   waitTimeMinMinutes: 10,
   waitTimeMaxMinutes: 15,
   waitTimeDisplayText: '10 - 15 minutes',
+  closedForCustomers: false,
 };
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -131,19 +134,10 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             waitTime = `~${r.avgWaitTime} min`;
           }
           
+          // "available" = reserve path (staff toggles show at least one section open); "waitlist" = queue only.
+          // Section full (indoor/outdoor) does not mean closed — use closedForCustomers for that.
           const hasAvailableTables = (r.availableTables && r.availableTables > 0);
-          const hasQueue = (r.waitingInLine && r.waitingInLine > 0);
-          const isOverrideFull = (r.indoorFull === true && r.outdoorFull === true);
-
-          // Business rule for status:
-          // - "available" when there are free tables
-          // - OR when there is no queue yet and staff have NOT marked both sections as full
-          // - otherwise "waitlist"
-          const status: 'available' | 'waitlist' =
-            (hasAvailableTables && !isOverrideFull) ||
-            (!hasAvailableTables && !hasQueue && !isOverrideFull)
-              ? 'available'
-              : 'waitlist';
+          const status: 'available' | 'waitlist' = hasAvailableTables ? 'available' : 'waitlist';
 
           return {
             id: r._id || r.id,
@@ -177,6 +171,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             waitTimeMinMinutes: typeof r.waitTimeMinMinutes === 'number' ? r.waitTimeMinMinutes : undefined,
             waitTimeMaxMinutes: typeof r.waitTimeMaxMinutes === 'number' ? r.waitTimeMaxMinutes : undefined,
             waitTimeDisplayText: r.waitTimeDisplayText || undefined,
+            closedForCustomers: r.closedForCustomers === true,
           };
         });
         if (!cancelled) {

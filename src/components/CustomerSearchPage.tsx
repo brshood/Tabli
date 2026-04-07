@@ -184,8 +184,8 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 )}
 
                 {/* Availability badge (no table counts) */}
-                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#000000', color: '#FFFFFF'}}>
-                  {restaurant.status === 'available' ? t('search.available') : t('search.waitlist.only')}
+                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} px-2 py-1 rounded-full text-xs font-medium shadow-lg ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: restaurant.closedForCustomers ? '#7F1D1D' : '#000000', color: '#FFFFFF'}}>
+                  {restaurant.closedForCustomers ? t('search.closed') : restaurant.status === 'available' ? t('search.available') : t('search.waitlist.only')}
                 </div>
                 
                 {/* Fire icon for restaurants with >5 people waiting */}
@@ -215,7 +215,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
 
                 {/* Status Badge */}
                 <div className="flex items-center justify-between mb-4">
-                  {restaurant.status === 'available' ? (
+                  {restaurant.closedForCustomers ? (
+                    <Badge className={`px-3 py-1 rounded-full ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#FEE2E2', color: '#991B1B'}}>
+                      {t('search.closed')}
+                    </Badge>
+                  ) : restaurant.status === 'available' ? (
                     <Badge className={`px-3 py-1 rounded-full ${isRTL ? 'font-arabic' : ''}`} style={{backgroundColor: '#D4F6D4', color: '#2D5B2D'}}>
                       {t('search.available')}
                     </Badge>
@@ -232,7 +236,11 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
 
                 {/* Info */}
                 <div className="flex items-center justify-between text-sm mb-4" style={{color: '#2D2D2B'}}>
-                  {restaurant.status === 'available' ? (
+                  {restaurant.closedForCustomers ? (
+                    <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
+                      <span style={{ color: '#991B1B' }}>{t('search.closed.hint')}</span>
+                    </div>
+                  ) : restaurant.status === 'available' ? (
                     <div className={`flex items-center ${isRTL ? 'font-arabic' : ''}`}>
                       <Users className={`h-4 w-4 ${isRTL ? 'ml-1' : 'mr-1'}`} />
                       <span>{t('status.tablesAvailableNow')}</span>
@@ -252,7 +260,18 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                 {/* Action Buttons */}
                 <div className="space-y-2">
                   <div className="flex gap-2">
-                    {restaurant.status === 'available' ? (
+                    {restaurant.closedForCustomers ? (
+                      <Button
+                        type="button"
+                        className={`flex-1 pill-button ${isRTL ? 'font-arabic' : ''}`}
+                        variant="outline"
+                        disabled
+                        style={{ borderColor: '#991B1B', color: '#991B1B', opacity: 0.9 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t('search.closed')}
+                      </Button>
+                    ) : restaurant.status === 'available' ? (
                       <Button 
                         className={`flex-1 pill-button ${isRTL ? 'font-arabic' : ''}`}
                         style={{backgroundColor: '#B8860B', color: '#FFFFFF'}}
@@ -278,7 +297,7 @@ export function CustomerSearchPage({ onNavigate }: CustomerSearchPageProps) {
                       >
                     {t('action.standInQueue')}
                       </Button>
-                    )}
+                      )}
                     
                     <Button 
                       variant="outline" 

@@ -177,7 +177,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   };
 
   const featuredItems = restaurant.featuredMenuItems?.filter((item) => item.name?.trim()) || [];
-  const isRestaurantClosed = restaurant.status !== 'available' && restaurant.tablesAvailable === 0;
+  const isRestaurantClosed = restaurant.closedForCustomers === true;
 
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
@@ -356,13 +356,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 <Button 
                   className={`w-full pill-button text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
                   style={{backgroundColor: '#B8860B', color: '#FFFFFF'}}
+                  disabled={isRestaurantClosed}
                   onClick={() => {
                     setBookingMode('reserve');
                     setBookingModalOpen(true);
                   }}
                 >
                   <CalendarClock className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                  {t('search.reserve') || 'Reserve Now'}
+                  {isRestaurantClosed ? 'Restaurant Closed' : (t('search.reserve') || 'Reserve Now')}
                 </Button>
               ) : (
                 <Button 

@@ -31,6 +31,9 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
         const restaurant = await Restaurant.findById(req.params.restaurantId);
         if (!restaurant)
             return res.status(404).json({ error: 'Restaurant not found' });
+        if (restaurant.closedForCustomers === true) {
+            return res.status(403).json({ error: 'This restaurant is not accepting new queue requests right now.' });
+        }
         // #4 - Prevent Duplicate Bookings: Check for existing active reservation
         const duplicateQuery = {
             restaurantId: restaurant._id,
