@@ -10,6 +10,22 @@ export interface SmsMessageContext {
   seatingPreference?: 'indoor' | 'outdoor' | 'no-preference';
   /** Customer contact (phone or email) for staff notification */
   contact?: string;
+  waitTimeDisplayText?: string;
+  waitTimeMinMinutes?: number;
+  waitTimeMaxMinutes?: number;
+}
+
+function getWaitTimeLine(context?: SmsMessageContext): string {
+  if (context?.waitTimeDisplayText?.trim()) {
+    return `Estimated wait: ${context.waitTimeDisplayText.trim()}.`;
+  }
+  if (
+    typeof context?.waitTimeMinMinutes === 'number' &&
+    typeof context?.waitTimeMaxMinutes === 'number'
+  ) {
+    return `Estimated wait: ${context.waitTimeMinMinutes}-${context.waitTimeMaxMinutes} minutes.`;
+  }
+  return 'Estimated wait: 10-15 minutes.';
 }
 
 /**
@@ -17,7 +33,8 @@ export interface SmsMessageContext {
  * Sent when a customer joins the waitlist
  */
 export function getQueueJoinMessage(context?: SmsMessageContext): string {
-  return "Thanks for joining our waitlist! When we notify you, please arrive within about 10–15 minutes. Track your spot:\n\nhttps://tabliapp.com/#notifications";
+  const waitLine = getWaitTimeLine(context);
+  return `Thanks for joining our waitlist! ${waitLine} Track your spot:\n\nhttps://tabliapp.com/#notifications`;
 }
 
 /**
@@ -34,7 +51,8 @@ export function getTableReadyMessage(context?: SmsMessageContext): string {
  */
 export function getReservationConfirmationMessage(context?: SmsMessageContext): string {
   const name = context?.restaurantName ? ` at ${context.restaurantName}` : '';
-  return `Thank you for booking${name}! When your table is ready, please arrive within 10–15 minutes after we notify you.`;
+  const waitLine = getWaitTimeLine(context);
+  return `Thank you for booking${name}! ${waitLine} We'll notify you when your table is ready.`;
 }
 
 /**

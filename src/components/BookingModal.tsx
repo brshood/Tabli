@@ -50,6 +50,11 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   
   const maxHoldTime = restaurant?.maxHoldTime || 10;
   const queuePosition = restaurant?.waitingInLine || 0;
+  const configuredWaitLabel =
+    restaurant?.waitTimeDisplayText?.trim() ||
+    (typeof restaurant?.waitTimeMinMinutes === 'number' && typeof restaurant?.waitTimeMaxMinutes === 'number'
+      ? `${restaurant.waitTimeMinMinutes}-${restaurant.waitTimeMaxMinutes} minutes`
+      : null);
 
   useEffect(() => {
     setLiveQueueCount(restaurant?.waitingInLine ?? null);
@@ -431,13 +436,13 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{formattedQueueCount}</span>
             </div>
             {/* HIDDEN: Estimated wait time removed from user view */}
-            {/* <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" style={{color: 'var(--where2go-accent)'}} />
                 <span className="text-sm font-medium" style={{color: 'var(--where2go-text)'}}>Estimated wait:</span>
               </div>
-              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{waitLabel}</span>
-            </div> */}
+              <span className="font-bold" style={{color: 'var(--where2go-accent)'}}>{configuredWaitLabel || waitLabel}</span>
+            </div>
           </div>
         )}
 

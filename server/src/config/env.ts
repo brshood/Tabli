@@ -35,6 +35,8 @@ export const env = {
   EAND_SMS_URL: process.env.EAND_SMS_URL || 'https://nexus.eandenterprise.com/api/v1/sms/send',
   EAND_SENDER_ID: process.env.EAND_SENDER_ID,
   EAND_DR_CALLBACK: process.env.EAND_DR_CALLBACK || 'http://example.com/dr',
+  BACKUP_ENCRYPTION_KEY: process.env.BACKUP_ENCRYPTION_KEY,
+  BACKUP_OUTPUT_DIR: process.env.BACKUP_OUTPUT_DIR || 'backups',
 };
 
 

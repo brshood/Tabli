@@ -24,6 +24,16 @@ server/.env*
 # Sensitive keys and secrets
 VAPID_KEYS.md
 
+# Database backups and decryption (encrypted dumps, plaintext restores, work dirs)
+backups/
+server/backups/
+**/db-backup-*.enc.json
+**/*.decrypted.json
+**/decrypted-backups/
+**/decrypted/
+restore.json
+restored.json
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

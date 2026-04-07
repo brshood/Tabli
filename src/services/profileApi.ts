@@ -24,6 +24,9 @@ export interface RestaurantInfo {
   priceRange: string;
   description: string;
   featuredMenuItems?: { name: string; description?: string; price?: string }[];
+  waitTimeMinMinutes?: number;
+  waitTimeMaxMinutes?: number;
+  waitTimeDisplayText?: string;
 }
 
 /**

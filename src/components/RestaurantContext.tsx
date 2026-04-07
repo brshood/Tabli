@@ -41,6 +41,9 @@ export interface Restaurant {
   address?: string; // full address
   indoorSeating?: boolean;
   outdoorSeating?: boolean;
+  waitTimeMinMinutes?: number;
+  waitTimeMaxMinutes?: number;
+  waitTimeDisplayText?: string;
 }
 
 interface RestaurantContextType {
@@ -90,7 +93,10 @@ const defaultRestaurant: Restaurant = {
   maxHoldTime: 10,
   address: "123 Downtown Street, Dubai Marina",
   indoorSeating: true,
-  outdoorSeating: true
+  outdoorSeating: true,
+  waitTimeMinMinutes: 10,
+  waitTimeMaxMinutes: 15,
+  waitTimeDisplayText: '10 - 15 minutes',
 };
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -168,6 +174,9 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             address: r.address || '',
             indoorSeating: true,
             outdoorSeating: true,
+            waitTimeMinMinutes: typeof r.waitTimeMinMinutes === 'number' ? r.waitTimeMinMinutes : undefined,
+            waitTimeMaxMinutes: typeof r.waitTimeMaxMinutes === 'number' ? r.waitTimeMaxMinutes : undefined,
+            waitTimeDisplayText: r.waitTimeDisplayText || undefined,
           };
         });
         if (!cancelled) {

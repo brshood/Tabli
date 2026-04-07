@@ -55,5 +55,8 @@ const restaurantSchema = new Schema({
     // Staff occupancy overrides
     indoorFull: { type: Boolean, default: false },
     outdoorFull: { type: Boolean, default: false },
+    waitTimeMinMinutes: { type: Number, min: 0, max: 300 },
+    waitTimeMaxMinutes: { type: Number, min: 0, max: 300 },
+    waitTimeDisplayText: { type: String, maxlength: 100 },
 }, { timestamps: true });
 export const Restaurant = mongoose.models.Restaurant || mongoose.model('Restaurant', restaurantSchema);

@@ -33,6 +33,9 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
   const [closingHours, setClosingHours] = useState('');
   const [priceRange, setPriceRange] = useState('$$');
   const [description, setDescription] = useState('');
+  const [waitTimeMinMinutes, setWaitTimeMinMinutes] = useState('');
+  const [waitTimeMaxMinutes, setWaitTimeMaxMinutes] = useState('');
+  const [waitTimeDisplayText, setWaitTimeDisplayText] = useState('');
   const [featuredItems, setFeaturedItems] = useState<Array<{ name: string; description: string; price: string }>>([]);
 
   useEffect(() => {
@@ -56,6 +59,13 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
       setClosingHours(restaurant.closingHours || '');
       setPriceRange(restaurant.priceRange || '$$');
       setDescription(restaurant.description || '');
+      setWaitTimeMinMinutes(
+        typeof restaurant.waitTimeMinMinutes === 'number' ? String(restaurant.waitTimeMinMinutes) : ''
+      );
+      setWaitTimeMaxMinutes(
+        typeof restaurant.waitTimeMaxMinutes === 'number' ? String(restaurant.waitTimeMaxMinutes) : ''
+      );
+      setWaitTimeDisplayText(restaurant.waitTimeDisplayText || '');
       setFeaturedItems(
         (restaurant.featuredMenuItems || []).map((item: any) => ({
           name: item.name || '',
@@ -77,6 +87,19 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
     }
 
     try {
+      const parsedMin = waitTimeMinMinutes.trim() ? Number(waitTimeMinMinutes) : undefined;
+      const parsedMax = waitTimeMaxMinutes.trim() ? Number(waitTimeMaxMinutes) : undefined;
+      if (
+        (parsedMin !== undefined && (!Number.isFinite(parsedMin) || parsedMin < 0)) ||
+        (parsedMax !== undefined && (!Number.isFinite(parsedMax) || parsedMax < 0))
+      ) {
+        toast.error('Wait time must be a valid positive number');
+        return;
+      }
+      if (parsedMin !== undefined && parsedMax !== undefined && parsedMin > parsedMax) {
+        toast.error('Minimum wait time cannot be greater than maximum wait time');
+        return;
+      }
       setSaving(true);
       await updateRestaurantInfo(
         restaurantId,
@@ -92,6 +115,9 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
           closingHours,
           priceRange,
           description,
+          waitTimeMinMinutes: parsedMin !== undefined ? Math.floor(parsedMin) : undefined,
+          waitTimeMaxMinutes: parsedMax !== undefined ? Math.floor(parsedMax) : undefined,
+          waitTimeDisplayText: waitTimeDisplayText.trim() || undefined,
           featuredMenuItems: featuredItems
             .filter((item) => item.name.trim())
             .map((item) => ({
@@ -348,6 +374,46 @@ export function RestaurantInformation({ restaurantId, token, onRestaurantDeleted
               backgroundColor: '#FFFFFF'
             }}
           />
+        </div>
+
+        <div className="space-y-3">
+          <Label style={{ color: '#2D2D2B' }}>Customer Wait Time</Label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="waitTimeMin" style={{ color: '#2D2D2B' }}>Min (minutes)</Label>
+              <Input
+                id="waitTimeMin"
+                type="number"
+                min="0"
+                value={waitTimeMinMinutes}
+                onChange={(e) => setWaitTimeMinMinutes(e.target.value)}
+                placeholder="15"
+                style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="waitTimeMax" style={{ color: '#2D2D2B' }}>Max (minutes)</Label>
+              <Input
+                id="waitTimeMax"
+                type="number"
+                min="0"
+                value={waitTimeMaxMinutes}
+                onChange={(e) => setWaitTimeMaxMinutes(e.target.value)}
+                placeholder="30"
+                style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="waitTimeText" style={{ color: '#2D2D2B' }}>Display text</Label>
+              <Input
+                id="waitTimeText"
+                value={waitTimeDisplayText}
+                onChange={(e) => setWaitTimeDisplayText(e.target.value)}
+                placeholder="15 - 30 minutes"
+                style={{ borderColor: 'rgba(90, 94, 62, 0.3)', backgroundColor: '#FFFFFF' }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-3">

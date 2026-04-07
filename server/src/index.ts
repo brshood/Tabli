@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { checkExpiredHolds } from './services/holdExpiryChecker';
 import { runDailyReset } from './cron/dailyReset';
+import { runEncryptedLocalBackup } from './services/backupService';
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
@@ -50,6 +51,25 @@ async function main() {
   }, 10 * 60 * 1000); // Check every 10 minutes
   
   console.log('Daily reset scheduler started (runs at 1 AM GST)');
+
+  let lastBackupDayKey = '';
+  const runDailyBackupIfNeeded = async () => {
+    if (!env.BACKUP_ENCRYPTION_KEY) return;
+    const now = new Date();
+    const dayKey = now.toISOString().slice(0, 10);
+    if (dayKey === lastBackupDayKey) return;
+    try {
+      const outputPath = await runEncryptedLocalBackup(env.BACKUP_ENCRYPTION_KEY, env.BACKUP_OUTPUT_DIR);
+      lastBackupDayKey = dayKey;
+      console.log(`[BACKUP] Encrypted local backup created: ${outputPath}`);
+    } catch (backupError) {
+      console.error('[BACKUP] Failed to create encrypted local backup:', backupError);
+    }
+  };
+
+  await runDailyBackupIfNeeded();
+  setInterval(runDailyBackupIfNeeded, 60 * 60 * 1000);
+  console.log('Daily encrypted backup scheduler started');
 }
 
 main().catch((err) => {

@@ -177,6 +177,7 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
   };
 
   const featuredItems = restaurant.featuredMenuItems?.filter((item) => item.name?.trim()) || [];
+  const isRestaurantClosed = restaurant.status !== 'available' && restaurant.tablesAvailable === 0;
 
   return (
     <div className="min-h-screen relative" style={{backgroundColor: '#FAFAFA'}}>
@@ -326,7 +327,12 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 <div className="text-xs" style={{color: '#6B7280'}}>Rating</div>
               </div>
               <div className="text-center border-x px-1 min-w-0" style={{borderColor: '#D1D5DB'}}>
-                {restaurant.status === 'available' ? (
+                {isRestaurantClosed ? (
+                  <>
+                    <div className="text-sm font-bold mb-1 break-words" style={{color: '#EF4444'}}>Closed</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>Status</div>
+                  </>
+                ) : restaurant.status === 'available' ? (
                   <>
                     <div className="text-sm font-bold mb-1 break-words" style={{color: '#22C55E'}}>Available</div>
                     <div className="text-xs" style={{color: '#6B7280'}}>Status</div>
@@ -362,13 +368,14 @@ export function RestaurantProfilePage({ restaurant, onNavigate }: RestaurantProf
                 <Button 
                   className={`w-full pill-button text-white text-lg py-6 ${isRTL ? 'font-arabic' : ''}`}
                   style={{backgroundColor: '#000000', borderColor: '#000000'}}
+                  disabled={isRestaurantClosed}
                   onClick={() => {
                     setBookingMode('waitlist');
                     setBookingModalOpen(true);
                   }}
                 >
                   <Users className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                  {t('action.standInQueue')}
+                  {isRestaurantClosed ? 'Restaurant Closed' : t('action.standInQueue')}
                 </Button>
               )}
               

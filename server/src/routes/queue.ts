@@ -175,7 +175,13 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       // Fire and forget - don't block queue join
       sendSmsViaEand({
         to: data.phone,
-        text: getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition }),
+        text: getQueueJoinMessage({
+          restaurantName: restaurant.name,
+          queuePosition,
+          waitTimeDisplayText: (restaurant as any).waitTimeDisplayText,
+          waitTimeMinMinutes: (restaurant as any).waitTimeMinMinutes,
+          waitTimeMaxMinutes: (restaurant as any).waitTimeMaxMinutes,
+        }),
         category: 'otp',
       }).catch((smsError) => {
         console.error('[QUEUE] Failed to send SMS notification:', {

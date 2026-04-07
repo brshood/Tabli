@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Users, Table, Clock, CheckCircle, Phone, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees } from 'lucide-react';
+import { Users, Table, Clock, CheckCircle, Phone, PhoneCall, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees, Store } from 'lucide-react';
 import { TableManagementModal } from './TableManagementModal';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
@@ -102,6 +102,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [callNextLoading, setCallNextLoading] = useState(false);
   const [calledQueue, setCalledQueue] = useState<any[]>([]);
   const [reservedBookings, setReservedBookings] = useState<any[]>([]);
+  const isRestaurantClosed = indoorFull && outdoorFull;
 
   useEffect(() => {
     let timer: any;
@@ -315,6 +316,30 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       }
     } catch (e: any) {
       toast.error(e.message || 'Failed to update outdoor');
+    }
+  };
+
+  const toggleRestaurantClosed = async () => {
+    if (!staffAuth?.restaurantId || !staffAuth?.token) return;
+    const nextClosed = !isRestaurantClosed;
+    try {
+      const res = await fetch(`${API_URL}/restaurants/${staffAuth.restaurantId}/availability-override`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${staffAuth.token}`,
+        },
+        body: JSON.stringify({ indoorFull: nextClosed, outdoorFull: nextClosed }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update restaurant status');
+      }
+      setIndoorFull(nextClosed);
+      setOutdoorFull(nextClosed);
+      toast.success(nextClosed ? 'Restaurant marked as closed' : 'Restaurant marked as open');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update restaurant status');
     }
   };
 
@@ -676,6 +701,23 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       toast.success(`Removed ${name} from called list`);
     } catch (e: any) {
       toast.error(e.message || 'Failed to remove guest');
+    }
+  };
+
+  const resendCalledNotification = async (reservationId: string, name: string) => {
+    try {
+      const res = await fetch(`${API_URL}/reservations/${reservationId}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to resend SMS');
+      }
+      toast.success(`Resent call notification to ${name}`);
+      await loadReservationsFromDB();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to resend notification');
     }
   };
   
@@ -1636,6 +1678,15 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <Phone className="h-5 w-5 mr-2" />
                   Call Next in Line
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full py-6 text-lg rounded-2xl"
+                  style={isRestaurantClosed ? { backgroundColor: '#7F1D1D', color: '#fff', borderColor: '#7F1D1D' } : { borderColor: 'rgba(127, 29, 29, 0.5)', color: '#7F1D1D' }}
+                  onClick={toggleRestaurantClosed}
+                >
+                  <Store className="h-5 w-5 mr-2" />
+                  {isRestaurantClosed ? 'Reopen Restaurant' : 'Close Restaurant'}
+                </Button>
               </div>
             </div>
 
@@ -1648,7 +1699,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     Called — please arrive ({calledQueue.length})
                   </CardTitle>
                   <p className="text-sm" style={{ color: '#6b6b6b' }}>
-                    Guests notified to come. Tap ✓ when they arrive. Entries older than 24 hours clear automatically; tap ✕ to remove one manually.
+                    Guests notified to come. Tap ✓ when they arrive. Entries older than 14 days clear automatically; tap ✕ to remove one manually.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
@@ -1672,6 +1723,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         ) : null}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full h-10 w-10 p-0"
+                          style={{ borderColor: 'rgba(90, 94, 62, 0.35)', color: '#5A5E3E' }}
+                          title="Resend call SMS"
+                          onClick={() => resendCalledNotification(c.reservationId, c.name)}
+                        >
+                          <PhoneCall className="h-4 w-4" />
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"

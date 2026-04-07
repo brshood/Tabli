@@ -222,6 +222,17 @@ const updateSchema = z.object({
   priceRange: z.string().optional(),
   menu: z.array(menuItemSchema).optional(),
   featuredMenuItems: z.array(featuredMenuItemSchema).max(6).optional(),
+  waitTimeMinMinutes: z.number().int().min(0).max(300).optional(),
+  waitTimeMaxMinutes: z.number().int().min(0).max(300).optional(),
+  waitTimeDisplayText: z.string().trim().max(100).optional(),
+}).refine((data) => {
+  if (typeof data.waitTimeMinMinutes === 'number' && typeof data.waitTimeMaxMinutes === 'number') {
+    return data.waitTimeMinMinutes <= data.waitTimeMaxMinutes;
+  }
+  return true;
+}, {
+  message: 'Minimum wait time must be less than or equal to maximum wait time',
+  path: ['waitTimeMinMinutes'],
 });
 
 restaurantsRouter.put('/:id', requireAuth, requireOwnRestaurant, async (req, res, next) => {

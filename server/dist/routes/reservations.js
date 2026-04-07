@@ -251,8 +251,19 @@ reservationsRouter.post('/', async (req, res, next) => {
                 sendSmsViaEand({
                     to: data.phone,
                     text: isWaitlist
-                        ? getQueueJoinMessage({ restaurantName: restaurant.name, queuePosition })
-                        : getReservationConfirmationMessage({ restaurantName: restaurant.name }),
+                        ? getQueueJoinMessage({
+                            restaurantName: restaurant.name,
+                            queuePosition,
+                            waitTimeDisplayText: restaurant.waitTimeDisplayText,
+                            waitTimeMinMinutes: restaurant.waitTimeMinMinutes,
+                            waitTimeMaxMinutes: restaurant.waitTimeMaxMinutes,
+                        })
+                        : getReservationConfirmationMessage({
+                            restaurantName: restaurant.name,
+                            waitTimeDisplayText: restaurant.waitTimeDisplayText,
+                            waitTimeMinMinutes: restaurant.waitTimeMinMinutes,
+                            waitTimeMaxMinutes: restaurant.waitTimeMaxMinutes,
+                        }),
                     category: 'otp',
                 }).catch((smsError) => {
                     console.error('[RESERVATION] Failed to send SMS notification:', {
@@ -351,7 +362,7 @@ reservationsRouter.get('/:id', async (req, res, next) => {
         next(err);
     }
 });
-const CALLED_LIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CALLED_LIST_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 reservationsRouter.get('/', async (req, res, next) => {
     try {
         const { restaurantId, status, date } = req.query;
