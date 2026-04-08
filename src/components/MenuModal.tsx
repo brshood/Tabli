@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
-import { Menu, X, Star, FileText, Image as ImageIcon, ExternalLink, Download } from 'lucide-react';
+import { Menu, X, Star, FileText, Image as ImageIcon, ExternalLink, Download, Maximize2 } from 'lucide-react';
 
 interface MenuItem {
   name: string;
@@ -34,6 +34,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating, r
   const [menu, setMenu] = useState<MenuItem[]>(propMenu || []);
   const [menuDocuments, setMenuDocuments] = useState<MenuDocument[]>([]);
   const [loading, setLoading] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<MenuDocument | null>(null);
 
   // Fetch menu when modal opens if restaurantId is provided and menu prop is not
   useEffect(() => {
@@ -45,6 +46,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating, r
     } else if (!isOpen) {
       setMenu([]);
       setMenuDocuments([]);
+      setViewingDoc(null);
     }
   }, [isOpen, restaurantId, propMenu]);
 
@@ -107,6 +109,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating, r
 
   const categories = Object.keys(menuByCategory);
   return (
+  <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto [&>button]:hidden" style={{backgroundColor: '#F3E5AB'}}>
         <DialogHeader>
@@ -157,10 +160,7 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating, r
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                const url = `${API_URL}/media/${doc.fileId}`;
-                                window.open(url, '_blank');
-                              }}
+                              onClick={() => setViewingDoc(doc)}
                               className="ml-2"
                             >
                               <ExternalLink className="h-4 w-4 mr-1" />
@@ -240,5 +240,72 @@ export function MenuModal({ isOpen, onClose, restaurantName, restaurantRating, r
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Inline document viewer popup */}
+    {viewingDoc && (
+      <div
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        onClick={() => setViewingDoc(null)}
+      >
+        <div
+          className="relative w-[95vw] h-[90vh] max-w-5xl rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+          style={{ backgroundColor: '#F3E5AB' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(183, 65, 14, 0.2)' }}>
+            <div className="flex items-center gap-2 min-w-0">
+              {viewingDoc.type === 'pdf' ? (
+                <FileText className="h-5 w-5 flex-shrink-0" style={{ color: '#5A5E3E' }} />
+              ) : (
+                <ImageIcon className="h-5 w-5 flex-shrink-0" style={{ color: '#5A5E3E' }} />
+              )}
+              <span className="font-semibold truncate" style={{ color: '#2D2D2B' }}>
+                {viewingDoc.menuType
+                  ? viewingDoc.menuType.charAt(0).toUpperCase() + viewingDoc.menuType.slice(1) + ' Menu'
+                  : 'Menu'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`${API_URL}/media/${viewingDoc.fileId}`, '_blank')}
+                title="Open in new tab"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewingDoc(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-auto bg-white">
+            {viewingDoc.type === 'pdf' ? (
+              <iframe
+                src={`${API_URL}/media/${viewingDoc.fileId}`}
+                className="w-full h-full border-0"
+                title={viewingDoc.filename}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full p-4">
+                <img
+                  src={`${API_URL}/media/${viewingDoc.fileId}`}
+                  alt={viewingDoc.filename}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }
