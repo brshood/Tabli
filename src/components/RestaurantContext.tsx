@@ -128,11 +128,20 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
         if (!res.ok) return;
         const { items } = await res.json();
         const mapped: Restaurant[] = (items || []).map((r: any) => {
-          // Format wait time as average if data exists
-          let waitTime: string | null = null;
-          if (r.avgWaitTime !== null && r.avgWaitTime !== undefined) {
-            waitTime = `~${r.avgWaitTime} min`;
-          }
+          // Prefer restaurant-configured wait time; fall back to computed average.
+          const configuredWaitTime =
+            typeof r.waitTimeDisplayText === 'string' && r.waitTimeDisplayText.trim().length > 0
+              ? r.waitTimeDisplayText.trim()
+              : (typeof r.waitTimeMinMinutes === 'number' && typeof r.waitTimeMaxMinutes === 'number'
+                  ? `${r.waitTimeMinMinutes}-${r.waitTimeMaxMinutes} min`
+                  : null);
+
+          const computedWaitTime =
+            r.avgWaitTime !== null && r.avgWaitTime !== undefined
+              ? `~${r.avgWaitTime} min`
+              : null;
+
+          const waitTime: string | null = configuredWaitTime || computedWaitTime;
           
           // "available" = reserve path (staff toggles show at least one section open); "waitlist" = queue only.
           // Section full (indoor/outdoor) does not mean closed — use closedForCustomers for that.

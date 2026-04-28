@@ -1712,8 +1712,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                       style={{ backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)' }}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold truncate" style={{ color: '#2D2D2B' }}>
-                          {c.orderIndex}. {c.name}
+                        <div className="font-semibold truncate flex items-center gap-1.5" style={{ color: '#2D2D2B' }}>
+                          <Phone className="h-3.5 w-3.5 shrink-0" style={{ color: '#5A5E3E' }} />
+                          <span>{c.orderIndex}. {c.name}</span>
                         </div>
                         <div className="text-xs mt-1" style={{ color: '#5A5E3E' }}>
                           Called {c.calledAtLabel} · {c.phone || c.email || '—'}

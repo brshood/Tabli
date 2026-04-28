@@ -10,6 +10,68 @@ import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
 import { env } from '../config/env';
 export const queueRouter = express.Router();
+const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed'];
+const buildQueuePopulationFilter = (restaurantId, seatingPref) => {
+    if (seatingPref === 'indoor') {
+        return {
+            restaurantId,
+            status: { $in: ACTIVE_QUEUE_STATUSES },
+            $or: [
+                { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                { mode: 'waitlist', seatingPreference: { $exists: false } },
+                { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
+                { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+            ]
+        };
+    }
+    if (seatingPref === 'outdoor') {
+        return {
+            restaurantId,
+            status: { $in: ACTIVE_QUEUE_STATUSES },
+            $or: [
+                { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                { mode: 'waitlist', seatingPreference: { $exists: false } },
+                { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
+                { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+            ]
+        };
+    }
+    return {
+        restaurantId,
+        status: { $in: ACTIVE_QUEUE_STATUSES },
+        $or: [
+            { mode: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
+            { mode: 'waitlist', seatingPreference: { $exists: false } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
+            { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
+        ]
+    };
+};
+const computeDeterministicQueuePosition = async (restaurantId, reservationId, requestedAt, seatingPref) => {
+    const beforeOrSameWithLowerId = {
+        $or: [
+            { requestedAt: { $lt: requestedAt } },
+            { requestedAt, _id: { $lte: reservationId } },
+        ]
+    };
+    if (seatingPref === 'indoor' || seatingPref === 'outdoor') {
+        return Reservation.countDocuments({
+            ...buildQueuePopulationFilter(restaurantId, seatingPref),
+            ...beforeOrSameWithLowerId,
+        });
+    }
+    const [indoorPosition, outdoorPosition] = await Promise.all([
+        Reservation.countDocuments({
+            ...buildQueuePopulationFilter(restaurantId, 'indoor'),
+            ...beforeOrSameWithLowerId,
+        }),
+        Reservation.countDocuments({
+            ...buildQueuePopulationFilter(restaurantId, 'outdoor'),
+            ...beforeOrSameWithLowerId,
+        }),
+    ]);
+    return Math.min(indoorPosition, outdoorPosition);
+};
 const joinSchema = z.object({
     partySize: z.number().min(1).max(20),
     contactMethod: z.enum(['phone', 'email']),
@@ -62,69 +124,7 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
                 error: 'You already have an active reservation at this restaurant'
             });
         }
-        // Calculate queue position based on seating preference
-        // Indoor queue: indoor + no-preference customers
-        // Outdoor queue: outdoor + no-preference customers
-        // No-preference customers appear in both queues
-        const seatingPref = data.seatingPreference || 'no-preference';
-        let queuePosition;
-        if (seatingPref === 'indoor') {
-            // Count customers in indoor queue (indoor + no-preference + missing field)
-            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
-            const indoorCount = await Reservation.countDocuments({
-                restaurantId: restaurant._id,
-                status: { $in: ['pending', 'confirmed'] },
-                $or: [
-                    { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-                    { mode: 'waitlist', seatingPreference: { $exists: false } },
-                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-                ]
-            });
-            queuePosition = indoorCount + 1;
-        }
-        else if (seatingPref === 'outdoor') {
-            // Count customers in outdoor queue (outdoor + no-preference + missing field)
-            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
-            const outdoorCount = await Reservation.countDocuments({
-                restaurantId: restaurant._id,
-                status: { $in: ['pending', 'confirmed'] },
-                $or: [
-                    { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-                    { mode: 'waitlist', seatingPreference: { $exists: false } },
-                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-                    { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-                ]
-            });
-            queuePosition = outdoorCount + 1;
-        }
-        else {
-            // No-preference: show the smaller queue position (could be seated at either)
-            // Include both mode='waitlist' and mode='reserve' with reservationType='waitlist'
-            const [indoorCount, outdoorCount] = await Promise.all([
-                Reservation.countDocuments({
-                    restaurantId: restaurant._id,
-                    status: { $in: ['pending', 'confirmed'] },
-                    $or: [
-                        { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-                        { mode: 'waitlist', seatingPreference: { $exists: false } },
-                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-                    ]
-                }),
-                Reservation.countDocuments({
-                    restaurantId: restaurant._id,
-                    status: { $in: ['pending', 'confirmed'] },
-                    $or: [
-                        { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-                        { mode: 'waitlist', seatingPreference: { $exists: false } },
-                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-                        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-                    ]
-                })
-            ]);
-            queuePosition = Math.min(indoorCount, outdoorCount) + 1;
-        }
+        const seatingPref = (data.seatingPreference || 'no-preference');
         const doc = await Reservation.create({
             restaurantId: restaurant._id,
             mode: 'waitlist',
@@ -134,9 +134,12 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
             phone: data.phone, // Always store phone
             email: data.email, // Always store email
             status: 'pending',
-            queuePosition,
+            queuePosition: undefined,
             seatingPreference: data.seatingPreference,
         });
+        const queuePosition = await computeDeterministicQueuePosition(restaurant._id, doc._id, doc.requestedAt, seatingPref);
+        doc.queuePosition = queuePosition;
+        await doc.save();
         const message = `You joined the queue at ${restaurant.name}. You're #${queuePosition}. We'll notify you when it's your turn.`;
         try {
             if (data.email && isValidEmailForSending(data.email)) {
