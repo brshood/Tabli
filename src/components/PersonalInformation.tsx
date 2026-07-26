@@ -36,6 +36,7 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
   const [countryCode, setCountryCode] = useState('+971');
   const [phoneLocal, setPhoneLocal] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const [testingSms, setTestingSms] = useState(false);
   const [loadingPhones, setLoadingPhones] = useState(true);
 
   useEffect(() => {
@@ -115,8 +116,18 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
     }
   };
 
+  // Staff often type the country code (or a leading 0) even though it's in the picker.
+  // Strip both so we never build a number like +9719715012345.
+  const toLocalDigits = (raw: string) => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    const cc = countryCode.replace(/\D/g, '');
+    while (digits.startsWith(cc)) digits = digits.slice(cc.length);
+    return digits.replace(/^0+/, '');
+  };
+
   const handleSaveNotificationPhone = async () => {
-    const localDigits = phoneLocal.replace(/\D/g, '').replace(/^0+/, '');
+    const localDigits = toLocalDigits(phoneLocal);
     if (localDigits.length < 7) {
       toast.error('Please enter a valid phone number');
       return;
@@ -135,11 +146,12 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
         body: JSON.stringify({ phone: fullPhone }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error('Failed to save notification phone');
+        throw new Error(data.error || 'Failed to save notification phone');
       }
 
-      const data = await res.json();
       setNotificationPhones(data.notificationPhones || []);
       setActiveNotificationPhone(data.activeNotificationPhone || null);
       setPhoneLocal('');
@@ -174,6 +186,30 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
       toast.error(error.message || 'Failed to update notification phone');
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const handleSendTestSms = async () => {
+    try {
+      setTestingSms(true);
+      const res = await fetch(`${API_URL}/restaurants/${restaurantId}/notification-phone/test`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send test SMS');
+      }
+
+      toast.success(`Test SMS sent to ${data.sentTo || activeNotificationPhone}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send test SMS');
+    } finally {
+      setTestingSms(false);
     }
   };
 
@@ -278,6 +314,15 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
               <p className="text-lg font-semibold" style={{ color: '#3F4427' }}>
                 {activeNotificationPhone}
               </p>
+              <Button
+                onClick={handleSendTestSms}
+                disabled={testingSms}
+                variant="outline"
+                className="mt-2"
+                style={{ borderColor: 'rgba(90, 94, 62, 0.4)', color: '#3F4427' }}
+              >
+                {testingSms ? 'Sending...' : 'Send test SMS'}
+              </Button>
             </div>
           )}
 
@@ -341,8 +386,8 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
                 type="tel"
                 placeholder="Phone number"
                 value={phoneLocal}
-                onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                maxLength={10}
+                onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                maxLength={15}
                 className="flex-1"
                 style={{ 
                   borderColor: 'rgba(90, 94, 62, 0.3)',
@@ -355,7 +400,7 @@ export function PersonalInformation({ user, token, restaurantId, onUserUpdate }:
           <div className="pt-2">
             <Button
               onClick={handleSaveNotificationPhone}
-              disabled={savingPhone || phoneLocal.replace(/\D/g, '').length < 7}
+              disabled={savingPhone || toLocalDigits(phoneLocal).length < 7}
               className="pill-button text-white"
               style={{ backgroundColor: '#3F4427' }}
             >

@@ -3,7 +3,7 @@ import { connectMongo } from './db/mongo';
 import { createApp } from './app';
 import { env } from './config/env';
 import { checkExpiredHolds } from './services/holdExpiryChecker';
-import { runDailyReset } from './cron/dailyReset';
+import { sweepStaleQueueEntries, STALE_QUEUE_HOURS } from './cron/dailyReset';
 import { runEncryptedLocalBackup } from './services/backupService';
 
 // Handle unhandled promise rejections
@@ -38,19 +38,12 @@ async function main() {
   
   console.log('Hold expiry checker started (runs every minute)');
   
-  // #15 - Daily reset at 1 AM GST (21:00 UTC previous day)
-  // Check every hour if it's 1 AM GST
-  setInterval(async () => {
-    const now = new Date();
-    const gstHour = (now.getUTCHours() + 4) % 24; // GST is UTC+4
-    
-    if (gstHour === 1 && now.getUTCMinutes() < 10) {
-      // Run reset if it's between 1:00-1:10 AM GST
-      await runDailyReset();
-    }
-  }, 10 * 60 * 1000); // Check every 10 minutes
-  
-  console.log('Daily reset scheduler started (runs at 1 AM GST)');
+  // Expire abandoned queue entries continuously rather than in a single nightly
+  // window: a missed window used to leave stale rows counting as people in line.
+  await sweepStaleQueueEntries();
+  setInterval(sweepStaleQueueEntries, 30 * 60 * 1000);
+
+  console.log(`Queue sweep started (expires entries older than ${STALE_QUEUE_HOURS}h, runs every 30 minutes)`);
 
   let lastBackupDayKey = '';
   const runDailyBackupIfNeeded = async () => {

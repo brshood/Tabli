@@ -549,12 +549,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         .filter(r => pendingStatuses(r) && r.reservationType === 'reserved')
         .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
 
+      // Guests stay on this board until they are seated or removed. Dropping them
+      // on arrival used to make them vanish from the dashboard entirely, since the
+      // queue list excludes anyone already called.
       const calledRows = items
         .filter(r =>
           pendingStatuses(r) &&
           r.reservationType !== 'reserved' &&
-          r.calledAt &&
-          !r.arrivedAt
+          r.calledAt
         )
         .sort((a, b) => new Date(a.calledAt).getTime() - new Date(b.calledAt).getTime());
 
@@ -621,6 +623,8 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         holdTimeExpires: Date.now() + 10 * 60000,
         status: r.status,
         holdUntil: r.holdUntil ? new Date(r.holdUntil) : null,
+        holdStatus: r.holdStatus,
+        arrivedAt: r.arrivedAt ? new Date(r.arrivedAt) : null,
         customerNotes: (r.customerNotes || '').trim(),
       });
 
@@ -1701,7 +1705,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     Called — please arrive ({calledQueue.length})
                   </CardTitle>
                   <p className="text-sm" style={{ color: '#6b6b6b' }}>
-                    Guests notified to come. Tap ✓ when they arrive. Entries older than 14 days clear automatically; tap ✕ to remove one manually.
+                    Guests notified to come. Tap ✓ when they arrive — they stay listed until you seat them. Tap ✕ to remove one manually.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3 max-h-[280px] overflow-y-auto">
@@ -1718,6 +1722,24 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         </div>
                         <div className="text-xs mt-1" style={{ color: '#5A5E3E' }}>
                           Called {c.calledAtLabel} · {c.phone || c.email || '—'}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {c.arrivedAt && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: '#3F4427', color: '#fff' }}
+                            >
+                              Arrived — seat them
+                            </span>
+                          )}
+                          {!c.arrivedAt && c.holdStatus === 'expired' && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: '#F0DC82', color: '#2D2D2B' }}
+                            >
+                              Hold expired — no show?
+                            </span>
+                          )}
                         </div>
                         {c.customerNotes ? (
                           <p className="text-xs mt-1" style={{ color: '#2D2D2B' }}>
@@ -1751,9 +1773,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         <Button
                           type="button"
                           size="sm"
+                          disabled={Boolean(c.arrivedAt)}
                           className="rounded-full h-10 w-10 p-0 text-lg"
-                          style={{ backgroundColor: '#3F4427', color: '#fff' }}
-                          title="Mark arrived"
+                          style={{
+                            backgroundColor: c.arrivedAt ? '#9FA0A0' : '#3F4427',
+                            color: '#fff',
+                          }}
+                          title={c.arrivedAt ? 'Already marked arrived' : 'Mark arrived'}
                           onClick={() => markCustomerArrived(c.reservationId, c.name)}
                         >
                           ✓

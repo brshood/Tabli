@@ -8,6 +8,7 @@ import { getGridFsBucket } from '../db/gridfs';
 import { ObjectId } from 'mongodb';
 import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
+import { sendSmsViaEand, normalizeNotificationMsisdn } from '../services/eandSmsClient';
 import { getDaysAgoStartGST } from '../utils/dateFormat';
 
 export const restaurantsRouter = express.Router();
@@ -269,8 +270,15 @@ restaurantsRouter.patch('/:id/notification-phone', requireAuth, requireOwnRestau
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 
-    // Normalize the phone number (remove non-digits except leading +)
-    const normalizedPhone = data.phone.replace(/[^\d+]/g, '');
+    // Normalize to E.164 so the SMS gateway always gets a dialable number.
+    // Rejects the common mistakes (country code typed twice, missing digits).
+    const msisdn = normalizeNotificationMsisdn(data.phone);
+    if (!msisdn) {
+      return res.status(400).json({
+        error: 'That phone number does not look valid. Enter the number without the country code, e.g. 501234567.',
+      });
+    }
+    const normalizedPhone = `+${msisdn}`;
 
     // Add to history if not already present
     const existingPhones = restaurant.notificationPhones || [];
@@ -308,6 +316,38 @@ restaurantsRouter.get('/:id/notification-phones', requireAuth, requireOwnRestaur
       activeNotificationPhone: restaurant.activeNotificationPhone || null,
       notificationPhones: restaurant.notificationPhones || [],
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /restaurants/:id/notification-phone/test - Send a test SMS to the active notification phone
+// Lets staff confirm on the spot that booking alerts will actually reach their phone,
+// and surfaces the gateway error instead of hiding it in server logs.
+restaurantsRouter.post('/:id/notification-phone/test', requireAuth, requireOwnRestaurant, async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id).select('name activeNotificationPhone').lean();
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    const phone = (restaurant as any).activeNotificationPhone as string | undefined;
+    if (!phone) {
+      return res.status(400).json({ error: 'Save a notification number first' });
+    }
+
+    try {
+      await sendSmsViaEand({
+        to: phone,
+        text: `Tabli test alert for ${(restaurant as any).name || 'your restaurant'}. Booking notifications will arrive on this number.`,
+        category: 'otp',
+      });
+      res.json({ success: true, sentTo: phone });
+    } catch (smsError) {
+      const message = smsError instanceof Error ? smsError.message : String(smsError);
+      console.error('[NOTIFY_PHONE_TEST] Test SMS failed', { restaurantId: req.params.id, phone, error: message });
+      res.status(502).json({ error: `Could not send SMS to ${phone}: ${message}` });
+    }
   } catch (err) {
     next(err);
   }

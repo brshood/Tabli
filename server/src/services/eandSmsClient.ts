@@ -58,6 +58,47 @@ export function normalizeMsisdn(raw: string): string {
   return trimmed.startsWith("+") ? trimmed.slice(1) : trimmed;
 }
 
+/** Country codes offered in the staff notification-phone picker */
+const SUPPORTED_COUNTRY_CODES = ['971', '966', '974', '973', '968'];
+
+/**
+ * Normalize a staff notification phone into E.164 digits (no '+').
+ * Tolerates the ways staff actually type numbers:
+ * - '05x xxx xxxx' / '5xxxxxxxx' (UAE local, with or without leading zero)
+ * - '00971...' international prefix
+ * - the country code typed twice ('+971' picker + '971...' in the field)
+ * Returns null when the result can't be a dialable number.
+ */
+export function normalizeNotificationMsisdn(raw: string): string | null {
+  let digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return null;
+
+  // Drop the '00' international prefix
+  if (digits.startsWith('00')) digits = digits.slice(2);
+
+  const countryCode = SUPPORTED_COUNTRY_CODES.find((cc) => digits.startsWith(cc));
+
+  if (countryCode) {
+    let rest = digits.slice(countryCode.length);
+    // Country code typed twice, e.g. picker '+971' + field '971501234567'
+    while (rest.startsWith(countryCode)) rest = rest.slice(countryCode.length);
+    // Local trunk zero, e.g. '+971' + '0501234567'
+    rest = rest.replace(/^0+/, '');
+    // UAE subscriber numbers are 9 digits (mobile, 5xxxxxxxx) or 8 (landline)
+    if (countryCode === '971' && (rest.length < 8 || rest.length > 9)) return null;
+    if (rest.length < 6) return null;
+    digits = `${countryCode}${rest}`;
+  } else if (digits.startsWith('0')) {
+    // Assume UAE local format when no country code is present
+    digits = `971${digits.replace(/^0+/, '')}`;
+  } else if (digits.startsWith('5') && digits.length === 9) {
+    digits = `971${digits}`;
+  }
+
+  if (digits.length < 10 || digits.length > 15) return null;
+  return digits;
+}
+
 /**
  * Internal function to normalize phone number for SMS API
  * Handles UAE number format:

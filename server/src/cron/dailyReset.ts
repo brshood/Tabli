@@ -1,44 +1,56 @@
-// #15 - Daily Reset Cron Job
-// Runs at 1:00 AM GST (21:00 UTC previous day) to reset queues
+// Clears out queue entries nobody is waiting on any more.
+//
+// This used to run only in a 10-minute window at 1 AM GST and cancel *every*
+// active waitlist entry. Two problems: it matched only `mode: 'waitlist'`, so
+// entries created through POST /reservations (mode 'reserve' + reservationType
+// 'waitlist') were never cleared and piled up as permanently "pending" rows
+// that counted as people ahead in line; and a restaurant still serving after
+// 1 AM had its live queue wiped mid-service, so guests vanished from the board.
+//
+// It now expires entries by age instead, so abandoned rows always get cleaned
+// up and a guest who joined half an hour ago is never swept away.
 
 import { Reservation } from '../models/Reservation';
+import { renumberQueueAndNotify } from '../services/queueSync';
 
-/**
- * Daily reset job that runs at 1 AM GST
- * - Cancels all pending/confirmed waitlist reservations
- * - Resets queue positions
- */
-export async function runDailyReset(): Promise<void> {
+/** Nobody is still sitting in a restaurant queue this long after joining */
+export const STALE_QUEUE_HOURS = 6;
+
+export async function sweepStaleQueueEntries(): Promise<void> {
   try {
-    console.log('[DAILY_RESET] Starting daily reset at 1 AM GST...');
-    
-    // Find all active waitlist reservations
-    const activeWaitlistReservations = await Reservation.find({
-      mode: 'waitlist',
-      status: { $in: ['pending', 'confirmed'] }
-    });
-    
-    console.log(`[DAILY_RESET] Found ${activeWaitlistReservations.length} active waitlist reservations to cancel`);
-    
-    // Cancel all pending/confirmed waitlist reservations with reason tracking
-    const result = await Reservation.updateMany(
-      {
-        mode: 'waitlist',
-        status: { $in: ['pending', 'confirmed'] }
+    const cutoff = new Date(Date.now() - STALE_QUEUE_HOURS * 60 * 60 * 1000);
+
+    const staleFilter = {
+      status: { $in: ['pending', 'confirmed'] },
+      requestedAt: { $lt: cutoff },
+      $or: [
+        { mode: 'waitlist' },
+        { mode: 'reserve', reservationType: 'waitlist' },
+      ],
+    };
+
+    // Grab the affected restaurants first so we can renumber their lines afterwards
+    const stale = await Reservation.find(staleFilter).select({ _id: 1, restaurantId: 1 }).lean();
+    if (stale.length === 0) return;
+
+    const result = await Reservation.updateMany(staleFilter, {
+      $set: {
+        status: 'cancelled',
+        leftAt: new Date(),
+        queuePosition: null,
+        cancellationReason: 'daily_reset',
       },
-      {
-        $set: {
-          status: 'cancelled',
-          leftAt: new Date(),
-          queuePosition: null,
-          cancellationReason: 'daily_reset' // Track that this was an automatic reset
-        }
-      }
+    });
+
+    console.log(
+      `[QUEUE_SWEEP] Expired ${result.modifiedCount} queue entries older than ${STALE_QUEUE_HOURS}h (reason: daily_reset)`
     );
-    
-    console.log(`[DAILY_RESET] Reset complete. Cancelled ${result.modifiedCount} reservations (reason: daily_reset)`);
+
+    const restaurantIds = new Set(stale.map((entry: any) => String(entry.restaurantId)));
+    for (const restaurantId of restaurantIds) {
+      await renumberQueueAndNotify(restaurantId);
+    }
   } catch (error) {
-    console.error('[DAILY_RESET] Error during daily reset:', error);
+    console.error('[QUEUE_SWEEP] Error while expiring stale queue entries:', error);
   }
 }
-

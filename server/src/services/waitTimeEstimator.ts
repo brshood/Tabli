@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
 import { getTodayStartGST, nowGST, getDaysAgoStartGST } from '../utils/dateFormat';
+import { buildActiveQueueFilter, positionsForQueue } from './queuePosition';
 
 const DEFAULT_DWELL_MINUTES = 45;
 const DEFAULT_SEED_WAIT_MINUTES = 20; // Default seed wait time when no history exists
@@ -140,12 +141,11 @@ export async function estimateWaitTimes(
   const waitTimeSeed = await getWaitTimeSeed(restaurantObjectId);
 
   const [waitlist, seatedReservations, tables, dwellAgg] = await Promise.all([
-    Reservation.find({
-      restaurantId,
-      mode: 'waitlist',
-      status: { $in: ['pending', 'confirmed'] },
-    })
-      .sort({ queuePosition: 1, requestedAt: 1 })
+    // Same definition of "waiting in line" the queue positions use, so estimates
+    // cover customers who joined through the booking flow too (mode 'reserve'
+    // with reservationType 'waitlist'), and both agree on the order.
+    Reservation.find(buildActiveQueueFilter(restaurantId))
+      .sort({ requestedAt: 1, _id: 1 })
       .lean(),
     Reservation.find({
       restaurantId,
@@ -204,6 +204,12 @@ export async function estimateWaitTimes(
       },
     ]),
   ]);
+
+  // Report each guest's live index in the line rather than whatever number was
+  // stored when they joined, so the estimate and the queue never disagree.
+  const livePositions = positionsForQueue(waitlist as any[]);
+  const positionOf = (reservation: any, index: number) =>
+    livePositions.get(String(reservation._id)) ?? index + 1;
 
   const dwellMap = new Map<number, DwellStats>();
   let overallAvg = DEFAULT_DWELL_MINUTES;
@@ -293,7 +299,7 @@ export async function estimateWaitTimes(
       const seatMs = nowMs + fallbackWait * 60000;
       queueEstimates.push({
         reservationId: (reservation._id as any)?.toString?.() ?? '',
-        queuePosition: reservation.queuePosition ?? index + 1,
+        queuePosition: positionOf(reservation, index),
         partySize,
         estimatedWaitMinutes: Math.round(fallbackWait),
         estimatedSeatTime: new Date(seatMs).toISOString(),
@@ -316,7 +322,7 @@ export async function estimateWaitTimes(
 
     queueEstimates.push({
       reservationId: (reservation._id as any)?.toString?.() ?? '',
-      queuePosition: reservation.queuePosition ?? index + 1,
+      queuePosition: positionOf(reservation, index),
       partySize,
       estimatedWaitMinutes: waitMinutes,
       estimatedSeatTime: new Date(nextAvailability).toISOString(),

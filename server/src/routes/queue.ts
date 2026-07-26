@@ -5,91 +5,15 @@ import { Restaurant } from '../models/Restaurant';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
 import { estimateWaitTimes } from '../services/waitTimeEstimator';
 import { sendNotification } from '../services/sms';
-import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
+import { sendSmsViaEand, normalizeMsisdn, normalizeNotificationMsisdn } from '../services/eandSmsClient';
 import { getQueueJoinMessage, getRemovalMessage, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { sendPushToReservation } from '../services/pushNotification';
+import { computeQueuePosition } from '../services/queuePosition';
+import { renumberQueueAndNotify } from '../services/queueSync';
 import { env } from '../config/env';
 
 export const queueRouter = express.Router();
-
-const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed'] as const;
-
-const buildQueuePopulationFilter = (
-  restaurantId: string | any,
-  seatingPref: 'indoor' | 'outdoor' | 'no-preference'
-) => {
-  if (seatingPref === 'indoor') {
-    return {
-      restaurantId,
-      status: { $in: ACTIVE_QUEUE_STATUSES },
-      $or: [
-        { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-        { mode: 'waitlist', seatingPreference: { $exists: false } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-      ]
-    };
-  }
-
-  if (seatingPref === 'outdoor') {
-    return {
-      restaurantId,
-      status: { $in: ACTIVE_QUEUE_STATUSES },
-      $or: [
-        { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-        { mode: 'waitlist', seatingPreference: { $exists: false } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-      ]
-    };
-  }
-
-  return {
-    restaurantId,
-    status: { $in: ACTIVE_QUEUE_STATUSES },
-    $or: [
-      { mode: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
-      { mode: 'waitlist', seatingPreference: { $exists: false } },
-      { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
-      { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-    ]
-  };
-};
-
-const computeDeterministicQueuePosition = async (
-  restaurantId: string | any,
-  reservationId: any,
-  requestedAt: Date,
-  seatingPref: 'indoor' | 'outdoor' | 'no-preference'
-): Promise<number> => {
-  const beforeOrSameWithLowerId = {
-    $or: [
-      { requestedAt: { $lt: requestedAt } },
-      { requestedAt, _id: { $lte: reservationId } },
-    ]
-  };
-
-  if (seatingPref === 'indoor' || seatingPref === 'outdoor') {
-    return Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, seatingPref),
-      ...beforeOrSameWithLowerId,
-    });
-  }
-
-  const [indoorPosition, outdoorPosition] = await Promise.all([
-    Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, 'indoor'),
-      ...beforeOrSameWithLowerId,
-    }),
-    Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, 'outdoor'),
-      ...beforeOrSameWithLowerId,
-    }),
-  ]);
-
-  return Math.min(indoorPosition, outdoorPosition);
-};
 
 const joinSchema = z.object({
   partySize: z.number().min(1).max(20),
@@ -146,8 +70,6 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       });
     }
 
-    const seatingPref = (data.seatingPreference || 'no-preference') as 'indoor' | 'outdoor' | 'no-preference';
-
     const doc = await Reservation.create({
       restaurantId: restaurant._id,
       mode: 'waitlist',
@@ -160,12 +82,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
       queuePosition: undefined,
       seatingPreference: data.seatingPreference,
     });
-    const queuePosition = await computeDeterministicQueuePosition(
-      restaurant._id,
-      doc._id,
-      doc.requestedAt,
-      seatingPref
-    );
+    // Position is this customer's index in the line that is actually waiting right now
+    const queuePosition = (await computeQueuePosition(restaurant._id, doc._id)) ?? 1;
     doc.queuePosition = queuePosition;
     await doc.save();
 
@@ -227,7 +145,8 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
     if (restaurant.activeNotificationPhone) {
       const contact = data.phone && data.phone !== '0000000000' ? data.phone : (data.email || undefined);
       sendSmsViaEand({
-        to: restaurant.activeNotificationPhone,
+        // Repair numbers saved before normalization was enforced (e.g. '+9710501234567')
+        to: normalizeNotificationMsisdn(restaurant.activeNotificationPhone) || restaurant.activeNotificationPhone,
         text: getRestaurantQueueNotification({
           customerName: data.name,
           partySize: data.partySize,
@@ -236,6 +155,11 @@ queueRouter.post('/:restaurantId/join', async (req, res, next) => {
           contact,
         }),
         category: 'otp',
+      }).then(() => {
+        console.log('[QUEUE] Staff SMS sent', {
+          phone: restaurant.activeNotificationPhone,
+          reservationId: doc._id,
+        });
       }).catch((smsError) => {
         console.error('[QUEUE] Failed to send SMS to restaurant:', {
           error: smsError instanceof Error ? smsError.message : smsError,
@@ -292,7 +216,6 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
     if (!r) return res.status(404).json({ error: 'Not found' });
     if (r.status === 'cancelled') return res.json({ success: true });
     const restaurant = await Restaurant.findById(r.restaurantId).lean();
-    const oldPos = r.queuePosition;
     r.status = 'cancelled';
     r.leftAt = new Date();
     (r as any).cancellationReason = 'staff_removed'; // Track that staff removed them
@@ -340,12 +263,8 @@ queueRouter.post('/:reservationId/leave', async (req, res, next) => {
       });
     }
     
-    if (typeof oldPos === 'number') {
-      await Reservation.updateMany(
-        { restaurantId: r.restaurantId, mode: 'waitlist', status: { $in: ['pending','confirmed'] }, queuePosition: { $gt: oldPos } },
-        { $inc: { queuePosition: -1 } }
-      );
-    }
+    // Removing this guest closes the gap for everyone behind them
+    await renumberQueueAndNotify(r.restaurantId);
     
     // Emit SSE notification for real-time updates (customer)
     notificationEmitter.notifyReservation((r._id as any).toString(), {

@@ -5,92 +5,16 @@ import { Reservation } from '../models/Reservation';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
 import { sendEmail, buildEmailTemplate, isValidEmailForSending } from '../services/email';
-import { sendSmsViaEand, normalizeMsisdn } from '../services/eandSmsClient';
+import { sendSmsViaEand, normalizeMsisdn, normalizeNotificationMsisdn } from '../services/eandSmsClient';
 import { getReservationConfirmationMessage, getQueueJoinMessage, getTableReadyMessage, getRemovalMessage, getRestaurantReservationNotification, getRestaurantQueueNotification } from '../services/smsMessages';
 import { notificationEmitter } from '../services/notificationEmitter';
 import { formatUaeTime, getGSTStartOfDay, getGSTEndOfDay } from '../utils/dateFormat';
 import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../services/pushNotification';
+import { computeQueuePosition } from '../services/queuePosition';
+import { renumberQueueAndNotify } from '../services/queueSync';
 import { env } from '../config/env';
 
 export const reservationsRouter = express.Router();
-
-const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed'] as const;
-
-const buildQueuePopulationFilter = (
-  restaurantId: string | mongoose.Types.ObjectId,
-  seatingPref: 'indoor' | 'outdoor' | 'no-preference'
-) => {
-  if (seatingPref === 'indoor') {
-    return {
-      restaurantId,
-      status: { $in: ACTIVE_QUEUE_STATUSES },
-      $or: [
-        { mode: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-        { mode: 'waitlist', seatingPreference: { $exists: false } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['indoor', 'no-preference', null] } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-      ]
-    };
-  }
-
-  if (seatingPref === 'outdoor') {
-    return {
-      restaurantId,
-      status: { $in: ACTIVE_QUEUE_STATUSES },
-      $or: [
-        { mode: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-        { mode: 'waitlist', seatingPreference: { $exists: false } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['outdoor', 'no-preference', null] } },
-        { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-      ]
-    };
-  }
-
-  return {
-    restaurantId,
-    status: { $in: ACTIVE_QUEUE_STATUSES },
-    $or: [
-      { mode: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
-      { mode: 'waitlist', seatingPreference: { $exists: false } },
-      { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $in: ['no-preference', null] } },
-      { mode: 'reserve', reservationType: 'waitlist', seatingPreference: { $exists: false } }
-    ]
-  };
-};
-
-const computeDeterministicQueuePosition = async (
-  restaurantId: string | mongoose.Types.ObjectId,
-  reservationId: mongoose.Types.ObjectId,
-  requestedAt: Date,
-  seatingPref: 'indoor' | 'outdoor' | 'no-preference'
-): Promise<number> => {
-  const beforeOrSameWithLowerId = {
-    $or: [
-      { requestedAt: { $lt: requestedAt } },
-      { requestedAt, _id: { $lte: reservationId } },
-    ]
-  };
-
-  if (seatingPref === 'indoor' || seatingPref === 'outdoor') {
-    return Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, seatingPref),
-      ...beforeOrSameWithLowerId,
-    });
-  }
-
-  const [indoorPosition, outdoorPosition] = await Promise.all([
-    Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, 'indoor'),
-      ...beforeOrSameWithLowerId,
-    }),
-    Reservation.countDocuments({
-      ...buildQueuePopulationFilter(restaurantId, 'outdoor'),
-      ...beforeOrSameWithLowerId,
-    }),
-  ]);
-
-  return Math.min(indoorPosition, outdoorPosition);
-};
 
 const createSchema = z.object({
   restaurantId: z.string(),
@@ -211,13 +135,8 @@ reservationsRouter.post('/', async (req, res, next) => {
     });
 
     if (data.mode === 'waitlist' || reservationType === 'waitlist') {
-      const seatingPref = (data.seatingPreference || 'no-preference') as 'indoor' | 'outdoor' | 'no-preference';
-      queuePosition = await computeDeterministicQueuePosition(
-        data.restaurantId,
-        doc._id as mongoose.Types.ObjectId,
-        doc.requestedAt,
-        seatingPref
-      );
+      // Position is this customer's index in the line that is actually waiting right now
+      queuePosition = (await computeQueuePosition(data.restaurantId, doc._id)) ?? 1;
       doc.queuePosition = queuePosition;
       await doc.save();
     }
@@ -327,7 +246,8 @@ reservationsRouter.post('/', async (req, res, next) => {
       
       // Send SMS notification to restaurant staff if they have notification phone configured
       // Use reservationType to determine message type (more accurate than mode)
-      if (restaurant.activeNotificationPhone) {
+      // Walk-ins are entered by staff at the dashboard, so alerting them is just noise
+      if (restaurant.activeNotificationPhone && !isWalkIn) {
         const contact = data.phone && data.phone !== '0000000000' ? data.phone : (data.email || undefined);
         const smsText = isWaitlist
           ? getRestaurantQueueNotification({
@@ -345,9 +265,16 @@ reservationsRouter.post('/', async (req, res, next) => {
             });
         
         sendSmsViaEand({
-          to: restaurant.activeNotificationPhone,
+          // Repair numbers saved before normalization was enforced (e.g. '+9710501234567')
+          to: normalizeNotificationMsisdn(restaurant.activeNotificationPhone) || restaurant.activeNotificationPhone,
           text: smsText,
           category: 'otp',
+        }).then(() => {
+          console.log('[RESERVATION] Staff SMS sent', {
+            phone: restaurant.activeNotificationPhone,
+            reservationId: doc._id,
+            isWaitlist,
+          });
         }).catch((smsError) => {
           console.error('[RESERVATION] Failed to send SMS to restaurant:', {
             error: smsError instanceof Error ? smsError.message : smsError,
@@ -638,7 +565,19 @@ reservationsRouter.patch('/:id', async (req, res, next) => {
     if (data.cancellationReason) {
       (r as any).cancellationReason = data.cancellationReason;
     }
+    // A guest who is no longer active holds no place in line
+    if (r.status === 'cancelled' || r.status === 'no_show') {
+      r.queuePosition = undefined;
+    }
     await r.save();
+
+    // Cancelling, calling, or marking a guest arrived all reshape the waiting line
+    await renumberQueueAndNotify(r.restaurantId);
+    const renumbered = await Reservation.findById(r._id).select('queuePosition').lean();
+    if (renumbered && typeof (renumbered as any).queuePosition === 'number') {
+      r.queuePosition = (renumbered as any).queuePosition;
+    }
+
     const reservation = r;
     if (!reservation) return res.status(404).json({ error: 'Not found' });
     
@@ -716,6 +655,9 @@ reservationsRouter.post('/:id/cancel', async (req, res, next) => {
     reservation.queuePosition = undefined;
     reservation.cancellationReason = 'user_cancelled'; // Track that user cancelled
     await reservation.save();
+
+    // Everyone behind this customer moves up a place
+    await renumberQueueAndNotify(reservation.restaurantId);
     
     // Send cancellation confirmation email if customer provided email
     if (reservation.email && isValidEmailForSending(reservation.email)) {
@@ -1023,49 +965,8 @@ reservationsRouter.post('/:id/assign-table', async (req, res, next) => {
       return res.status(500).json({ error: 'Failed to assign table. Please try again.' });
     }
     
-    // 4.5. Recalculate queue positions for remaining customers after seating
-    // When a customer is seated, they're removed from the queue, so everyone behind moves up
-    const oldQueuePosition = reservation.queuePosition;
-    if (typeof oldQueuePosition === 'number' && reservation.mode === 'waitlist') {
-      // First, find all affected reservations BEFORE updating their positions
-      const affectedReservations = await Reservation.find({
-        restaurantId: reservation.restaurantId,
-        mode: 'waitlist',
-        status: { $in: ['pending', 'confirmed'] },
-        queuePosition: { $gt: oldQueuePosition },
-        _id: { $ne: reservationId }
-      }).lean();
-      
-      // Decrement queue position for all customers who were behind this one
-      await Reservation.updateMany(
-        { 
-          restaurantId: reservation.restaurantId, 
-          mode: 'waitlist', 
-          status: { $in: ['pending', 'confirmed'] }, 
-          queuePosition: { $gt: oldQueuePosition },
-          _id: { $ne: reservationId }
-        },
-        { $inc: { queuePosition: -1 } }
-      );
-      
-      // Emit SSE updates for all affected reservations so their queue positions update in real-time
-      // Fetch updated reservations with new positions
-      for (const affected of affectedReservations) {
-        const updatedAffectedRes = await Reservation.findById(affected._id).lean();
-        if (updatedAffectedRes) {
-          notificationEmitter.notifyReservation(updatedAffectedRes._id.toString(), {
-            type: 'reservation_updated',
-            reservation: {
-              _id: updatedAffectedRes._id.toString(),
-              status: updatedAffectedRes.status,
-              queuePosition: updatedAffectedRes.queuePosition,
-              holdUntil: updatedAffectedRes.holdUntil,
-              holdStatus: updatedAffectedRes.holdStatus,
-            }
-          });
-        }
-      }
-    }
+    // 4.5. Seating removes this customer from the line, so everyone behind moves up
+    await renumberQueueAndNotify(reservation.restaurantId);
     
     // 5. Log the action for audit trail
     console.log({
