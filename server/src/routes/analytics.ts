@@ -15,6 +15,8 @@ import {
   getGSTStartOfDay,
   getGSTEndOfDay
 } from '../utils/dateFormat';
+import { buildLiveSeatedFilter } from '../services/liveOccupancy';
+import { normalizePhoneForSms } from '../services/eandSmsClient';
 
 export const analyticsRouter = express.Router();
 
@@ -66,10 +68,10 @@ analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
       const phoneRaw = typeof row.phone === 'string' ? row.phone.trim() : '';
       const emailRaw = typeof row.email === 'string' ? row.email.trim().toLowerCase() : '';
       if (phoneRaw && phoneRaw !== '0000000000') {
-        // Digits-only so +9715… and 9715… / 05… variants collapse to one guest
-        const digits = phoneRaw.replace(/\D/g, '');
-        if (digits) {
-          guests.add(`p:${digits}`);
+        // Canonical dialable form, so '+971501234567' and '0501234567' are one guest
+        const canonical = normalizePhoneForSms(phoneRaw);
+        if (canonical) {
+          guests.add(`p:${canonical}`);
           continue;
         }
       }
@@ -517,14 +519,18 @@ analyticsRouter.get('/capacity-realtime', async (req, res, next) => {
       return res.status(400).json({ error: 'restaurantId is required' });
     }
     
-    // Count tables by status
-    const [occupied, available, cleaning] = await Promise.all([
-      Table.countDocuments({ restaurantId, status: 'occupied' }),
-      Table.countDocuments({ restaurantId, status: 'available' }),
-      Table.countDocuments({ restaurantId, status: 'cleaning' })
+    // Occupancy comes from parties actually sitting at a table, not from
+    // Table.status: nothing clears 'occupied' any more, so reading it would show
+    // permanent phantom occupancy on a floor that is in fact empty.
+    const [total, cleaningCount, seatedTableIds] = await Promise.all([
+      Table.countDocuments({ restaurantId }),
+      Table.countDocuments({ restaurantId, status: 'cleaning' }),
+      Reservation.distinct('tableId', buildLiveSeatedFilter(restaurantId))
     ]);
     
-    const total = occupied + available + cleaning;
+    const occupied = Math.min(seatedTableIds.length, total);
+    const cleaning = Math.min(cleaningCount, Math.max(0, total - occupied));
+    const available = Math.max(0, total - occupied - cleaning);
     
     if (total === 0) {
       return res.json({

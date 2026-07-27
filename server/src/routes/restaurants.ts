@@ -10,6 +10,7 @@ import { requireAuth, requireOwnRestaurant } from '../middleware/auth';
 import { deleteRestaurantProfile } from '../services/restaurantCleanup';
 import { sendSmsViaEand, normalizeNotificationMsisdn } from '../services/eandSmsClient';
 import { getDaysAgoStartGST } from '../utils/dateFormat';
+import { buildActiveQueueFilter } from '../services/queuePosition';
 
 export const restaurantsRouter = express.Router();
 
@@ -55,15 +56,12 @@ restaurantsRouter.get('/', async (_req, res, next) => {
           }
         }
       ]),
-      // Count current queue (waitlist with pending or confirmed status)
+      // Count the live waiting line. Must use the shared queue filter so this
+      // number agrees with the staff board and the position customers are told:
+      // a narrower `mode: 'waitlist'` match drops bookings that turned into
+      // waitlist entries, and counts called guests and finished service days.
       Reservation.aggregate([
-        {
-          $match: {
-            restaurantId: { $in: ids },
-            mode: 'waitlist',
-            status: { $in: ['pending', 'confirmed'] }
-          }
-        },
+        { $match: buildActiveQueueFilter({ $in: ids }, now) },
         {
           $group: {
             _id: '$restaurantId',
@@ -202,11 +200,7 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
         { $limit: 1 },
       ]),
-      Reservation.countDocuments({ 
-        restaurantId: item._id, 
-        mode: 'waitlist', 
-        status: { $in: ['pending', 'confirmed'] } 
-      }),
+      Reservation.countDocuments(buildActiveQueueFilter(item._id, now)),
       Reservation.countDocuments({
         restaurantId: item._id,
         requestedAt: { $exists: true, $gte: sevenDaysAgo, $lte: now },

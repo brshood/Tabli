@@ -3,6 +3,7 @@ import { Reservation } from '../models/Reservation';
 import { Table } from '../models/Table';
 import { getTodayStartGST, nowGST, getDaysAgoStartGST } from '../utils/dateFormat';
 import { buildActiveQueueFilter, positionsForQueue } from './queuePosition';
+import { buildLiveSeatedFilter } from './liveOccupancy';
 
 const DEFAULT_DWELL_MINUTES = 45;
 const DEFAULT_SEED_WAIT_MINUTES = 20; // Default seed wait time when no history exists
@@ -147,11 +148,9 @@ export async function estimateWaitTimes(
     Reservation.find(buildActiveQueueFilter(restaurantId))
       .sort({ requestedAt: 1, _id: 1 })
       .lean(),
-    Reservation.find({
-      restaurantId,
-      status: 'seated',
-      tableId: { $exists: true, $ne: null },
-    }).lean(),
+    // Parties still at a table right now. Without this, every guest who ever sat
+    // down stays in the list and shows up as a phantom table about to free up.
+    Reservation.find(buildLiveSeatedFilter(restaurantId, now)).lean(),
     Table.find({ restaurantId }).lean(),
     Reservation.aggregate([
       {
@@ -254,8 +253,16 @@ export async function estimateWaitTimes(
 
   const availabilityTimeline: number[] = [];
 
-  const availableTables = tables.filter((table) => table.status === 'available');
+  // A table counts as taken only while a live party is sitting at it. Reading
+  // Table.status here instead would permanently hide tables left at 'occupied'
+  // by a seating that was never checked out.
+  const occupiedTableIds = new Set(
+    seatedReservations.map((reservation: any) => String(reservation.tableId)),
+  );
   const cleaningTables = tables.filter((table) => table.status === 'cleaning');
+  const availableTables = tables.filter(
+    (table) => table.status !== 'cleaning' && !occupiedTableIds.has(String(table._id)),
+  );
 
   // Available tables can seat immediately (after a small prep buffer)
   for (let i = 0; i < availableTables.length; i += 1) {

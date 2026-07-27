@@ -104,8 +104,11 @@ export function normalizeNotificationMsisdn(raw: string): string | null {
  * Handles UAE number format:
  * - 5xxxxxxxx (9 digits) -> 9715xxxxxxxx
  * - 05xxxxxxxx (10 digits) -> 9715xxxxxxxx (removes leading 0)
+ *
+ * Exported because this doubles as the canonical form for deciding whether two
+ * stored numbers belong to the same person: if they dial the same, they are.
  */
-function normalizePhoneForSms(phone: string): string {
+export function normalizePhoneForSms(phone: string): string {
   // Remove any whitespace, dashes, or other characters
   let normalized = phone.replace(/\D/g, '');
   

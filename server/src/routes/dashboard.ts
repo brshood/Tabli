@@ -1,6 +1,7 @@
 import express from 'express';
 import { Reservation } from '../models/Reservation';
 import { getTodayStartGST } from '../utils/dateFormat';
+import { buildActiveQueueFilter } from '../services/queuePosition';
 
 export const dashboardRouter = express.Router();
 
@@ -22,7 +23,7 @@ dashboardRouter.get('/:restaurantId/summary', async (req, res, next) => {
     const now = new Date();
 
     const [waitingCount, seatedToday, seatedDurations] = await Promise.all([
-      Reservation.countDocuments({ restaurantId, mode: 'waitlist', status: { $in: ['pending','confirmed'] } }),
+      Reservation.countDocuments(buildActiveQueueFilter(restaurantId, now)),
       Reservation.countDocuments({ restaurantId, status: 'seated', seatedAt: { $gte: todayStart, $lte: now } }),
       Reservation.find({ restaurantId, status: 'seated', seatedAt: { $gte: todayStart, $lte: now } })
         .select({ requestedAt: 1, seatedAt: 1 })

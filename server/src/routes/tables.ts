@@ -91,14 +91,9 @@ tablesRouter.patch('/tables/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-tablesRouter.post('/tables/:id/seat', async (req, res, next) => {
-  try {
-    const { reservationId } = req.body as any;
-    const table = await Table.findByIdAndUpdate(req.params.id, { $set: { status: 'occupied', currentReservationId: reservationId } }, { new: true });
-    if (!table) return res.status(404).json({ error: 'Not found' });
-    res.json({ table });
-  } catch (err) { next(err); }
-});
+// Seating a guest goes through POST /reservations/:id/assign-table, which marks
+// the table occupied *and* moves the reservation to 'seated' with a tableId. An
+// endpoint that only flips the table left the two out of sync, so it is gone.
 
 // POST /tables/:id/checkout
 // Checks out a table and updates the linked reservation
