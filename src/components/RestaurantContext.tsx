@@ -165,7 +165,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
             tablesAvailable: r.availableTables || 0,
             image: 'restaurant-generic',
             waitingInLine: r.waitingInLine || 0,
-            weeklyAverageCustomers: 0,
+            weeklyAverageCustomers: typeof r.weeklyVisits === 'number' ? r.weeklyVisits : 0,
             coverImage: r.imageUrl ? `${API_URL}${r.imageUrl}` : null,
             menu: r.menu || [],
             featuredMenuItems: r.featuredMenuItems || [],

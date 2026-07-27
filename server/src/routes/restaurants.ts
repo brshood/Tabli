@@ -23,7 +23,7 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     const sevenDaysAgo = getDaysAgoStartGST(7);
     
     // Batch all queries in parallel for better performance
-    const [summaries, waitTimeStats, queueCounts] = await Promise.all([
+    const [summaries, waitTimeStats, queueCounts, weeklyVisitStats] = await Promise.all([
       Rating.aggregate([
         { $match: { restaurantId: { $in: ids } } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
@@ -70,6 +70,25 @@ restaurantsRouter.get('/', async (_req, res, next) => {
             count: { $sum: 1 }
           }
         }
+      ]),
+      // Weekly visits = bookings created in last 7 days (app reserve/queue; exclude user/staff cancels)
+      Reservation.aggregate([
+        {
+          $match: {
+            restaurantId: { $in: ids },
+            requestedAt: { $exists: true, $gte: sevenDaysAgo, $lte: now },
+            $or: [
+              { status: { $ne: 'cancelled' } },
+              { status: 'cancelled', cancellationReason: 'daily_reset' },
+            ],
+          }
+        },
+        {
+          $group: {
+            _id: '$restaurantId',
+            count: { $sum: 1 }
+          }
+        }
       ])
     ]);
     
@@ -83,6 +102,9 @@ restaurantsRouter.get('/', async (_req, res, next) => {
     
     const queueCountById = new Map<string, number>();
     queueCounts.forEach((q: any) => queueCountById.set(String(q._id), q.count));
+
+    const weeklyVisitsById = new Map<string, number>();
+    weeklyVisitStats.forEach((v: any) => weeklyVisitsById.set(String(v._id), v.count));
     
     // Helper function to get image file ID - ONLY returns profile pictures, no fallbacks
     // Only display cover photo if a restaurant profile picture exists
@@ -124,7 +146,8 @@ restaurantsRouter.get('/', async (_req, res, next) => {
       const availableTables = bothSectionsFull ? 0 : 1;
       const avgWaitTime = waitTimeById.get(String(r._id)) || null;
       const waitingInLine = queueCountById.get(String(r._id)) || 0;
-      return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine };
+      const weeklyVisits = weeklyVisitsById.get(String(r._id)) || 0;
+      return { ...r, imageUrl, ratingSummary, availableTables, avgWaitTime, waitingInLine, weeklyVisits };
     });
     
     res.json({ items: enriched });
@@ -170,7 +193,10 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
     const imageFileId = getImageFileId(item);
     const imageUrl = imageFileId ? `/media/${imageFileId}` : null;
     
-    const [s, waitingInLine] = await Promise.all([
+    const sevenDaysAgo = getDaysAgoStartGST(7);
+    const now = new Date();
+
+    const [s, waitingInLine, weeklyVisits] = await Promise.all([
       Rating.aggregate([
         { $match: { restaurantId: new ObjectId(req.params.id) } },
         { $group: { _id: '$restaurantId', count: { $sum: 1 }, avg: { $avg: '$value' } } },
@@ -180,13 +206,21 @@ restaurantsRouter.get('/:id', async (req, res, next) => {
         restaurantId: item._id, 
         mode: 'waitlist', 
         status: { $in: ['pending', 'confirmed'] } 
-      })
+      }),
+      Reservation.countDocuments({
+        restaurantId: item._id,
+        requestedAt: { $exists: true, $gte: sevenDaysAgo, $lte: now },
+        $or: [
+          { status: { $ne: 'cancelled' } },
+          { status: 'cancelled', cancellationReason: 'daily_reset' },
+        ],
+      }),
     ]);
     
     const ratingSummary = s.length ? { count: s[0].count, average: Number(s[0].avg.toFixed(2)) } : { count: 0, average: 0 };
     const bothSectionsFull = (item as any).indoorFull === true && (item as any).outdoorFull === true;
     const availableTables = bothSectionsFull ? 0 : 1;
-    res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine } });
+    res.json({ item: { ...item, imageUrl, ratingSummary, availableTables, waitingInLine, weeklyVisits } });
   } catch (err) { next(err); }
 });
 

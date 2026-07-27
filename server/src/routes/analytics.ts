@@ -34,41 +34,54 @@ function buildAnalyticsStatusFilter() {
 
 analyticsRouter.get('/platform-metrics', async (_req, res, next) => {
   try {
-    const [reservationsTotal, restaurantsTotal, rawPhones, rawEmails, bothContactCount] = await Promise.all([
-      // Exclude cancelled reservations, but include those cancelled by daily reset for historical data
-      Reservation.countDocuments({ 
-        $or: [
-          { status: { $ne: 'cancelled' } },
-          { status: 'cancelled', cancellationReason: 'daily_reset' }
-        ]
-      }),
-      Restaurant.countDocuments({}),
-      Reservation.distinct('phone', { phone: { $exists: true, $nin: [null, ''] } }),
-      Reservation.distinct('email', { email: { $exists: true, $nin: [null, ''] } }),
-      Reservation.countDocuments({
-        phone: { $exists: true, $nin: [null, ''] },
-        email: { $exists: true, $nin: [null, ''] },
-      }),
-    ]);
-
-    const normalizeSetSize = (values: unknown[]) => {
-      const set = new Set<string>();
-      for (const value of values) {
-        if (typeof value !== 'string') continue;
-        const trimmed = value.trim();
-        if (trimmed) set.add(trimmed);
-      }
-      return set.size;
+    const activeBookingFilter = {
+      $or: [
+        { status: { $ne: 'cancelled' } },
+        { status: 'cancelled', cancellationReason: 'daily_reset' },
+      ],
     };
 
-    const uniquePhoneCount = normalizeSetSize(rawPhones);
-    const uniqueEmailCount = normalizeSetSize(rawEmails);
-    const totalUsers = Math.max(0, uniquePhoneCount + uniqueEmailCount - bothContactCount);
+    const [reservationsTotal, restaurantsTotal, contactRows] = await Promise.all([
+      // Exclude cancelled reservations, but include those cancelled by daily reset for historical data
+      Reservation.countDocuments(activeBookingFilter),
+      Restaurant.countDocuments({}),
+      // Unique guests = distinct identities (phone preferred, else email). Never subtract booking counts.
+      Reservation.find({
+        ...activeBookingFilter,
+        $and: [
+          {
+            $or: [
+              { phone: { $exists: true, $nin: [null, '', '0000000000'] } },
+              { email: { $exists: true, $nin: [null, ''] } },
+            ],
+          },
+        ],
+      })
+        .select({ phone: 1, email: 1 })
+        .lean(),
+    ]);
+
+    const guests = new Set<string>();
+    for (const row of contactRows as Array<{ phone?: string; email?: string }>) {
+      const phoneRaw = typeof row.phone === 'string' ? row.phone.trim() : '';
+      const emailRaw = typeof row.email === 'string' ? row.email.trim().toLowerCase() : '';
+      if (phoneRaw && phoneRaw !== '0000000000') {
+        // Digits-only so +9715… and 9715… / 05… variants collapse to one guest
+        const digits = phoneRaw.replace(/\D/g, '');
+        if (digits) {
+          guests.add(`p:${digits}`);
+          continue;
+        }
+      }
+      if (emailRaw) {
+        guests.add(`e:${emailRaw}`);
+      }
+    }
 
     res.json({
       reservations: reservationsTotal,
       restaurants: restaurantsTotal,
-      users: totalUsers,
+      users: guests.size,
     });
   } catch (err) {
     next(err);
@@ -539,16 +552,17 @@ analyticsRouter.get('/capacity-realtime', async (req, res, next) => {
 
 /**
  * GET /analytics/daily
- * Returns per-day totals for the selected window with detailed status breakdown.
+ * Returns per-day booking totals for the selected window (app reserves + queue + walk-ins).
+ * Groups by requestedAt in GST. Excludes user/staff cancellations; keeps daily_reset.
  * 
  * @route GET /analytics/daily
  * @param {string} req.query.restaurantId - Required restaurant ID
  * @param {string} req.query.range - Time range: 'week' or 'month' (default: 'week')
  * @returns {Object} Response with items array containing daily data:
  *   - day: Date string in YYYY-MM-DD format
- *   - seated: Number of seated customers on that day
- *   - waiting: Number of waitlist requests on that day
- *   - total: Total number of customers (seated + waiting)
+ *   - reservations: App bookings created that day
+ *   - walkIns: Staff walk-ins created that day
+ *   - total: reservations + walkIns
  */
 analyticsRouter.get('/daily', async (req, res, next) => {
   try {
@@ -564,17 +578,20 @@ analyticsRouter.get('/daily', async (req, res, next) => {
       start = getDaysAgoStartGST(7);
     }
 
-    // Get all seated reservations and categorize them as reservations or walk-ins
-    // Walk-ins are identified by phone === '0000000000'
-    // Use find() like peak-hours endpoint for consistency and reliability
+    // Count all real bookings created in range (app reserves + queue joins + walk-ins),
+    // not seated-only — otherwise busy queue days look empty if guests were never seated in-app.
+    // Exclude user/staff cancellations; keep daily_reset (historical queue activity).
     const matchCondition: any = {
-          restaurantId: restaurantId as any,
-          status: 'seated',
-      seatedAt: { $exists: true, $gte: start, $lte: now }
+      restaurantId: restaurantId as any,
+      requestedAt: { $exists: true, $gte: start, $lte: now },
+      $or: [
+        { status: { $ne: 'cancelled' } },
+        { status: 'cancelled', cancellationReason: 'daily_reset' },
+      ],
     };
 
     const reservations = await Reservation.find(matchCondition)
-      .select({ seatedAt: 1, phone: 1 })
+      .select({ requestedAt: 1, phone: 1 })
       .lean();
 
     // Create maps for easy lookup - group by day in GST timezone
@@ -582,11 +599,11 @@ analyticsRouter.get('/daily', async (req, res, next) => {
     const walkInsMap = new Map<string, number>();
     
     reservations.forEach((reservation: any) => {
-      if (!reservation.seatedAt) return;
+      if (!reservation.requestedAt) return;
       
-      const seatedDate = new Date(reservation.seatedAt);
+      const requestedDate = new Date(reservation.requestedAt);
       // Format as YYYY-MM-DD using GST timezone
-      const dayStr = formatGSTDateString(seatedDate);
+      const dayStr = formatGSTDateString(requestedDate);
       
       // Walk-ins are identified by phone === '0000000000'
       // Everything else (including undefined/null phone) counts as a reservation

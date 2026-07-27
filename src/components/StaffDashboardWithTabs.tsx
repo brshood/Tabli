@@ -101,6 +101,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
   const [callNextDialogOpen, setCallNextDialogOpen] = useState(false);
   const [callNextCustomer, setCallNextCustomer] = useState<any>(null);
   const [callNextLoading, setCallNextLoading] = useState(false);
+  const [callNextSkipped, setCallNextSkipped] = useState<{ count: number; sections: string } | null>(null);
   const [calledQueue, setCalledQueue] = useState<any[]>([]);
   const [reservedBookings, setReservedBookings] = useState<any[]>([]);
   const isRestaurantClosed = closedForCustomers;
@@ -202,16 +203,16 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     return () => clearInterval(timer);
   }, [API_URL, staffAuth?.restaurantId]);
 
-  const markAsNoShow = async (id: number) => {
-    const customer = waitlist.find(item => item.id === id);
-    if (!customer) return;
-    
-    const reservationId = (customer as any).reservationId;
+  // Always act on the reservation id. Looking rows up by their position in the
+  // list meant a refresh landing between render and click (the queue reloads
+  // every 5s, and calling a guest reshuffles it immediately) resolved to a
+  // different customer — staff removed one guest and a different one vanished.
+  const markAsNoShow = async (reservationId: string, customerName: string) => {
     if (!reservationId) {
       toast.error('Invalid reservation data');
       return;
     }
-    
+
     try {
       const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
         method: 'PATCH',
@@ -227,7 +228,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       // Success! Refresh data from database
       await loadReservationsFromDB();
       
-      toast.error(`${customer.name} marked as no-show`);
+      toast.error(`${customerName} marked as no-show`);
     } catch (error: any) {
       console.error('Error marking as no-show:', error);
       toast.error(error.message || 'Failed to mark as no-show');
@@ -237,16 +238,14 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
     }
   };
 
-  const removeFromWaitlist = async (id: number) => {
-    const customer = waitlist.find(item => item.id === id);
-    if (!customer) return;
-    
-    const reservationId = (customer as any).reservationId;
+  const removeFromWaitlist = async (reservationId: string, customerName: string) => {
     if (!reservationId) {
       toast.error('Invalid reservation data');
       return;
     }
-    
+
+    if (!window.confirm(`Remove "${customerName}" from the queue?`)) return;
+
     try {
       const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
         method: 'PATCH',
@@ -262,7 +261,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       // Success! Refresh data from database
       await loadReservationsFromDB();
       
-      toast.success('Customer removed from waitlist');
+      toast.success(`${customerName} removed from queue`);
     } catch (error: any) {
       console.error('Error removing from waitlist:', error);
       toast.error(error.message || 'Failed to remove from waitlist');
@@ -357,6 +356,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       else toast.info('No one available to call right now');
       return;
     }
+    // A guest whose section is marked Full gets passed over. Say so out loud —
+    // silently calling someone further down the line looks like the app lost the
+    // guests at the top of the queue.
+    const skipped = wl.filter((c) => (c.requestedAt || 0) < (next.requestedAt || 0));
+    const fullSections = [indoorVal ? 'indoor' : null, outdoorVal ? 'outdoor' : null].filter(Boolean);
+    setCallNextSkipped(
+      skipped.length > 0
+        ? { count: skipped.length, sections: fullSections.join(' and ') || 'their preferred' }
+        : null
+    );
+
     setCallNextCustomer(next);
     setCallNextDialogOpen(true);
   };
@@ -381,6 +391,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       toast.success(`${viaLabel} sent to ${callNextCustomer.name}`);
       setCallNextDialogOpen(false);
       setCallNextCustomer(null);
+      setCallNextSkipped(null);
       await loadReservationsFromDB();
     } catch (e: any) {
       toast.error(e.message || 'Failed to send SMS');
@@ -1541,7 +1552,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 <CardContent className="p-6 pt-0 flex-1 flex flex-col min-h-0">
                   <div className="space-y-4 flex-1 overflow-y-auto min-h-[300px] max-h-[500px]">
                     {waitlist.map((customer) => (
-                      <div key={customer.id} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
+                      <div key={customer.reservationId} className="rounded-2xl p-4 border" style={{backgroundColor: '#FAF8F2', borderColor: 'rgba(90, 94, 62, 0.2)'}}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
                             <div className="rounded-full w-10 h-10 flex items-center justify-center mr-3" style={{backgroundColor: '#B889A6'}}>
@@ -1598,7 +1609,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => markAsNoShow(customer.id)}
+                                onClick={() => markAsNoShow(customer.reservationId, customer.name)}
                                 className="pill-button text-xs"
                                 style={{borderColor: '#EF4444', color: '#EF4444'}}
                                 title="Mark as no-show"
@@ -1608,7 +1619,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => removeFromWaitlist(customer.id)}
+                                onClick={() => removeFromWaitlist(customer.reservationId, customer.name)}
                                 className="pill-button text-xs"
                               >
                                 <X className="h-3 w-3" />
@@ -1849,6 +1860,17 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     )}
                   </DialogDescription>
                 </DialogHeader>
+                {callNextSkipped && (
+                  <div
+                    className="rounded-2xl p-3 text-sm"
+                    style={{ backgroundColor: '#F0DC82', color: '#2D2D2B' }}
+                  >
+                    Passing over {callNextSkipped.count} guest{callNextSkipped.count > 1 ? 's' : ''} ahead
+                    in line — {callNextSkipped.count > 1 ? 'they are' : 'they are'} waiting for{' '}
+                    {callNextSkipped.sections} seating, which is marked <strong>Full</strong>. They keep
+                    their place and stay in the queue.
+                  </div>
+                )}
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setCallNextDialogOpen(false)}>Cancel</Button>
                   <Button onClick={handleCallNextConfirm} disabled={callNextLoading} style={{ backgroundColor: '#3F4427' }}>
@@ -1991,6 +2013,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
               <Card className="card-shadow border-0 rounded-3xl">
                 <CardHeader>
                   <CardTitle className="text-xl" style={{color: '#2D2D2B'}}>Overview: Reservations vs Walk-ins (Last 7 Days)</CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">Counts all bookings created each day (not only seated guests)</p>
                 </CardHeader>
                 <CardContent>
                   {dailyData.length === 0 ? (
