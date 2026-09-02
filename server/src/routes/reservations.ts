@@ -19,7 +19,7 @@ export const reservationsRouter = express.Router();
 const createSchema = z.object({
   restaurantId: z.string(),
   mode: z.enum(['reserve', 'waitlist']),
-  name: z.string().min(1).max(100).optional(),
+  name: z.string().trim().min(1).max(100),
   partySize: z.number().min(1).max(20),
   contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
@@ -766,6 +766,7 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     }
 
     let smsSent = false;
+    let smsErrorMessage: string | null = null;
     const hasValidPhone = r.phone && r.phone !== '0000000000';
     if (hasValidPhone) {
       const smsText = req.body?.message || getTableReadyMessage({ restaurantName });
@@ -777,8 +778,9 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
         });
         smsSent = true;
       } catch (smsError) {
+        smsErrorMessage = smsError instanceof Error ? smsError.message : String(smsError);
         console.error('[RESERVATION] Failed to send notify SMS:', {
-          error: smsError instanceof Error ? smsError.message : smsError,
+          error: smsErrorMessage,
           phone: r.phone,
           reservationId: r._id,
         });
@@ -786,6 +788,12 @@ reservationsRouter.post('/:id/notify', async (req, res, next) => {
     }
 
     if (!emailSent && !smsSent) {
+      if (hasValidPhone && smsErrorMessage) {
+        return res.status(502).json({
+          success: false,
+          error: `Could not send SMS: ${smsErrorMessage}`,
+        });
+      }
       return res.status(400).json({
         success: false,
         error: 'No valid contact method. Customer has no valid phone number or email address to receive the notification.',

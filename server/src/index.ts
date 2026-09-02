@@ -23,6 +23,10 @@ async function main() {
   console.log('- CORS_ORIGIN:', env.CORS_ORIGIN);
   console.log('- NODE_ENV:', env.NODE_ENV);
   console.log('- PORT:', env.PORT);
+  console.log(
+    '- EAND_SMS configured:',
+    Boolean(env.EAND_API_EMAIL && env.EAND_API_PASSWORD && env.EAND_SENDER_ID)
+  );
   const app = createApp();
   const server = createServer(app);
   const port = env.PORT;

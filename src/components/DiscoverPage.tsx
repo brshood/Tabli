@@ -213,13 +213,13 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                          <span className="text-4xl font-bold text-white">{restaurant.name?.charAt(0) || '?'}</span>
                         </div>
                       </div>
                     )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
-
+                    <h3 className="text-xl font-semibold mb-3" style={{color: 'var(--where2go-text)'}}>{restaurant.name}</h3>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <Star className="h-5 w-5 text-yellow-400 fill-current mr-1" />
@@ -286,13 +286,13 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                          <span className="text-4xl font-bold text-white">{restaurant.name?.charAt(0) || '?'}</span>
                         </div>
                       </div>
                     )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
-
+                    <h3 className="text-xl font-semibold mb-3" style={{color: 'var(--where2go-text)'}}>{restaurant.name}</h3>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <span className="font-bold text-lg">{restaurant.rating}</span>
@@ -356,13 +356,13 @@ export function DiscoverPage({ onNavigate }: DiscoverPageProps) {
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
                         <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                          <span className="text-4xl font-bold text-white">{restaurant.name.charAt(0)}</span>
+                          <span className="text-4xl font-bold text-white">{restaurant.name?.charAt(0) || '?'}</span>
                         </div>
                       </div>
                     )}
                   </div>
                    <CardContent className="p-6" style={{backgroundColor: '#FFFFFF'}}>
-
+                    <h3 className="text-xl font-semibold mb-3" style={{color: 'var(--where2go-text)'}}>{restaurant.name}</h3>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <Star className="h-6 w-6 text-yellow-400 fill-current mr-1" />

@@ -138,8 +138,43 @@ export function normalizePhoneForSms(phone: string): string {
 }
 
 /**
- * Call SMS API with a token
+ * E& returns HTTP 200 even when the gateway rejected the message.
+ * Their docs/test script treat statusCode 0 as delivered; anything else
+ * was previously logged as success and the guest never got the SMS.
  */
+function maskPhone(phone: string): string {
+  return phone.length > 4 ? `${phone.slice(0, 2)}****${phone.slice(-2)}` : '****';
+}
+
+function isSuccessfulEandStatus(statusCode: unknown): boolean {
+  if (statusCode === undefined || statusCode === null || statusCode === '') return true;
+  const numeric = Number(statusCode);
+  return numeric === 0 || numeric === 200;
+}
+
+function assertEandAccepted(result: SmsResponse, phone: string, afterRefresh = false): void {
+  const maskedPhone = maskPhone(phone);
+  if (!isSuccessfulEandStatus(result.statusCode)) {
+    const error = result.statusMsg || `Gateway rejected SMS (statusCode ${result.statusCode})`;
+    console.error('[EAND_SMS] Gateway rejected SMS', {
+      txnId: result.txnId,
+      statusCode: result.statusCode,
+      statusMsg: result.statusMsg,
+      clientTxnId: result.clientTxnId,
+      recipient: maskedPhone,
+    });
+    throw new Error(`EAND_SMS_ERROR: ${error}`);
+  }
+
+  console.log(afterRefresh ? '[EAND_SMS] SMS sent successfully after token refresh' : '[EAND_SMS] SMS sent successfully', {
+    txnId: result.txnId,
+    statusCode: result.statusCode,
+    statusMsg: result.statusMsg,
+    clientTxnId: result.clientTxnId,
+    recipient: maskedPhone,
+  });
+}
+
 async function callSmsApi(token: string, payload: any): Promise<SmsResponse> {
   const res = await axios.post<SmsResponse>(SMS_URL, payload, {
     headers: {
@@ -189,19 +224,7 @@ export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
     
     // Try sending SMS
     const result = await callSmsApi(token, payload);
-    
-    // Log success (mask phone number for privacy)
-    const maskedPhone = normalizedPhone.length > 4 
-      ? `${normalizedPhone.slice(0, 2)}****${normalizedPhone.slice(-2)}`
-      : '****';
-    console.log('[EAND_SMS] SMS sent successfully', {
-      txnId: result.txnId,
-      statusCode: result.statusCode,
-      statusMsg: result.statusMsg,
-      clientTxnId: result.clientTxnId,
-      recipient: maskedPhone,
-    });
-    
+    assertEandAccepted(result, normalizedPhone);
     return result;
   } catch (err: any) {
     // If token expired (401), retry once with fresh token
@@ -210,19 +233,7 @@ export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
       try {
         const newToken = await getAccessToken(true); // Force refresh
         const result = await callSmsApi(newToken, payload);
-        
-        // Log success after retry
-        const maskedPhone = normalizedPhone.length > 4 
-          ? `${normalizedPhone.slice(0, 2)}****${normalizedPhone.slice(-2)}`
-          : '****';
-        console.log('[EAND_SMS] SMS sent successfully after token refresh', {
-          txnId: result.txnId,
-          statusCode: result.statusCode,
-          statusMsg: result.statusMsg,
-          clientTxnId: result.clientTxnId,
-          recipient: maskedPhone,
-        });
-        
+        assertEandAccepted(result, normalizedPhone, true);
         return result;
       } catch (retryErr: any) {
         // Retry also failed
@@ -233,8 +244,10 @@ export async function sendSmsViaEand(params: SmsParams): Promise<SmsResponse> {
         throw retryErr;
       }
     }
-    
-    // Extract error message from response
+
+    if (typeof err?.message === 'string' && err.message.startsWith('EAND_SMS_ERROR:')) {
+      throw err;
+    }
     let errorMessage = err.message || 'Unknown error';
     
     if (err.response?.data) {

@@ -113,14 +113,8 @@ export function nowGST(): Date {
  * @returns Date object representing midnight GST today
  */
 export function getTodayStartGST(): Date {
-  const now = new Date();
-  // Get current time in GST timezone as string
-  const gstDateStr = now.toLocaleString('en-US', { timeZone: GST_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
-  // Parse back to create a date at midnight GST
-  const [month, day, year] = gstDateStr.split('/');
-  // Create a date string in ISO format that represents midnight in GST
-  const gstMidnight = new Date(`${year}-${month}-${day}T00:00:00+04:00`);
-  return gstMidnight;
+  const { year, month, day } = getGSTDateComponents(new Date());
+  return new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+04:00`);
 }
 
 /**
@@ -142,14 +136,14 @@ export function getGSTHour(date: Date): number {
  * @returns Object with year, month (1-12), day
  */
 export function getGSTDateComponents(date: Date): { year: number; month: number; day: number } {
-  const gstDateStr = date.toLocaleString('en-US', { 
-    timeZone: GST_TIMEZONE, 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit' 
-  });
-  const [month, day, year] = gstDateStr.split('/').map(Number);
-  return { year, month, day };
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: GST_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return { year: value('year'), month: value('month'), day: value('day') };
 }
 
 /**

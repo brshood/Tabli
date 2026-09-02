@@ -124,13 +124,13 @@ export function nowGST(): Date {
  */
 export function formatGSTDateString(date: Date | string | number): string {
   const d = normalizeDate(date);
-  const gstDateStr = d.toLocaleString('en-US', {
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: GST_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  });
-  const [month, day, year] = gstDateStr.split('/');
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }).formatToParts(d);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
 }
 

@@ -29,7 +29,6 @@ interface BookingModalProps {
 export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: BookingModalProps) {
   const [partySize, setPartySize] = useState(2);
   const [customerName, setCustomerName] = useState('');
-  const [contactMethod, setContactMethod] = useState<'phone' | 'email'>('email');
   const [countryCode, setCountryCode] = useState('+971');
   const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
@@ -166,7 +165,7 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   useEffect(() => {
     if (!isOpen) {
       setPartySize(2);
-      setContactMethod('email');
+      setCustomerName('');
       setCountryCode('+971');
       setPhoneLocal('');
       setEmail('');
@@ -178,15 +177,27 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
     }
   }, [isOpen]);
 
+  const toLocalDigits = (raw: string) => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    const cc = countryCode.replace(/\D/g, '');
+    while (digits.startsWith(cc)) digits = digits.slice(cc.length);
+    return digits.replace(/^0+/, '');
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+
+    if (!customerName.trim()) {
+      newErrors.name = 'Please enter your name';
+    }
 
     if (partySize < 1 || partySize > 12) {
       newErrors.partySize = 'Party size must be between 1 and 12';
     }
 
     // Phone is always required
-    const numericLocal = phoneLocal.replace(/\D/g, '');
+    const numericLocal = toLocalDigits(phoneLocal);
     if (!numericLocal || numericLocal.length < 5) {
       newErrors.phone = 'Please enter a valid phone number';
     }
@@ -234,10 +245,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
           body: JSON.stringify({
             restaurantId: (restaurant as any)?.id || (restaurant as any)?._id,
             mode,
-            name: customerName || undefined,
+            name: customerName.trim(),
             partySize,
-            contactMethod,
-            phone: `${countryCode}${phoneLocal.replace(/\D/g, '').replace(/^0+/, '')}`,
+            contactMethod: 'phone',
+            phone: `${countryCode}${toLocalDigits(phoneLocal)}`,
             email: email && email.trim() ? email : undefined,
             gender: gender !== 'prefer-not-to-say' ? gender : undefined,
             seatingPreference: seatingPreference !== 'no-preference' ? seatingPreference : undefined,
@@ -395,9 +406,10 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
   };
 
   const isFormValid = () => {
+    if (!customerName.trim()) return false;
     if (partySize < 1 || partySize > 12) return false;
     // Phone is required
-    if (phoneLocal.replace(/\D/g, '').length < 5) return false;
+    if (toLocalDigits(phoneLocal).length < 5) return false;
     // Email is optional, but if provided, it must be valid
     if (email && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
     return true;
@@ -447,9 +459,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
         )}
 
         <div className="space-y-3 sm:space-y-4">
-          {/* Optional Customer Name */}
+          {/* Customer Name */}
           <div className="space-y-2">
-            <Label htmlFor="custName" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Your name (optional)</Label>
+            <Label htmlFor="custName" className="text-sm sm:text-base" style={{color: 'var(--where2go-text)'}}>Your name</Label>
             <Input
               id="custName"
               type="text"
@@ -459,6 +471,9 @@ export function BookingModal({ isOpen, onClose, mode, restaurant, onSuccess }: B
               className="bg-white"
               style={{borderColor: 'var(--where2go-border)'}}
             />
+            {errors.name && (
+              <p className="text-sm text-red-600">{errors.name}</p>
+            )}
           </div>
           {/* Party Size */}
           <div className="space-y-2">

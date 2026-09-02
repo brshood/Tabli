@@ -20,7 +20,7 @@ const joinSchema = z.object({
   contactMethod: z.enum(['phone', 'email']),
   phone: z.string().optional(),
   email: z.string().email().optional(),
-  name: z.string().min(1).max(100).optional(),
+  name: z.string().trim().min(1).max(100),
   seatingPreference: z.enum(['indoor', 'outdoor', 'no-preference']).optional(),
 }).refine((data) => {
   // Require at least one contact method (phone or email)

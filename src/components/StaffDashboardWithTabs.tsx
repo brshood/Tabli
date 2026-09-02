@@ -18,7 +18,7 @@ import { openDailySummaryPdf, generateDailySummary } from '../services/analytics
 import { useRestaurant } from './RestaurantContext';
 import { startStaffSSE, stopStaffSSE } from '../services/staffSSE';
 import { subscribeToPush, getNotificationPermission, isPushSupported } from '../services/pushSubscription';
-import { formatGSTTime, formatGSTDateShort, formatGSTDateTime } from '../utils/dateFormat';
+import { formatGSTTime, formatGSTDateShort } from '../utils/dateFormat';
 
 interface StaffDashboardProps {
   onNavigate: (page: 'landing' | 'discover' | 'search' | 'staff') => void;
@@ -43,6 +43,17 @@ const formatWaitBadge = (minutes: number | null | undefined): string => {
   if (minutes <= 10) return '≈10 min';
   if (minutes <= 15) return '≈15 min';
   return `≈${minutes} min`;
+};
+
+const chartDayLabel = (day: string | undefined): string => {
+  if (!day) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(day).trim());
+  if (match) {
+    return formatGSTDateShort(new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00+04:00`));
+  }
+  const parsed = new Date(day);
+  if (isNaN(parsed.getTime())) return String(day);
+  return formatGSTDateShort(parsed);
 };
 
 export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUserUpdate, onRestaurantDeleted }: StaffDashboardProps) {
@@ -483,7 +494,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         id: idx + 1,
         orderIndex: orderNum,
         reservationId: r._id,
-        name: r.name || 'Queue Customer',
+        name: (typeof r.name === 'string' && r.name.trim()) ? r.name.trim() : 'Guest',
         partySize: r.partySize || 2,
         waitTime: '—',
         phone: r.phone || '',
@@ -1366,36 +1377,11 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                     </div>
                   ) : (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dailyData.map(d => {
-                      try {
-                        if (!d.day) {
-                          return {
-                            name: 'Invalid Date', 
-                            reservations: d.reservations || 0, 
-                            walkIns: d.walkIns || 0
-                          };
-                        }
-                        const date = new Date(d.day + 'T00:00:00'); // Add time to avoid timezone issues
-                        if (isNaN(date.getTime())) {
-                          return {
-                            name: d.day, 
-                            reservations: d.reservations || 0, 
-                            walkIns: d.walkIns || 0
-                          };
-                        }
-                        return {
-                          name: formatGSTDateShort(date), 
-                          reservations: d.reservations || 0, 
-                          walkIns: d.walkIns || 0
-                        };
-                      } catch (e) {
-                        return {
-                          name: d.day || 'Invalid Date', 
-                          reservations: d.reservations || 0, 
-                          walkIns: d.walkIns || 0
-                        };
-                      }
-                    })}>
+                    <BarChart data={dailyData.map(d => ({
+                      name: chartDayLabel(d.day),
+                      reservations: d.reservations || 0,
+                      walkIns: d.walkIns || 0
+                    }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E7D7C5" />
                       <XAxis dataKey="name" stroke="#2D2D2B" />
                       <YAxis stroke="#2D2D2B" />
@@ -1555,39 +1541,13 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                   <h3 className="text-lg font-semibold mb-2" style={{color: '#5A5E3E'}}>Busiest Day</h3>
                   {dailyData.length > 0 && dailyData.some(d => d.total > 0) ? (() => {
                     const busiest = dailyData.reduce((a, b) => (b.total > a.total ? b : a));
-                    try {
-                      if (!busiest.day) {
-                        return (
-                          <>
-                            <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>N/A</p>
-                            <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
-                          </>
-                        );
-                      }
-                      const date = new Date(busiest.day);
-                      if (isNaN(date.getTime())) {
-                        return (
-                          <>
-                            <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day}</p>
-                            <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
-                          </>
-                        );
-                      }
-                      const formatted = formatGSTDateShort(date);
-                      return (
-                        <>
-                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{formatted}</p>
-                          <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
-                        </>
-                      );
-                    } catch (e) {
-                      return (
-                        <>
-                          <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{busiest.day || 'N/A'}</p>
-                          <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
-                        </>
-                      );
-                    }
+                    const formatted = chartDayLabel(busiest.day) || 'N/A';
+                    return (
+                      <>
+                        <p className="text-3xl font-bold mb-1" style={{color: '#2D2D2B'}}>{formatted}</p>
+                        <p className="text-sm" style={{color: '#2D2D2B'}}>{busiest.total} customers</p>
+                      </>
+                    );
                   })() : (
                     <p className="text-sm" style={{color: '#2D2D2B'}}>No data</p>
                   )}

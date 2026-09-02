@@ -150,7 +150,7 @@ export function RestaurantProvider({ children }: RestaurantProviderProps) {
 
           return {
             id: r._id || r.id,
-            name: r.name,
+            name: r.name || 'Restaurant',
             city: r.city,
             cuisine: r.cuisine,
             phone: r.phone || '',
