@@ -429,10 +429,16 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       }
 
       // Queue (waitlist): not yet called; FCFS by requestedAt. Reserved table requests are listed separately.
+      // `reservationType` was added after reservations already existed in production,
+      // so use `mode` as a fallback for those older rows. An explicit
+      // `reservationType: 'waitlist'` always wins: a reserve request can become a
+      // waitlist entry when its requested section is full.
       const pendingStatuses = (r: any) => r.status === 'pending' || r.status === 'confirmed';
+      const isReservedTable = (r: any) =>
+        r.reservationType === 'reserved' || (!r.reservationType && r.mode === 'reserve');
 
       const reservedRows = items
-        .filter(r => pendingStatuses(r) && r.reservationType === 'reserved')
+        .filter(r => pendingStatuses(r) && isReservedTable(r))
         .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
 
       // Guests stay on this board until they are seated or removed. Dropping them
@@ -441,7 +447,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       const calledRows = items
         .filter(r =>
           pendingStatuses(r) &&
-          r.reservationType !== 'reserved' &&
+          !isReservedTable(r) &&
           r.calledAt
         )
         .sort((a, b) => new Date(a.calledAt).getTime() - new Date(b.calledAt).getTime());
@@ -449,7 +455,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
       const queueCandidates = items
         .filter(r =>
           pendingStatuses(r) &&
-          r.reservationType !== 'reserved' &&
+          !isReservedTable(r) &&
           !r.calledAt
         )
         .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
@@ -490,11 +496,18 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         }
       }
 
+      const guestName = (r: any) => {
+        const candidates = [r.name, r.customerName, r.guestName, r.fullName, r.customer?.name];
+        return candidates.find((value): value is string =>
+          typeof value === 'string' && value.trim().length > 0
+        )?.trim() || 'Guest';
+      };
+
       const mapRow = (r: any, idx: number, orderNum: number) => ({
         id: idx + 1,
         orderIndex: orderNum,
         reservationId: r._id,
-        name: (typeof r.name === 'string' && r.name.trim()) ? r.name.trim() : 'Guest',
+        name: guestName(r),
         partySize: r.partySize || 2,
         waitTime: '—',
         phone: r.phone || '',
@@ -505,7 +518,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
         gender: r.gender,
         seatingPreference: r.seatingPreference,
         calledAt: r.calledAt ? new Date(r.calledAt) : null,
-        reservationType: r.reservationType,
+        reservationType: isReservedTable(r) ? 'reserved' : (r.reservationType || 'waitlist'),
         holdTimeExpires: Date.now() + 10 * 60000,
         status: r.status,
         holdUntil: r.holdUntil ? new Date(r.holdUntil) : null,
