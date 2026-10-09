@@ -45,6 +45,23 @@ const formatWaitBadge = (minutes: number | null | undefined): string => {
   return `≈${minutes} min`;
 };
 
+const seatingLabel = (pref: string | undefined): string =>
+  pref === 'indoor' ? 'Indoor'
+    : pref === 'outdoor' ? 'Outdoor'
+    : pref === 'no-preference' ? 'Any seating'
+    : '';
+
+// One-line guest summary for the compact Called / Reserved cards. Mirrors what the
+// staff SMS carries (party size, seating, contact) so the dashboard is never
+// missing details staff already got by text.
+const guestSummary = (c: { partySize?: number; seatingPreference?: string; phone?: string; email?: string }): string =>
+  [
+    `Party of ${c.partySize}`,
+    seatingLabel(c.seatingPreference),
+    c.phone && c.phone !== '0000000000' ? c.phone : '',
+    c.email || '',
+  ].filter(Boolean).join(' · ');
+
 const chartDayLabel = (day: string | undefined): string => {
   if (!day) return '';
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(day).trim());
@@ -1100,7 +1117,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                           <span>{c.orderIndex}. {c.name}</span>
                         </div>
                         <div className="text-xs mt-1" style={{ color: '#5A5E3E' }}>
-                          Called {c.calledAtLabel} · {c.phone || c.email || '—'}
+                          Called {c.calledAtLabel} · {guestSummary(c)}
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           {c.arrivedAt && (
@@ -1195,7 +1212,7 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                         {c.orderIndex}. {c.name}
                       </div>
                       <p className="text-sm mt-1" style={{ color: '#2D2D2B' }}>
-                        Party of {c.partySize} · {c.phone || c.email || '—'}
+                        {guestSummary(c)}
                       </p>
                       {c.customerNotes ? (
                         <p className="text-xs mt-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(63, 68, 39, 0.08)' }}>
