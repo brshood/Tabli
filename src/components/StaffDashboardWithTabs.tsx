@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cel
 import { Users, Table, Clock, CheckCircle, Phone, PhoneCall, X, User, Calendar as CalendarIcon, FileText, TrendingUp, TrendingDown, LogOut, Plus, Minus, UserPlus, Settings, AlertCircle, Menu, Mail, Loader2, Bell, Home, Trees, Store } from 'lucide-react';
 import { MenuManagementModal } from './MenuManagementModal';
 import { RestaurantProfile } from './RestaurantProfile';
+import { GuestHistory } from './GuestHistory';
 import { toast } from 'sonner';
 import { WaveBackground } from './WaveBackground';
 import { Calendar } from './ui/calendar';
@@ -917,8 +918,9 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-8">
+        <TabsList className="grid w-full grid-cols-4 mb-8">
           <TabsTrigger value="dashboard" style={{color: 'var(--where2go-accent)'}}>Dashboard</TabsTrigger>
+          <TabsTrigger value="history" style={{color: 'var(--where2go-accent)'}}>History</TabsTrigger>
           <TabsTrigger value="analytics" style={{color: 'var(--where2go-accent)'}}>Analytics</TabsTrigger>
           <TabsTrigger value="profile" style={{color: 'var(--where2go-accent)'}}>Profile</TabsTrigger>
         </TabsList>
@@ -1264,6 +1266,16 @@ export function StaffDashboardWithTabs({ onNavigate, staffAuth, onLogout, onUser
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-8">
+            {staffAuth.restaurantId && staffAuth.token ? (
+              <GuestHistory restaurantId={staffAuth.restaurantId} token={staffAuth.token} />
+            ) : (
+              <div className="text-center py-12">
+                <p style={{ color: '#9FA0A0' }}>History not available. Please log in again.</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-8">
