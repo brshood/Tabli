@@ -13,6 +13,8 @@ import { sendPushToReservation, sendPushToUser, sendPushToRestaurant } from '../
 import { computeQueuePosition } from '../services/queuePosition';
 import { renumberQueueAndNotify } from '../services/queueSync';
 import { env } from '../config/env';
+import { requireAuth, AuthRequest } from '../middleware/auth';
+import { buildHistoryFilter, HISTORY_MAX_LIMIT } from '../services/reservationHistory';
 
 export const reservationsRouter = express.Router();
 
@@ -323,6 +325,58 @@ reservationsRouter.post('/', async (req, res, next) => {
     }
 
     res.status(201).json({ reservation: doc });
+  } catch (err) { next(err); }
+});
+
+// GET /reservations/history - Past waitlist entries and table reservations for staff.
+// Registered before /:id so "history" is not treated as a reservation id. Contains
+// guest contact details, so it requires a login and is limited to the caller's own
+// restaurant (admins may pass ?restaurantId=).
+reservationsRouter.get('/history', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const user = req.user!;
+    const requested = typeof req.query.restaurantId === 'string' ? req.query.restaurantId : undefined;
+    const restaurantId = user.role === 'admin' ? (requested || user.restaurantId) : user.restaurantId;
+    if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+      return res.status(400).json({ error: 'No restaurant associated with this account' });
+    }
+    if (user.role !== 'admin' && requested && requested !== restaurantId) {
+      return res.status(403).json({ error: 'Access denied: not your restaurant' });
+    }
+
+    const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+    const filter = buildHistoryFilter({
+      restaurantId,
+      from: str(req.query.from),
+      to: str(req.query.to),
+      status: str(req.query.status),
+      q: str(req.query.q),
+    });
+
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), HISTORY_MAX_LIMIT);
+    const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1);
+
+    const [items, total] = await Promise.all([
+      Reservation.find(filter)
+        .sort({ requestedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .select('-surveyFeedback -__v')
+        .lean(),
+      Reservation.countDocuments(filter),
+    ]);
+
+    res.json({
+      items: items.map((r: any) => ({
+        ...r,
+        _id: r._id.toString(),
+        restaurantId: r.restaurantId.toString(),
+        tableId: r.tableId ? r.tableId.toString() : undefined,
+      })),
+      total,
+      page,
+      limit,
+    });
   } catch (err) { next(err); }
 });
 
